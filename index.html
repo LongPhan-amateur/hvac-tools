@@ -160,7 +160,7 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
       <h1>Room dew point & supply air temperature</h1>
       <p class="lede">Check condensation risk on cold surfaces, then select a supply air temperature that removes both the sensible and the latent load of the room.</p>
     </div>
-    <button class="btn" id="resetBtn" type="button">Restore sample data</button>
+    <div class="row" style="justify-content:flex-end"><a class="btn" href="chw-temperature/">Chilled water temperature tool →</a><button class="btn" id="resetBtn" type="button">Restore sample data</button></div>
   </header>
 
   <div class="layout">
@@ -181,7 +181,6 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
         <button class="tab" role="tab" id="tab-dew" data-view="dew" aria-selected="true">1 · Dew point & condensation</button>
         <button class="tab" role="tab" id="tab-supply" data-view="supply" aria-selected="false">2 · Supply air temperature</button>
         <button class="tab" role="tab" id="tab-chart" data-view="chart" aria-selected="false">3 · Psychrometric chart</button>
-        <button class="tab" role="tab" id="tab-adp" data-view="adp" aria-selected="false">4 · ADP & chilled water</button>
         <button class="tab" role="tab" id="tab-method" data-view="method" aria-selected="false">Method</button>
       </nav>
 
@@ -271,52 +270,6 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
         <p class="note" id="chartNote"></p>
       </section>
 
-      <!-- TAB ADP -->
-      <section class="view" id="view-adp" role="tabpanel" aria-labelledby="tab-adp">
-        <p class="note">Apparatus dew point from the coil bypass factor, then the chilled water supply temperature from ASHRAE Handbook—HVAC Systems and Equipment (2016), Ch. 13, Eq. (11). For a full stand-alone version, open the <a href="chw-temperature/">chilled water temperature tool</a>.</p>
-        <div class="grid3">
-          <div class="field"><label for="te">Coil entering air DB (mixed air)</label><div class="inp"><input id="te" type="number" step="0.1" value="27"><span class="u">°C</span></div></div>
-          <div class="field"><label for="bfPreset">Application (typical BF)</label><div class="inp"><select id="bfPreset">
-            <option value="">Custom value</option>
-            <option value="0.4">Residence, small load or high latent · 0.30–0.50</option>
-            <option value="0.25">Small comfort, low SHF · 0.20–0.30</option>
-            <option value="0.15">Typical comfort · 0.10–0.20</option>
-            <option value="0.08">High internal sensible / much outdoor air · 0.05–0.10</option>
-            <option value="0.05">100% outdoor air (hospital, OR, factory) · 0–0.10</option>
-          </select></div></div>
-          <div class="field"><label for="bf">Coil bypass factor BF</label><div class="inp"><input id="bf" type="number" step="0.01" min="0" max="0.9" value="0.1"><span class="u">–</span></div></div>
-        </div>
-        <div class="grid3">
-          <div class="field"><label for="leaveSrc">Coil leaving air state</label><div class="inp"><select id="leaveSrc">
-            <option value="calc">From tab 2 (coil leaving)</option>
-            <option value="manual">Enter manually</option>
-          </select></div></div>
-          <div class="field" data-leave="manual"><label for="tl">Coil leaving air DB</label><div class="inp"><input id="tl" type="number" step="0.1" value="13"><span class="u">°C</span></div></div>
-          <div class="field" data-leave="manual"><label for="twbl">Coil leaving air WB</label><div class="inp"><input id="twbl" type="number" step="0.1" value="11.5"><span class="u">°C</span></div></div>
-          <div class="field"><label for="chwdt">Chilled water ΔT (return − supply)</label><div class="inp"><input id="chwdt" type="number" step="0.5" value="5.5"><span class="u">K</span></div></div>
-        </div>
-        <div id="adpErr" class="err hidden"></div>
-        <div id="adpOut" style="display:grid;gap:16px">
-          <div class="tiles" id="adpTiles"></div>
-          <div>
-            <span class="eq" id="adpEq1"></span>
-            <span class="eq" id="adpEq2" style="margin-top:6px"></span>
-          </div>
-          <div class="checks" id="adpChecks"></div>
-        </div>
-        <h3>Typical coil bypass factors</h3>
-        <div class="tbl-wrap"><table>
-          <thead><tr><th>BF</th><th>Type of application</th><th>Example</th></tr></thead>
-          <tbody>
-            <tr><td class="num">0.30–0.50</td><td>Small total load, or a larger load with low sensible heat factor (high latent load)</td><td>Residence</td></tr>
-            <tr><td class="num">0.20–0.30</td><td>Typical comfort application with a fairly small total load, or a low SHF with a somewhat larger load</td><td>Residence, small retail shop, factory</td></tr>
-            <tr><td class="num">0.10–0.20</td><td>Typical comfort application</td><td>Department store, bank, factory</td></tr>
-            <tr><td class="num">0.05–0.10</td><td>High internal sensible load, or a large amount of outdoor air for ventilation</td><td>Department store, restaurant, factory</td></tr>
-            <tr><td class="num">0–0.10</td><td>All outdoor air</td><td>Hospital operating room, factory</td></tr>
-          </tbody>
-        </table></div>
-      </section>
-
       <!-- TAB 4 -->
       <section class="view" id="view-method" role="tabpanel" aria-labelledby="tab-method">
         <div class="method">
@@ -401,7 +354,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 
 /* ---------- State ---------- */
 const KEY="hvac-dewpoint-supply-en-v1";
-const INPUT_IDS=["tr","rhr","alt","margin","qs","ql","flowMode","vol","ach","flow","dt","rhc","chws","approach","tp","rhp","te","bfPreset","bf","leaveSrc","tl","twbl","chwdt"];
+const INPUT_IDS=["tr","rhr","alt","margin","qs","ql","flowMode","vol","ach","flow","dt","rhc","chws","approach","tp","rhp"];
 const DEFAULT_SURF=[
   {name:"Supply diffuser (aluminium frame)",t:14},
   {name:"Uninsulated supply duct",t:13},
@@ -432,7 +385,7 @@ const n=(id,def=0)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:def;
 
 /* ---------- Tabs ---------- */
 let currentView="dew";
-const VIEWS=["dew","supply","chart","adp","method"];
+const VIEWS=["dew","supply","chart","method"];
 function showView(v){
   if(!VIEWS.includes(v)) v="dew";
   currentView=v;
@@ -744,55 +697,13 @@ function renderChart(R,S){
   $("chartNote").textContent=note;
 }
 
-/* ---------- Tab 4: ADP from bypass factor & CHW temperature ---------- */
-$("bfPreset").addEventListener("change",()=>{ if($("bfPreset").value) $("bf").value=$("bfPreset").value; update(); });
-$("bf").addEventListener("input",()=>{ if($("bfPreset").value && $("bfPreset").value!==$("bf").value) $("bfPreset").value=""; });
-function renderADP(R,S){
-  const src=$("leaveSrc").value, p=R.p;
-  document.querySelectorAll("[data-leave]").forEach(el=>el.classList.toggle("hidden",src!=="manual"));
-  const err=$("adpErr"), out=$("adpOut");
-  const fail=m=>{ err.textContent=m; err.classList.remove("hidden"); out.classList.add("hidden"); };
-  let tl,twb,Wl;
-  if(src==="calc"){
-    if(!S||S.err) return fail("Complete tab 2 first, or enter the coil leaving state manually.");
-    tl=S.Tc; Wl=S.Wleave; twb=wetbulb(tl,Wl,p);
-  }else{
-    tl=n("tl",13); twb=n("twbl",11.5);
-    if(twb>tl) return fail("Leaving wet bulb cannot be higher than leaving dry bulb.");
-    Wl=bisect(W=>wetbulb(tl,W,p)-twb,1e-6,Wsat(tl,p));
-  }
-  const te=n("te",27), bf=n("bf",0.1), dt=n("chwdt",5.5);
-  if(!(bf>=0&&bf<1)) return fail("Bypass factor must be between 0 and 1.");
-  if(te<=tl) return fail("Coil entering DB must be higher than coil leaving DB.");
-  err.classList.add("hidden"); out.classList.remove("hidden");
-  const adp=(tl-bf*te)/(1-bf), tw=2*adp-twb, tr=tw+dt, tdl=tdewFromW(Wl,p);
-  $("adpTiles").innerHTML=`
-    <div class="tile key"><div class="k">ADP (bypass factor)</div><div class="v">${fmt(adp)}<small>°C</small></div></div>
-    <div class="tile"><div class="k">Coil leaving WB</div><div class="v">${fmt(twb)}<small>°C</small></div></div>
-    <div class="tile key"><div class="k">CHW supply t<sub>w</sub></div><div class="v">${fmt(tw)}<small>°C</small></div></div>
-    <div class="tile"><div class="k">CHW return</div><div class="v">${fmt(tr)}<small>°C</small></div></div>
-    <div class="tile"><div class="k">ADP on RSHR line (tab 2)</div><div class="v">${fmt(S&&!S.err?S.adp:NaN)}<small>°C</small></div></div>`;
-  $("adpEq1").textContent=`ADP = (t_leave − BF·t_enter)/(1 − BF) = (${fmt(tl)} − ${fmt(bf,2)}×${fmt(te)})/(1 − ${fmt(bf,2)}) = ${fmt(adp)} °C`;
-  $("adpEq2").textContent=`t_w = 2·t_ad − t_wb = 2×${fmt(adp)} − ${fmt(twb)} = ${fmt(tw)} °C   (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11)`;
-  const c=[];
-  if(adp>tdl+0.5) c.push(["warn","ADP is above the coil leaving dew point",`ADP ${fmt(adp)} °C > leaving dew point ${fmt(tdl)} °C. The coil cannot dehumidify to this leaving state with BF ${fmt(bf,2)}; use a lower BF (more rows / lower face velocity) or check the entering temperature.`]);
-  else c.push(["ok","ADP consistent with the leaving state",adp>tdl?`ADP ${fmt(adp)} °C ≈ leaving dew point ${fmt(tdl)} °C (within 0.5 K).`:`ADP ${fmt(adp)} °C ≤ leaving dew point ${fmt(tdl)} °C.`]);
-  if(tw<2) c.push(["bad","Below practical chilled water limit",`t_w = ${fmt(tw)} °C. About 2 °C is the lowest practical chilled water temperature; consider glycol/ice storage, DX or a desiccant dehumidifier.`]);
-  else if(tw<5) c.push(["warn","Low-temperature chilled water",`t_w = ${fmt(tw)} °C needs a low-temperature chiller selection; check with the chiller manufacturer.`]);
-  const chws=n("chws",6);
-  if(chws>tw+0.05) c.push(["warn","Design CHWS in tab 2 is warmer than required",`Tab 2 uses ${fmt(chws)} °C; this coil needs about ${fmt(tw)} °C or colder.`]);
-  else c.push(["ok","Design CHWS in tab 2 is cold enough",`${fmt(chws)} °C ≤ ${fmt(tw)} °C.`]);
-  if(tr>R.td+3) c.push(["warn","Return water well above room dew point",`Return ${fmt(tr)} °C vs room dew point ${fmt(R.td)} °C. ASHRAE notes return water should sit near the room dew point; a large ΔT may limit dehumidification at the coil outlet rows.`]);
-  $("adpChecks").innerHTML=c.map(([k,t,d])=>`<div class="check ${k}"><span class="pill ${k}">${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}</span><div><strong>${t}</strong><p>${d}</p></div></div>`).join("");
-}
-
 /* ---------- Main ---------- */
 function update(){
   syncModeUI();
   const R=room();
   renderRoom(R); renderDew(R);
   const S=supply(R);
-  renderSupply(R,S); renderChart(R,S); renderADP(R,S);
+  renderSupply(R,S); renderChart(R,S);
   save();
 }
 INPUT_IDS.forEach(id=>{ $(id).addEventListener("input",update); $(id).addEventListener("change",update); });
