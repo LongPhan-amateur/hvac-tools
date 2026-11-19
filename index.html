@@ -149,6 +149,16 @@ svg.chart .lbl{fill:var(--ink);font-weight:600;font-size:12px}
 .eq{display:block;padding:8px 10px;overflow-x:auto;white-space:nowrap}
 .method ul{margin:0;padding-left:1.2rem;display:grid;gap:4px}
 footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:space-between}
+.inp input[type=text]{font-family:var(--font-body)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{border-color:var(--line);color:var(--ink)}
+.badge{display:inline-block;min-width:1.5em;padding:0 6px;margin-left:5px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:.74rem;text-align:center;font-family:var(--font-num)}
+table.sum th,table.sum td{white-space:nowrap}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:9px 15px;border-radius:8px;font-size:.88rem;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90vw}
+.toast.on{opacity:1}
+.toast.bad{background:var(--bad);color:#fff}
+.field.full{grid-column:1/-1}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -165,6 +175,12 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
 
   <div class="layout">
     <aside class="panel" aria-label="Room design conditions">
+      <h2>Room</h2>
+      <div class="grid2">
+        <div class="field"><label for="roomId">Room ID</label><div class="inp"><input id="roomId" type="text" value="R-101" autocomplete="off"></div></div>
+        <div class="field"><label for="acEquip">AC equipment</label><div class="inp"><input id="acEquip" type="text" value="AHU-01" autocomplete="off"></div></div>
+        <div class="field full"><label for="roomName">Room name</label><div class="inp"><input id="roomName" type="text" value="Packing room" autocomplete="off"></div></div>
+      </div>
       <h2>Room design conditions</h2>
       <div class="grid2">
         <div class="field"><label for="tr">Dry-bulb temperature</label><div class="inp"><input id="tr" type="number" step="0.1" value="22"><span class="u">°C</span></div></div>
@@ -181,6 +197,7 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
         <button class="tab" role="tab" id="tab-dew" data-view="dew" aria-selected="true">1 · Dew point & condensation</button>
         <button class="tab" role="tab" id="tab-supply" data-view="supply" aria-selected="false">2 · Supply air temperature</button>
         <button class="tab" role="tab" id="tab-chart" data-view="chart" aria-selected="false">3 · Psychrometric chart</button>
+        <button class="tab" role="tab" id="tab-summary" data-view="summary" aria-selected="false">Summary<span class="badge" id="sumCount">0</span></button>
         <button class="tab" role="tab" id="tab-method" data-view="method" aria-selected="false">Method</button>
       </nav>
 
@@ -226,7 +243,9 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
               <option value="dt">From supply ΔT</option>
             </select></div>
           </div>
-          <div class="field" data-mode="ach dt flow"><label for="vol">Room volume</label><div class="inp"><input id="vol" type="number" step="1" value="600"><span class="u">m³</span></div></div>
+          <div class="field"><label for="area">Room area</label><div class="inp"><input id="area" type="number" step="1" min="0" value="200"><span class="u">m²</span></div></div>
+          <div class="field"><label for="height">Room height</label><div class="inp"><input id="height" type="number" step="0.1" min="0" value="3"><span class="u">m</span></div></div>
+          <div class="field"><label for="volOut">Room volume (area × height)</label><div class="inp"><input id="volOut" type="text" readonly tabindex="-1" style="font-family:var(--font-num)"><span class="u">m³</span></div></div>
           <div class="field" data-mode="ach"><label for="ach">Air change rate</label><div class="inp"><input id="ach" type="number" step="1" value="20"><span class="u">ACH</span></div></div>
           <div class="field" data-mode="flow"><label for="flow">Supply airflow</label><div class="inp"><input id="flow" type="number" step="100" value="9000"><span class="u">m³/h</span></div></div>
           <div class="field" data-mode="dt"><label for="dt">ΔT room − supply</label><div class="inp"><input id="dt" type="number" step="0.5" value="9"><span class="u">K</span></div></div>
@@ -243,7 +262,7 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
         <div id="supplyErr" class="err hidden"></div>
         <div id="supplyOut" class="view on" style="padding:0">
           <div class="tiles" id="supplyTiles"></div>
-          <div class="row"><h2>Results & checks</h2><button class="btn" type="button" id="copyBtn">Copy results</button></div>
+          <div class="row"><h2>Results & checks</h2><div class="btns"><button class="btn" type="button" id="copyBtn">Copy results</button><button class="btn primary" type="button" id="addSumBtn">+ Add to summary</button></div></div>
           <div class="checks" id="supplyChecks"></div>
           <div class="tbl-wrap">
             <table>
@@ -268,6 +287,21 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
         </div>
         <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 780 470" role="img" aria-label="Psychrometric chart"></svg></div>
         <p class="note" id="chartNote"></p>
+      </section>
+
+      <!-- SUMMARY -->
+      <section class="view" id="view-summary" role="tabpanel" aria-labelledby="tab-summary">
+        <div class="row">
+          <h2>Room summary</h2>
+          <div class="btns">
+            <button class="btn" type="button" id="sumXlsx">Export Excel</button>
+            <button class="btn" type="button" id="sumPdf">Export PDF</button>
+            <button class="btn ghost" type="button" id="sumClear">Clear all</button>
+          </div>
+        </div>
+        <p class="note">Calculate a room in tab 2, then press “+ Add to summary”. A room with the same Room ID replaces the earlier entry. “Load” brings a room back into the calculator to edit it. The summary is saved in this browser.</p>
+        <p class="note hidden" id="sumEmpty" style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center">No rooms yet.</p>
+        <div class="tbl-wrap" id="sumWrap"><table class="sum"><thead id="sumHead"></thead><tbody id="sumBody"></tbody></table></div>
       </section>
 
       <!-- TAB 4 -->
@@ -354,7 +388,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 
 /* ---------- State ---------- */
 const KEY="hvac-dewpoint-supply-en-v1";
-const INPUT_IDS=["tr","rhr","alt","margin","qs","ql","flowMode","vol","ach","flow","dt","rhc","chws","approach","tp","rhp"];
+const INPUT_IDS=["roomId","roomName","acEquip","tr","rhr","alt","margin","qs","ql","flowMode","area","height","ach","flow","dt","rhc","chws","approach","tp","rhp"];
 const DEFAULT_SURF=[
   {name:"Supply diffuser (aluminium frame)",t:14},
   {name:"Uninsulated supply duct",t:13},
@@ -385,7 +419,7 @@ const n=(id,def=0)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:def;
 
 /* ---------- Tabs ---------- */
 let currentView="dew";
-const VIEWS=["dew","supply","chart","method"];
+const VIEWS=["dew","supply","chart","summary","method"];
 function showView(v){
   if(!VIEWS.includes(v)) v="dew";
   currentView=v;
@@ -428,6 +462,7 @@ function renderDew(R){
   surfaces.forEach(s=>{ const t=parseFloat(s.t); if(isFinite(t)&&(worst===null||t<worst)) worst=t; });
   const rhMaxWorst = worst===null?NaN:Math.min(100,pws(worst-R.margin)/pws(R.t)*100);
   const nBad=surfaces.filter(s=>isFinite(parseFloat(s.t))&&surfStatus(parseFloat(s.t),R)[0]!=="ok").length;
+  lastSurf=`${nBad}/${surfaces.length}`;
   $("dewTiles").innerHTML=`
     <div class="tile key"><div class="k">Room dew point</div><div class="v">${fmt(R.td)}<small>°C</small></div></div>
     <div class="tile"><div class="k">Surfaces must be above</div><div class="v">${fmt(R.td+R.margin)}<small>°C</small></div></div>
@@ -481,7 +516,7 @@ function syncModeUI(){
 
 function supply(R){
   const p=R.p, mode=$("flowMode").value;
-  const qs=n("qs",0), ql=Math.max(0,n("ql",0)), vol=n("vol",0);
+  const qs=n("qs",0), ql=Math.max(0,n("ql",0)), vol=Math.max(0,n("area",0))*Math.max(0,n("height",0));
   const rhc=Math.min(100,Math.max(50,n("rhc",95)));
   const chws=n("chws",6), appr=Math.max(0,n("approach",3));
   const cp=1.006+1.86*R.W;
@@ -494,7 +529,7 @@ function supply(R){
     Ts=R.t-dt; mda=qs/(cp*dt); Ws=R.W-mw/mda; Q=mda*spv(Ts,Math.max(Ws,1e-5),p);
   }else{
     Q = mode==="ach" ? vol*n("ach",0)/3600 : n("flow",0)/3600;
-    if(Q<=0) return {err:mode==="ach"?"Enter a room volume and an air change rate greater than 0.":"Enter an airflow greater than 0."};
+    if(Q<=0) return {err:mode==="ach"?"Enter room area, height and an air change rate greater than 0.":"Enter an airflow greater than 0."};
     let vs=R.v;
     for(let k=0;k<5;k++){ mda=Q/vs; Ts=R.t-qs/(mda*cp); Ws=R.W-mw/mda; vs=spv(Ts,Math.max(Ws,1e-5),p); }
   }
@@ -525,7 +560,7 @@ function supply(R){
     ach: vol>0? Q*3600/vol : NaN, tp:n("tp",30), Wp, tdP, qs, mw, rhS:RHfromW(Ts,Wleave,p), qlKW, shr, slope, adp, Wadp, bf};
 }
 
-let lastSummary="";
+let lastSummary="", lastR=null, lastS=null, lastChecks=[], lastSurf="";
 function renderSupply(R,S){
   const err=$("supplyErr"), out=$("supplyOut");
   if(S.err){ err.textContent=S.err; err.classList.remove("hidden"); out.classList.add("hidden"); return; }
@@ -594,6 +629,7 @@ function renderSupply(R,S){
   if(dT>12) checks.push(["warn","Large ΔT",`ΔT = ${fmt(dT)} K. Select diffusers with good mixing to avoid cold air dumping into the occupied zone.`]);
   if(dT<0) checks.push(["warn","Supply air warmer than room",`The sensible load is negative or the airflow is very large for the load. Check the inputs.`]);
 
+  lastChecks=checks;
   $("supplyChecks").innerHTML=checks.map(([c,t,d])=>`
     <div class="check ${c}"><span class="pill ${c}">${c==="ok"?"Pass":c==="warn"?"Note":"Fail"}</span>
     <div><strong>${t}</strong><p>${d}</p></div></div>`).join("");
@@ -608,6 +644,8 @@ function renderSupply(R,S){
 
   lastSummary=[
     `SUPPLY AIR CHECK`,
+    `Room ${$("roomId").value} ${$("roomName").value} · ${$("acEquip").value}`.trim(),
+    `Area ${fmt(n("area",0))} m² · height ${fmt(n("height",0),2)} m · volume ${fmt(S.vol,0)} m³`,
     `Room: ${fmt(R.t)} °C / ${fmt(R.rh,0)}% · dew point ${fmt(R.td)} °C · W ${fmt(R.W*1000,2)} g/kg`,
     `Sensible load ${fmt(S.qs)} kW · moisture load ${fmt(S.mw*3600,2)} kg/h`,
     `RSHR ${fmt(S.shr,2)} · ADP ${fmt(S.adp)} °C${isFinite(S.bf)?` · bypass factor ${fmt(S.bf,2)}`:""}`,
@@ -697,12 +735,218 @@ function renderChart(R,S){
   $("chartNote").textContent=note;
 }
 
+/* ---------- Summary table, Excel (.xlsx) & PDF export — self-contained ---------- */
+const EXPORT=(function(){
+  const xe=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
+  // CRC32 + "stored" ZIP writer (enough for an .xlsx package)
+  const T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+  const crc=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
+  function zip(files){
+    const enc=new TextEncoder(), parts=[], cd=[]; let off=0;
+    files.forEach(f=>{
+      const nm=enc.encode(f.name), d=enc.encode(f.text), c=crc(d);
+      const h=new DataView(new ArrayBuffer(30));
+      h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true);
+      h.setUint16(10,0,true); h.setUint16(12,0x21,true); h.setUint32(14,c,true); h.setUint32(18,d.length,true);
+      h.setUint32(22,d.length,true); h.setUint16(26,nm.length,true); h.setUint16(28,0,true);
+      parts.push(new Uint8Array(h.buffer),nm,d);
+      const e=new DataView(new ArrayBuffer(46));
+      e.setUint32(0,0x02014b50,true); e.setUint16(4,20,true); e.setUint16(6,20,true); e.setUint16(8,0x0800,true);
+      e.setUint16(10,0,true); e.setUint16(12,0,true); e.setUint16(14,0x21,true); e.setUint32(16,c,true);
+      e.setUint32(20,d.length,true); e.setUint32(24,d.length,true); e.setUint16(28,nm.length,true);
+      e.setUint32(42,off,true);
+      cd.push(new Uint8Array(e.buffer),nm);
+      off+=30+nm.length+d.length;
+    });
+    const size=cd.reduce((a,b)=>a+b.length,0), end=new DataView(new ArrayBuffer(22));
+    end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true);
+    end.setUint32(12,size,true); end.setUint32(16,off,true);
+    return new Blob([...parts,...cd,new Uint8Array(end.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }
+  const colRef=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+  const NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border
+  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1C5A85"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC4CFD8"/></left><right style="thin"><color rgb="FFC4CFD8"/></right><top style="thin"><color rgb="FFC4CFD8"/></top><bottom style="thin"><color rgb="FFC4CFD8"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  function xlsx(o){ // o:{sheet,title,subtitle,cols:[{h,w,fmt}],rows:[[...]],file}
+    const cell=(ci,ri,v,s)=>{
+      const ref=colRef(ci)+ri;
+      if(typeof v==="number") return isFinite(v)?`<c r="${ref}" s="${s}"><v>${v}</v></c>`:`<c r="${ref}" s="6"/>`;
+      if(v==null||v==="") return `<c r="${ref}" s="${s===3||s===0?0:6}"/>`;
+      return `<c r="${ref}" t="inlineStr" s="${s}"><is><t xml:space="preserve">${xe(v)}</t></is></c>`;
+    };
+    let r=1; const out=[];
+    out.push(`<row r="${r}">${cell(0,r,o.title,3)}</row>`); r++;
+    if(o.subtitle){ out.push(`<row r="${r}">${cell(0,r,o.subtitle,0)}</row>`); r++; }
+    r++;
+    const hr=r;
+    out.push(`<row r="${r}" ht="32" customHeight="1">${o.cols.map((c,i)=>cell(i,r,c.h,1)).join("")}</row>`); r++;
+    o.rows.forEach(row=>{
+      out.push(`<row r="${r}">${row.map((v,i)=>{ const f=o.cols[i].fmt; return cell(i,r,v, typeof v==="number"?(f==="0"?4:f==="0.00"?5:2):6); }).join("")}</row>`); r++;
+    });
+    const last=colRef(o.cols.length-1), lastRow=hr+Math.max(1,o.rows.length);
+    const sheetName=xe(o.sheet||"Summary");
+    const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane xSplit="2" ySplit="${hr}" topLeftCell="C${hr+1}" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${o.cols.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.w||12}" customWidth="1"/>`).join("")}</cols><sheetData>${out.join("")}</sheetData><autoFilter ref="A${hr}:${last}${lastRow}"/><pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape"/></worksheet>`;
+    const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${NS}><sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${sheetName}'!$A$${hr}:$${last}$${lastRow}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="0">'${sheetName}'!$${hr}:$${hr}</definedName></definedNames></workbook>`;
+    const files=[
+      {name:"[Content_Types].xml",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+      {name:"_rels/.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+      {name:"xl/workbook.xml",text:wb},
+      {name:"xl/_rels/workbook.xml.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+      {name:"xl/worksheets/sheet1.xml",text:ws},
+      {name:"xl/styles.xml",text:STY}
+    ];
+    download(zip(files),o.file);
+  }
+  function download(blob,name){
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000);
+  }
+  function cellText(v,f){
+    if(typeof v!=="number") return v==null?"":String(v);
+    if(!isFinite(v)) return "–";
+    const d=f==="0"?0:f==="0.00"?2:1;
+    return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+  }
+  function reportHTML(o){ // printable A4 landscape report
+    const head=o.cols.map(c=>`<th>${xe(c.h)}</th>`).join("");
+    const body=o.rows.map(r=>`<tr>${r.map((v,i)=>{ const t=cellText(v,o.cols[i].fmt);
+      const cls=typeof v==="number"?"n":(["Pass","Note","Fail"].includes(v)?v:"");
+      return `<td class="${cls}">${xe(t)}</td>`; }).join("")}</tr>`).join("");
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${xe(o.file.replace(/\.xlsx$/,""))}</title><style>
+@page{size:A4 landscape;margin:10mm}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
+body{font-family:"Segoe UI",Arial,"Helvetica Neue",sans-serif;color:#13212c;margin:0}
+h1{font-size:15pt;margin:0 0 2pt}
+.sub{color:#5a6a77;margin:0 0 8pt;font-size:9pt}
+table{border-collapse:collapse;width:100%}
+th,td{border:.5pt solid #c4cfd8;padding:2.5pt 3.5pt;vertical-align:top}
+th{background:#1c5a85;color:#fff;font-weight:600;font-size:7pt;text-align:left}
+td{font-size:7.5pt}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:nth-child(even) td{background:#f2f5f8}
+thead{display:table-header-group}
+tr{page-break-inside:avoid}
+.Pass{color:#1d7548;font-weight:700}.Note{color:#9a5c00;font-weight:700}.Fail{color:#b0281f;font-weight:700}
+.foot{margin-top:8pt;color:#5a6a77;font-size:7pt}
+</style></head><body><h1>${xe(o.title)}</h1><p class="sub">${xe(o.subtitle||"")}</p>
+<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+<p class="foot">${xe(o.footer||"")}</p></body></html>`;
+  }
+  function pdf(o){
+    const f=document.createElement("iframe");
+    f.setAttribute("aria-hidden","true");
+    f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    document.body.appendChild(f);
+    const d=f.contentWindow.document; d.open(); d.write(reportHTML(o)); d.close();
+    setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(()=>f.remove(),60000); },350);
+  }
+  return {xlsx,pdf,reportHTML,cellText};
+})();
+
+let toastTimer=null;
+function toast(msg,bad){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; t.setAttribute("role","status"); document.body.appendChild(t); }
+  t.textContent=msg; t.classList.toggle("bad",!!bad); t.classList.add("on");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),2600);
+}
+
+function makeSummary(cfg){
+  let rows=[];
+  try{ rows=JSON.parse(localStorage.getItem(cfg.key)||"[]"); if(!Array.isArray(rows)) rows=[]; }catch(e){ rows=[]; }
+  const persist=()=>{ try{ localStorage.setItem(cfg.key,JSON.stringify(rows)); }catch(e){} };
+  const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+  const table=()=>rows.map(r=>cfg.cols.map(c=>r[c.k]));
+  function render(){
+    $(cfg.countId).textContent=rows.length;
+    const has=rows.length>0;
+    $(cfg.emptyId).classList.toggle("hidden",has);
+    $(cfg.wrapId).classList.toggle("hidden",!has);
+    cfg.buttons.forEach(id=>$(id).disabled=!has);
+    $(cfg.headId).innerHTML=`<tr><th></th>${cfg.cols.map(c=>`<th class="${c.fmt?"r":""}">${esc(c.h)}</th>`).join("")}</tr>`;
+    $(cfg.bodyId).innerHTML=rows.map((r,i)=>`<tr>
+      <td><div class="btns" style="flex-wrap:nowrap;gap:2px"><button class="btn ghost" type="button" data-load="${i}" title="Load this room back into the calculator">Load</button><button class="btn ghost" type="button" data-rm="${i}" aria-label="Remove ${esc(r.id||"row")}">✕</button></div></td>
+      ${cfg.cols.map(c=>{ const v=r[c.k];
+        if(c.k==="result") return `<td><span class="pill ${v==="Pass"?"ok":v==="Note"?"warn":"bad"}">${esc(v)}</span></td>`;
+        return `<td class="${typeof v==="number"?"r num":""}">${esc(EXPORT.cellText(v,c.fmt))}</td>`; }).join("")}
+    </tr>`).join("");
+  }
+  function add(){
+    const r=cfg.collect();
+    if(r.err){ toast(r.err,true); return; }
+    const i=r.id?rows.findIndex(x=>x.id===r.id):-1;
+    if(i>=0){ rows[i]=r; toast(`Updated ${r.id} in the summary (${rows.length} room${rows.length>1?"s":""})`); }
+    else { rows.push(r); toast(`Added ${r.id||"room"} to the summary (${rows.length} room${rows.length>1?"s":""})`); }
+    persist(); render();
+  }
+  $(cfg.bodyId).addEventListener("click",e=>{
+    const ld=e.target.closest("[data-load]"), rm=e.target.closest("[data-rm]");
+    if(ld){ cfg.restore(rows[+ld.dataset.load]); toast(`Loaded ${rows[+ld.dataset.load].id||"room"}`); }
+    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; persist(); render(); toast(`Removed ${r.id||"room"}`); }
+  });
+  $(cfg.addId).addEventListener("click",add);
+  $(cfg.clearId).addEventListener("click",()=>{
+    if(!rows.length) return;
+    if(!confirm(`Remove all ${rows.length} rooms from the summary?`)) return;
+    rows=[]; persist(); render();
+  });
+  const meta=()=>({title:cfg.title, subtitle:`${rows.length} room${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`,
+    footer:cfg.footer, cols:cfg.cols, rows:table(), sheet:"Summary", file:`${cfg.file}_${dateStr()}.xlsx`});
+  $(cfg.xlsxId).addEventListener("click",()=>{ if(rows.length) EXPORT.xlsx(meta()); });
+  $(cfg.pdfId).addEventListener("click",()=>{ if(rows.length){ EXPORT.pdf(meta()); toast("Choose “Save as PDF” in the print dialog"); } });
+  render();
+  return {render, get rows(){ return rows; }};
+}
+
+const SUMMARY=makeSummary({
+  key:"hvac-dewpoint-summary-v1",
+  title:"Room dew point & supply air temperature — summary",
+  file:"Supply-air-summary",
+  footer:"hochvacsbs.wordpress.com · Psychrometrics per ASHRAE Handbook – Fundamentals. Preliminary selection only; verify with dedicated load calculation software.",
+  countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap", headId:"sumHead", bodyId:"sumBody",
+  addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
+  cols:[
+    {k:"id",h:"Room ID",w:10},{k:"name",h:"Room name",w:22},{k:"equip",h:"AC equipment",w:13},
+    {k:"area",h:"Area (m²)",w:9,fmt:"0.0"},{k:"height",h:"Height (m)",w:8,fmt:"0.00"},{k:"vol",h:"Volume (m³)",w:10,fmt:"0"},
+    {k:"t",h:"Room DB (°C)",w:9,fmt:"0.0"},{k:"rh",h:"Room RH (%)",w:9,fmt:"0"},{k:"td",h:"Room dew point (°C)",w:10,fmt:"0.0"},
+    {k:"qs",h:"Sensible load (kW)",w:10,fmt:"0.0"},{k:"ql",h:"Latent load (kW)",w:10,fmt:"0.00"},{k:"mw",h:"Moisture load (kg/h)",w:10,fmt:"0.00"},
+    {k:"shr",h:"RSHR",w:7,fmt:"0.00"},{k:"flow",h:"Supply airflow (m³/h)",w:11,fmt:"0"},{k:"ach",h:"ACH (1/h)",w:8,fmt:"0.0"},
+    {k:"Ts",h:"Supply air temp. (°C)",w:10,fmt:"0.0"},{k:"tdS",h:"Supply dew point (°C)",w:10,fmt:"0.0"},{k:"Tc",h:"Coil leaving (°C)",w:9,fmt:"0.0"},
+    {k:"reheat",h:"Reheat (kW)",w:9,fmt:"0.0"},{k:"adp",h:"ADP on RSHR line (°C)",w:10,fmt:"0.0"},{k:"gov",h:"Governing load",w:10},
+    {k:"surf",h:"Cold surfaces needing action",w:11},{k:"result",h:"Result",w:8},{k:"notes",h:"Notes",w:48}
+  ],
+  collect(){
+    const R=lastR, S=lastS;
+    if(!R||!S||S.err) return {err:"Fix the supply air inputs in tab 2 before adding to the summary."};
+    const worst=lastChecks.some(c=>c[0]==="bad")?"Fail":lastChecks.some(c=>c[0]==="warn")?"Note":"Pass";
+    const inputs={}; INPUT_IDS.forEach(id=>inputs[id]=$(id).value);
+    const r1=(x,d)=>isFinite(x)?Math.round(x*10**d)/10**d:NaN;
+    return {id:$("roomId").value.trim(), name:$("roomName").value.trim(), equip:$("acEquip").value.trim(),
+      area:r1(n("area",0),2), height:r1(n("height",0),2), vol:r1(S.vol,1),
+      t:r1(R.t,2), rh:r1(R.rh,1), td:r1(R.td,2), qs:r1(S.qs,3), ql:r1(S.qlKW,3), mw:r1(S.mw*3600,3),
+      shr:r1(S.shr,3), flow:r1(S.Q*3600,0), ach:r1(S.ach,2), Ts:r1(S.Ts,2), tdS:r1(S.tdS,2), Tc:r1(S.Tc,2),
+      reheat:r1(S.reheat,2), adp:r1(S.adp,2), gov:S.gov==="latent"?"Latent":"Sensible", surf:lastSurf,
+      result:worst, notes:lastChecks.filter(c=>c[0]!=="ok").map(c=>c[1]).join("; "),
+      inputs, latMode, surfaces:surfaces.map(x=>({...x}))};
+  },
+  restore(r){
+    if(r.inputs) INPUT_IDS.forEach(id=>{ if(r.inputs[id]!=null) $(id).value=r.inputs[id]; });
+    if(r.latMode) latMode=r.latMode;
+    if(Array.isArray(r.surfaces)) surfaces=r.surfaces.map(x=>({...x}));
+    buildSurfRows(); update(); showView("supply");
+    try{ history.replaceState(null,"","#supply"); }catch(e){}
+  }
+});
+
 /* ---------- Main ---------- */
 function update(){
   syncModeUI();
   const R=room();
   renderRoom(R); renderDew(R);
   const S=supply(R);
+  lastR=R; lastS=S; if(S.err) lastChecks=[];
+  $("volOut").value=fmt(Math.max(0,n("area",0))*Math.max(0,n("height",0)),0);
   renderSupply(R,S); renderChart(R,S);
   save();
 }
