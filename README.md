@@ -1,11 +1,12 @@
-# HVAC Tools
+# HVAC tools
 
-Free browser-based calculation tools for HVAC engineers, by https://hochvacsbs.wordpress.com
+Free calculation tools for HVAC engineers, published at https://longphan-amateur.github.io/hvac-tools/
 
-## Tools
+| Tool | Path | What it does |
+|---|---|---|
+| Room dew point & supply air temperature | `/` | Condensation check on cold surfaces; supply air temperature from sensible/latent load; room sensible heat ratio line and ADP on the psychrometric chart; ADP from coil bypass factor and chilled water temperature |
+| Chilled water supply temperature (ASHRAE) | `/chw-temperature/` | Apparatus dew point (bypass factor, chart line, or direct) and coil entering water temperature t_w = 2·t_ad − t_wb (ASHRAE HVAC Systems & Equipment 2016, Ch. 13, Eq. 11) |
 
-- **Dew Point & Supply Air Temperature**: room dew point, condensation check on cold surfaces, supply air temperature selection (sensible/latent load, coil leaving temperature, reheat), psychrometric chart.
+Each tool is a single self-contained HTML file. Inputs are saved in the browser (localStorage).
 
-Open the tool: https://longphan-amateur.github.io/hvac-tools/
-
-Equations follow the ASHRAE Handbook – Fundamentals (Psychrometrics). Results are for quick checks and preliminary selection only.
+Website: https://hochvacsbs.wordpress.com/calculation/
