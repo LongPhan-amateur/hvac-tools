@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dew Point & Supply Air Temperature</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: shared "room conditions" sidebar + tabbed results area */
+  --bg:#edf1f4;
+  --surface:#ffffff;
+  --ink:#13212c;
+  --muted:#5a6a77;
+  --line:#d3dce3;
+  --accent:#1c5a85;
+  --accent-soft:#e2edf5;
+  --ok:#1d7548; --ok-bg:#e2f3e9;
+  --warn:#9a5c00; --warn-bg:#fcefd8;
+  --bad:#b0281f; --bad-bg:#fbe4e1;
+  --c-room:#1c5a85; --c-supply:#0f8a8a; --c-coil:#6a4bb5; --c-plenum:#b5651d;
+  --grid:#e3e9ee; --grid-strong:#c4cfd8;
+  --font-display:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f161c; --surface:#17212a; --ink:#e4ecf2; --muted:#93a4b2; --line:#2a3946;
+    --accent:#6cb3e3; --accent-soft:#1c3142;
+    --ok:#5cc98f; --ok-bg:#143326; --warn:#f0b452; --warn-bg:#3a2a10; --bad:#f2817a; --bad-bg:#3d1a18;
+    --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e;
+    --grid:#22303b; --grid-strong:#36485a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --surface:#17212a; --ink:#e4ecf2; --muted:#93a4b2; --line:#2a3946;
+  --accent:#6cb3e3; --accent-soft:#1c3142;
+  --ok:#5cc98f; --ok-bg:#143326; --warn:#f0b452; --warn-bg:#3a2a10; --bad:#f2817a; --bad-bg:#3d1a18;
+  --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e;
+  --grid:#22303b; --grid-strong:#36485a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+h1{font-size:1.55rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.1rem;font-weight:600}
+h3{font-size:.95rem;font-weight:600}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.wrap{max-width:1240px;margin:0 auto;padding:20px 16px 40px;display:grid;gap:18px}
+header.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.eyebrow{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.lede{color:var(--muted);margin:.25rem 0 0;max-width:62ch}
+
+.layout{display:grid;grid-template-columns:290px 1fr;gap:18px;align-items:start}
+@media (max-width:900px){.layout{grid-template-columns:1fr}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+aside.panel{position:sticky;top:12px;display:grid;gap:14px}
+@media (max-width:900px){aside.panel{position:static}}
+
+.field{display:grid;gap:4px}
+.field label{font-size:.82rem;color:var(--muted);font-weight:500}
+.inp{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;background:var(--bg);overflow:hidden}
+.inp input,.inp select{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-family:var(--font-num);padding:7px 9px}
+.inp select{font-family:var(--font-body)}
+.inp .u{padding:0 9px;color:var(--muted);font-size:.8rem;white-space:nowrap}
+.inp:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:520px){.grid3{grid-template-columns:1fr 1fr}}
+
+.props{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:.88rem;border-top:1px solid var(--line);padding-top:12px}
+.props dt{color:var(--muted)}
+.props dd{margin:0;text-align:right}
+.props dd.big{font-size:1.05rem;font-weight:600;color:var(--accent)}
+
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tab{appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 14px;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.view{display:none;gap:16px}
+.view.on{display:grid}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--surface)}
+.tile .k{font-size:.78rem;color:var(--muted)}
+.tile .v{font-family:var(--font-num);font-size:1.35rem;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .v small{font-size:.75rem;color:var(--muted);font-weight:400;margin-left:3px}
+.tile.key{border-color:var(--accent);background:var(--accent-soft)}
+
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:.76rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+td.r,th.r{text-align:right}
+td input{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;padding:5px 7px}
+td input[type=number]{font-family:var(--font-num);max-width:90px}
+
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.76rem;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+
+.checks{display:grid;gap:8px}
+.check{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--bg)}
+.check.ok{border-left-color:var(--ok)}
+.check.warn{border-left-color:var(--warn)}
+.check.bad{border-left-color:var(--bad)}
+.check p{margin:2px 0 0;color:var(--muted);font-size:.86rem}
+.check strong{font-weight:600}
+
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;font-size:.85rem;padding:7px 12px;border-radius:7px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.btn.primary:hover{opacity:.9;color:var(--surface)}
+.btn.ghost{border-color:transparent;color:var(--muted);padding:4px 8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:.82rem;font-weight:600;padding:5px 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+
+.note{font-size:.84rem;color:var(--muted);margin:0}
+.err{background:var(--bad-bg);color:var(--bad);padding:10px 12px;border-radius:8px;font-weight:500}
+.hidden{display:none!important}
+
+.chart-wrap{overflow-x:auto}
+svg.chart{display:block;width:100%;min-width:620px;height:auto}
+svg.chart text{font-family:var(--font-body);fill:var(--muted);font-size:11px}
+svg.chart .lbl{fill:var(--ink);font-weight:600;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.84rem}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+
+.method{max-width:72ch;display:grid;gap:12px}
+.method p,.method li{font-size:.92rem}
+.method code,.eq{font-family:var(--font-num);font-size:.86rem;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.eq{display:block;padding:8px 10px;overflow-x:auto;white-space:nowrap}
+.method ul{margin:0;padding-left:1.2rem;display:grid;gap:4px}
+footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:space-between}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">HVAC tools · Humidity control</div>
+      <h1>Room dew point & supply air temperature</h1>
+      <p class="lede">Check condensation risk on cold surfaces, then select a supply air temperature that removes both the sensible and the latent load of the room.</p>
+    </div>
+    <button class="btn" id="resetBtn" type="button">Restore sample data</button>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" aria-label="Room design conditions">
+      <h2>Room design conditions</h2>
+      <div class="grid2">
+        <div class="field"><label for="tr">Dry-bulb temperature</label><div class="inp"><input id="tr" type="number" step="0.1" value="22"><span class="u">°C</span></div></div>
+        <div class="field"><label for="rhr">Relative humidity</label><div class="inp"><input id="rhr" type="number" step="1" min="1" max="100" value="50"><span class="u">%</span></div></div>
+        <div class="field"><label for="alt">Altitude</label><div class="inp"><input id="alt" type="number" step="10" value="10"><span class="u">m</span></div></div>
+        <div class="field"><label for="margin">Safety margin</label><div class="inp"><input id="margin" type="number" step="0.5" min="0" value="2"><span class="u">K</span></div></div>
+      </div>
+      <dl class="props" id="roomProps"></dl>
+      <p class="note">Safety margin: a surface must be at least this much warmer than the dew point to be considered safe.</p>
+    </aside>
+
+    <main class="panel">
+      <nav class="tabs" role="tablist" aria-label="Calculations">
+        <button class="tab" role="tab" id="tab-dew" data-view="dew" aria-selected="true">1 · Dew point & condensation</button>
+        <button class="tab" role="tab" id="tab-supply" data-view="supply" aria-selected="false">2 · Supply air temperature</button>
+        <button class="tab" role="tab" id="tab-chart" data-view="chart" aria-selected="false">3 · Psychrometric chart</button>
+        <button class="tab" role="tab" id="tab-method" data-view="method" aria-selected="false">Method</button>
+      </nav>
+
+      <!-- TAB 1 -->
+      <section class="view on" id="view-dew" role="tabpanel" aria-labelledby="tab-dew">
+        <div class="tiles" id="dewTiles"></div>
+        <div class="row">
+          <h2>Cold surfaces in the room</h2>
+          <button class="btn" type="button" id="addSurf">+ Add surface</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>Surface</th><th class="r">Surface T (°C)</th><th class="r">Above dew point</th><th class="r">Max room RH</th><th>Status</th><th></th>
+            </tr></thead>
+            <tbody id="surfBody"></tbody>
+          </table>
+        </div>
+        <p class="note">“Max room RH” is the highest humidity the room may reach (at the current room temperature) while that surface still keeps the safety margin. Uninsulated supply ducts and diffusers have a surface temperature close to the supply air temperature.</p>
+      </section>
+
+      <!-- TAB 2 -->
+      <section class="view" id="view-supply" role="tabpanel" aria-labelledby="tab-supply">
+        <div class="grid3">
+          <div class="field"><label for="qs">Room sensible load</label><div class="inp"><input id="qs" type="number" step="0.1" value="18"><span class="u">kW</span></div></div>
+          <div class="field">
+            <label for="ql">Room latent load</label>
+            <div class="inp"><input id="ql" type="number" step="0.1" value="2.5"><span class="u" id="qlUnit">kW</span></div>
+          </div>
+          <div class="field"><label>Enter latent load as</label>
+            <div class="seg" role="group" aria-label="Latent load unit">
+              <button type="button" data-lat="kw" aria-pressed="true">kW latent</button>
+              <button type="button" data-lat="kgh" aria-pressed="false">kg/h moisture</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid3">
+          <div class="field"><label for="flowMode">Airflow basis</label>
+            <div class="inp"><select id="flowMode">
+              <option value="ach">Air changes per hour (ACH)</option>
+              <option value="flow">Enter airflow directly</option>
+              <option value="dt">From supply ΔT</option>
+            </select></div>
+          </div>
+          <div class="field" data-mode="ach dt flow"><label for="vol">Room volume</label><div class="inp"><input id="vol" type="number" step="1" value="600"><span class="u">m³</span></div></div>
+          <div class="field" data-mode="ach"><label for="ach">Air change rate</label><div class="inp"><input id="ach" type="number" step="1" value="20"><span class="u">ACH</span></div></div>
+          <div class="field" data-mode="flow"><label for="flow">Supply airflow</label><div class="inp"><input id="flow" type="number" step="100" value="9000"><span class="u">m³/h</span></div></div>
+          <div class="field" data-mode="dt"><label for="dt">ΔT room − supply</label><div class="inp"><input id="dt" type="number" step="0.5" value="9"><span class="u">K</span></div></div>
+        </div>
+
+        <div class="grid3">
+          <div class="field"><label for="rhc">Coil leaving air RH</label><div class="inp"><input id="rhc" type="number" step="1" min="70" max="100" value="95"><span class="u">%</span></div></div>
+          <div class="field"><label for="chws">Chilled water supply temp.</label><div class="inp"><input id="chws" type="number" step="0.5" value="6"><span class="u">°C</span></div></div>
+          <div class="field"><label for="approach">Min. approach, leaving air − CHWS</label><div class="inp"><input id="approach" type="number" step="0.5" value="3"><span class="u">K</span></div></div>
+          <div class="field"><label for="tp">Ceiling void temp. (duct route)</label><div class="inp"><input id="tp" type="number" step="0.5" value="30"><span class="u">°C</span></div></div>
+          <div class="field"><label for="rhp">Ceiling void RH</label><div class="inp"><input id="rhp" type="number" step="1" value="70"><span class="u">%</span></div></div>
+        </div>
+
+        <div id="supplyErr" class="err hidden"></div>
+        <div id="supplyOut" class="view on" style="padding:0">
+          <div class="tiles" id="supplyTiles"></div>
+          <div class="row"><h2>Results & checks</h2><button class="btn" type="button" id="copyBtn">Copy results</button></div>
+          <div class="checks" id="supplyChecks"></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>State point</th><th class="r">Dry bulb (°C)</th><th class="r">RH (%)</th><th class="r">W (g/kg)</th><th class="r">Dew point (°C)</th><th class="r">h (kJ/kg)</th></tr></thead>
+              <tbody id="stateBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3 -->
+      <section class="view" id="view-chart" role="tabpanel" aria-labelledby="tab-chart">
+        <div class="row">
+          <h2>Process on the psychrometric chart</h2>
+          <div class="legend">
+            <span><i style="background:var(--c-room)"></i>R · Room</span>
+            <span><i style="background:var(--c-supply)"></i>S · Supply</span>
+            <span><i style="background:var(--c-coil)"></i>C · Coil leaving</span>
+            <span><i style="background:var(--c-plenum)"></i>P · Ceiling void</span>
+          </div>
+        </div>
+        <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 780 470" role="img" aria-label="Psychrometric chart"></svg></div>
+        <p class="note" id="chartNote"></p>
+      </section>
+
+      <!-- TAB 4 -->
+      <section class="view" id="view-method" role="tabpanel" aria-labelledby="tab-method">
+        <div class="method">
+          <h2>Equations</h2>
+          <p>Moist air properties follow the ASHRAE Handbook – Fundamentals (Psychrometrics chapter), with saturation vapor pressure from Hyland–Wexler.</p>
+          <span class="eq">p = 101.325 × (1 − 2.25577·10⁻⁵ × Z)^5.2559 &nbsp;[kPa]</span>
+          <span class="eq">W = 0.621945 × p_w / (p − p_w) &nbsp;[kg/kg dry air]</span>
+          <span class="eq">h = 1.006·t + W·(2501 + 1.86·t) &nbsp;[kJ/kg]</span>
+          <span class="eq">v = 0.287042·(t + 273.15)·(1 + 1.607858·W) / p &nbsp;[m³/kg]</span>
+          <p>The dew point is the temperature at which the saturation vapor pressure equals the partial vapor pressure p_w. The tool solves it by bisection.</p>
+          <h2>Supply air temperature selection</h2>
+          <span class="eq">ṁ = Q / v_s ; &nbsp; T_s = T_r − Q_sens / (ṁ·c_p) ; &nbsp; c_p = 1.006 + 1.86·W_r</span>
+          <span class="eq">W_s = W_r − ṁ_w / ṁ ; &nbsp; ṁ_w = Q_lat / 2501 &nbsp;(or kg/h ÷ 3600)</span>
+          <ul>
+            <li>The coil leaving temperature needed for dehumidification is the temperature at which air with W = W_s reaches the “coil leaving RH” (default 95%).</li>
+            <li>If that temperature is below T_s: <strong>the latent load governs</strong>. The coil must cool deeper, then the air is reheated to T_s.</li>
+            <li>If it is at or above T_s: <strong>the sensible load governs</strong>. The coil cools to T_s with no reheat, and the room may run drier than design.</li>
+            <li>A chilled water coil can only bring air down to about (CHWS + approach). Below that you need colder chilled water or a desiccant dehumidifier.</li>
+            <li>Diffusers and supply ducts have a surface temperature close to T_s, so T_s must be above the dew point of the surrounding air plus the safety margin. Otherwise insulate, or choose suitable diffusers.</li>
+          </ul>
+          <h2>Limitations</h2>
+          <ul>
+            <li>Outdoor air, mixing and coil load are not included. This tool only looks at the room heat and moisture balance.</li>
+            <li>Fan heat and duct heat gain are ignored. For detailed design, add roughly 0.5–1.5 K to the supply air temperature.</li>
+            <li>Results are for quick checks and preliminary selection. Final design should be verified with dedicated load calculation software.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <span>hochvacsbs.wordpress.com · Free tools for HVAC engineers</span>
+    <span>Your inputs are saved in your browser.</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+
+/* ---------- Psychrometrics (SI, ASHRAE) ---------- */
+function pws(t){ // kPa
+  const T=t+273.15; let ln;
+  if(t>=0){ ln=-5.8002206e3/T+1.3914993-4.8640239e-2*T+4.1764768e-5*T*T-1.4452093e-8*T*T*T+6.5459673*Math.log(T); }
+  else { ln=-5.6745359e3/T+6.3925247-9.677843e-3*T+6.2215701e-7*T*T+2.0747825e-9*T*T*T-9.484024e-13*T*T*T*T+4.1635019*Math.log(T); }
+  return Math.exp(ln)/1000;
+}
+const pressure=z=>101.325*Math.pow(1-2.25577e-5*z,5.2559);
+const WfromPw=(pw,p)=>0.621945*pw/(p-pw);
+const PwfromW=(W,p)=>p*W/(0.621945+W);
+const WfromRH=(t,rh,p)=>WfromPw(rh/100*pws(t),p);
+const RHfromW=(t,W,p)=>PwfromW(W,p)/pws(t)*100;
+const Wsat=(t,p)=>WfromPw(pws(t),p);
+const enth=(t,W)=>1.006*t+W*(2501+1.86*t);
+const spv=(t,W,p)=>0.287042*(t+273.15)*(1+1.607858*W)/p;
+function bisect(f,a,b){ let fa=f(a); for(let i=0;i<80;i++){ const m=(a+b)/2, fm=f(m); if((fm>0)===(fa>0)){a=m;fa=fm;} else b=m; } return (a+b)/2; }
+const tdewFromW=(W,p)=>{ const pw=PwfromW(W,p); return bisect(t=>pws(t)-pw,-80,100); };
+const TfromWRH=(W,rh,p)=>bisect(t=>RHfromW(t,W,p)-rh,-60,90);
+function wetbulb(t,W,p){
+  return bisect(tw=>{
+    const ws=Wsat(tw,p);
+    const wc= tw>=0 ? ((2501-2.326*tw)*ws-1.006*(t-tw))/(2501+1.86*t-4.186*tw)
+                    : ((2830-0.24*tw)*ws-1.006*(t-tw))/(2830+1.86*t-2.1*tw);
+    return wc-W;
+  },-60,t);
+}
+
+/* ---------- Format ---------- */
+const fmt=(x,d=1)=>isFinite(x)?x.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"–";
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- State ---------- */
+const KEY="hvac-dewpoint-supply-en-v1";
+const INPUT_IDS=["tr","rhr","alt","margin","qs","ql","flowMode","vol","ach","flow","dt","rhc","chws","approach","tp","rhp"];
+const DEFAULT_SURF=[
+  {name:"Supply diffuser (aluminium frame)",t:14},
+  {name:"Uninsulated supply duct",t:13},
+  {name:"Chilled water pipe insulation surface",t:20},
+  {name:"Wall next to cold store",t:12},
+  {name:"Glazing to a cold area",t:17}
+];
+let surfaces=DEFAULT_SURF.map(s=>({...s}));
+let latMode="kw";
+const defaults={}; INPUT_IDS.forEach(id=>defaults[id]=$(id).value);
+
+function save(){
+  try{
+    const o={latMode,surfaces,view:currentView}; INPUT_IDS.forEach(id=>o[id]=$(id).value);
+    localStorage.setItem(KEY,JSON.stringify(o));
+  }catch(e){}
+}
+function load(){
+  try{
+    const o=JSON.parse(localStorage.getItem(KEY)||"null"); if(!o) return;
+    INPUT_IDS.forEach(id=>{ if(o[id]!=null) $(id).value=o[id]; });
+    if(Array.isArray(o.surfaces)) surfaces=o.surfaces;
+    if(o.latMode) latMode=o.latMode;
+    if(o.view) currentView=o.view;
+  }catch(e){}
+}
+const n=(id,def=0)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:def; };
+
+/* ---------- Tabs ---------- */
+let currentView="dew";
+const VIEWS=["dew","supply","chart","method"];
+function showView(v){
+  if(!VIEWS.includes(v)) v="dew";
+  currentView=v;
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===v?"true":"false"));
+  VIEWS.forEach(x=>$("view-"+x).classList.toggle("on",x===v));
+}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  showView(b.dataset.view);
+  try{ history.replaceState(null,"","#"+b.dataset.view); }catch(e){ location.hash=b.dataset.view; }
+  save();
+}));
+window.addEventListener("hashchange",()=>showView(location.hash.slice(1)));
+
+/* ---------- Room ---------- */
+function room(){
+  const p=pressure(n("alt",0)), t=n("tr",22), rh=Math.min(100,Math.max(0.5,n("rhr",50)));
+  const W=WfromRH(t,rh,p);
+  return {p,t,rh,W,td:tdewFromW(W,p),twb:wetbulb(t,W,p),h:enth(t,W),v:spv(t,W,p),margin:Math.max(0,n("margin",2))};
+}
+
+function renderRoom(R){
+  $("roomProps").innerHTML=`
+    <dt>Dew point</dt><dd class="num big">${fmt(R.td)} °C</dd>
+    <dt>Wet bulb</dt><dd class="num">${fmt(R.twb)} °C</dd>
+    <dt>Humidity ratio W</dt><dd class="num">${fmt(R.W*1000,2)} g/kg</dd>
+    <dt>Enthalpy</dt><dd class="num">${fmt(R.h)} kJ/kg</dd>
+    <dt>Specific volume</dt><dd class="num">${fmt(R.v,3)} m³/kg</dd>
+    <dt>Barometric pressure</dt><dd class="num">${fmt(R.p,2)} kPa</dd>`;
+}
+
+/* ---------- Tab 1 ---------- */
+function surfStatus(t,R){
+  const d=t-R.td;
+  if(d<0) return ["bad","Condensing"];
+  if(d<R.margin) return ["warn","Near dew point"];
+  return ["ok","Safe"];
+}
+function renderDew(R){
+  let worst=null;
+  surfaces.forEach(s=>{ const t=parseFloat(s.t); if(isFinite(t)&&(worst===null||t<worst)) worst=t; });
+  const rhMaxWorst = worst===null?NaN:Math.min(100,pws(worst-R.margin)/pws(R.t)*100);
+  const nBad=surfaces.filter(s=>isFinite(parseFloat(s.t))&&surfStatus(parseFloat(s.t),R)[0]!=="ok").length;
+  $("dewTiles").innerHTML=`
+    <div class="tile key"><div class="k">Room dew point</div><div class="v">${fmt(R.td)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">Surfaces must be above</div><div class="v">${fmt(R.td+R.margin)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">Max RH for coldest surface</div><div class="v">${fmt(rhMaxWorst,0)}<small>%</small></div></div>
+    <div class="tile"><div class="k">Surfaces needing action</div><div class="v" style="color:${nBad?'var(--bad)':'var(--ok)'}">${nBad}<small>/ ${surfaces.length}</small></div></div>`;
+
+  // Update computed cells without rebuilding inputs (keeps focus)
+  surfaces.forEach((s,i)=>{
+    const t=parseFloat(s.t), row=document.querySelector(`#surfBody tr[data-i="${i}"]`); if(!row) return;
+    if(!isFinite(t)){ row.querySelector(".c-d").textContent="–"; row.querySelector(".c-rh").textContent="–"; row.querySelector(".c-s").innerHTML=""; return; }
+    const [cls,txt]=surfStatus(t,R);
+    const rhMax=Math.min(100,pws(t-R.margin)/pws(R.t)*100);
+    row.querySelector(".c-d").textContent=(t-R.td>=0?"+":"")+fmt(t-R.td)+" K";
+    row.querySelector(".c-rh").textContent=fmt(rhMax,0)+" %";
+    row.querySelector(".c-s").innerHTML=`<span class="pill ${cls}">${txt}</span>`;
+  });
+}
+function buildSurfRows(){
+  $("surfBody").innerHTML=surfaces.map((s,i)=>`
+    <tr data-i="${i}">
+      <td><input type="text" id="sn-${i}" aria-label="Surface name" value="${esc(s.name)}"></td>
+      <td class="r"><input type="number" id="st-${i}" step="0.5" aria-label="Surface temperature" value="${esc(s.t)}"></td>
+      <td class="r num c-d"></td>
+      <td class="r num c-rh"></td>
+      <td class="c-s"></td>
+      <td class="r"><button class="btn ghost" type="button" data-del="${i}" aria-label="Delete row">✕</button></td>
+    </tr>`).join("");
+}
+$("surfBody").addEventListener("input",e=>{
+  const m=e.target.id.match(/^(sn|st)-(\d+)$/); if(!m) return;
+  const i=+m[2]; if(m[1]==="sn") surfaces[i].name=e.target.value; else surfaces[i].t=e.target.value;
+  update();
+});
+$("surfBody").addEventListener("click",e=>{
+  const b=e.target.closest("[data-del]"); if(!b) return;
+  surfaces.splice(+b.dataset.del,1); buildSurfRows(); update();
+});
+$("addSurf").addEventListener("click",()=>{
+  surfaces.push({name:"New surface",t:15}); buildSurfRows(); update();
+  const el=$("sn-"+(surfaces.length-1)); if(el){el.focus(); el.select();}
+});
+
+/* ---------- Tab 2 ---------- */
+document.querySelectorAll("[data-lat]").forEach(b=>b.addEventListener("click",()=>{ latMode=b.dataset.lat; update(); }));
+function syncModeUI(){
+  const mode=$("flowMode").value;
+  document.querySelectorAll("[data-mode]").forEach(el=>el.classList.toggle("hidden",!el.dataset.mode.split(" ").includes(mode)));
+  document.querySelectorAll("[data-lat]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.lat===latMode?"true":"false"));
+  $("qlUnit").textContent=latMode==="kw"?"kW":"kg/h";
+}
+
+function supply(R){
+  const p=R.p, mode=$("flowMode").value;
+  const qs=n("qs",0), ql=Math.max(0,n("ql",0)), vol=n("vol",0);
+  const rhc=Math.min(100,Math.max(50,n("rhc",95)));
+  const chws=n("chws",6), appr=Math.max(0,n("approach",3));
+  const cp=1.006+1.86*R.W;
+  const mw= latMode==="kw" ? ql/2501 : ql/3600; // kg/s
+  let mda,Ts,Ws,Q;
+  if(mode==="dt"){
+    const dt=n("dt",0);
+    if(dt<=0) return {err:"ΔT must be greater than 0."};
+    if(qs<=0) return {err:"The ΔT method needs a sensible load greater than 0."};
+    Ts=R.t-dt; mda=qs/(cp*dt); Ws=R.W-mw/mda; Q=mda*spv(Ts,Math.max(Ws,1e-5),p);
+  }else{
+    Q = mode==="ach" ? vol*n("ach",0)/3600 : n("flow",0)/3600;
+    if(Q<=0) return {err:mode==="ach"?"Enter a room volume and an air change rate greater than 0.":"Enter an airflow greater than 0."};
+    let vs=R.v;
+    for(let k=0;k<5;k++){ mda=Q/vs; Ts=R.t-qs/(mda*cp); Ws=R.W-mw/mda; vs=spv(Ts,Math.max(Ws,1e-5),p); }
+  }
+  if(Ws<=0.0003) return {err:"Airflow is too low to remove the latent load (supply humidity ratio comes out ≤ 0.3 g/kg). Increase the airflow or reduce the latent load."};
+  const tdS=tdewFromW(Ws,p);
+  const tcDehum=TfromWRH(Ws,rhc,p);
+  let gov,Tc,Wleave,reheat=0,rhRoomActual=R.rh;
+  if(tcDehum<Ts){
+    gov="latent"; Tc=tcDehum; Wleave=Ws; reheat=mda*(1.006+1.86*Ws)*(Ts-Tc);
+  }else{
+    gov="sensible"; Tc=Ts; Wleave=Math.min(Ws,WfromRH(Ts,rhc,p));
+    rhRoomActual=RHfromW(R.t,Wleave+mw/mda,p);
+  }
+  const tdC=tdewFromW(Wleave,p);
+  const Wp=WfromRH(n("tp",30),Math.min(100,n("rhp",70)),p), tdP=tdewFromW(Wp,p);
+  return {p,mda,Q,Ts,Ws,tdS,Tc,Wleave,tdC,gov,reheat,rhRoomActual,rhc,chws,appr,vol,mode,
+    ach: vol>0? Q*3600/vol : NaN, tp:n("tp",30), Wp, tdP, qs, mw, rhS:RHfromW(Ts,Wleave,p)};
+}
+
+let lastSummary="";
+function renderSupply(R,S){
+  const err=$("supplyErr"), out=$("supplyOut");
+  if(S.err){ err.textContent=S.err; err.classList.remove("hidden"); out.classList.add("hidden"); return; }
+  err.classList.add("hidden"); out.classList.remove("hidden");
+  const flowH=S.Q*3600;
+  $("supplyTiles").innerHTML=`
+    <div class="tile key"><div class="k">Supply air temp. T<sub>s</sub></div><div class="v">${fmt(S.Ts)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">Required supply dew point</div><div class="v">${fmt(S.tdS)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">Coil leaving air temp.</div><div class="v">${fmt(S.Tc)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">Reheat</div><div class="v">${fmt(S.reheat)}<small>kW</small></div></div>
+    <div class="tile"><div class="k">Supply airflow</div><div class="v">${fmt(flowH,0)}<small>m³/h</small></div></div>
+    <div class="tile"><div class="k">ΔT room − supply</div><div class="v">${fmt(R.t-S.Ts)}<small>K${isFinite(S.ach)?` · ${fmt(S.ach,1)} ACH`:""}</small></div></div>`;
+
+  const checks=[];
+  // governing
+  if(S.gov==="latent"){
+    checks.push(["warn","Latent load governs the coil leaving temperature",
+      `To dehumidify, the coil must bring the air down to ${fmt(S.Tc)} °C (dew point ${fmt(S.tdS)} °C), below the supply air temperature of ${fmt(S.Ts)} °C. About ${fmt(S.reheat)} kW of reheat is needed. Reheat can be reduced by increasing airflow, using heat recovery (run-around coil / heat pipe) or dehumidifying the outdoor air separately.`]);
+  }else{
+    checks.push(["ok","Sensible load governs, no reheat needed",
+      `Cooling to ${fmt(S.Ts)} °C already removes enough moisture. With ${fmt(S.rhc,0)}% coil leaving RH, the room may run drier than design, at about ${fmt(S.rhRoomActual,0)}% RH or lower.`]);
+  }
+  // coil feasibility
+  const minCoil=S.chws+S.appr;
+  if(S.Tc<=0){
+    checks.push(["bad","Cooling coil cannot reach this",
+      `Required dew point is ${fmt(S.tdC)} °C; a coil leaving temperature below 0 °C would freeze. Use a desiccant dehumidifier or increase the airflow.`]);
+  }else if(S.Tc<minCoil){
+    checks.push(["bad","Chilled water is not cold enough",
+      `Coil leaving air must be ${fmt(S.Tc)} °C, but with ${fmt(S.chws)} °C chilled water the coil only reaches about ${fmt(minCoil)} °C. You need chilled water ≤ ${fmt(S.Tc-S.appr)} °C, a low-temperature DX coil, or a desiccant unit.`]);
+  }else{
+    checks.push(["ok","Chilled water coil can achieve this",
+      `Coil leaving air ${fmt(S.Tc)} °C ≥ ${fmt(minCoil)} °C (CHWS ${fmt(S.chws)} °C + ${fmt(S.appr)} K).`]);
+  }
+  if(S.tdC<5 && S.Tc>0){
+    checks.push(["warn","Low supply dew point",
+      `Coil leaving dew point is ${fmt(S.tdC)} °C. Below about 5 °C, compare a desiccant option against a low-temperature coil on operating cost.`]);
+  }
+  // diffuser
+  const dDiff=S.Ts-R.td;
+  if(dDiff<0) checks.push(["bad","Condensation at diffusers",
+    `Supply air at ${fmt(S.Ts)} °C is below the room dew point of ${fmt(R.td)} °C, so diffuser surfaces will sweat. Raise T_s to at least ${fmt(R.td+R.margin)} °C or use insulated high-induction diffusers.`]);
+  else if(dDiff<R.margin) checks.push(["warn","Diffusers close to room dew point",
+    `T_s is only ${fmt(dDiff)} K above the room dew point (required margin ${fmt(R.margin)} K). Condensation is likely when the room is more humid than design, e.g. at start-up or when doors are open.`]);
+  else checks.push(["ok","No condensation at diffusers",
+    `T_s is ${fmt(dDiff)} K above the room dew point.`]);
+  // duct in plenum
+  const dDuct=S.Ts-S.tdP;
+  if(dDuct<R.margin) checks.push(["warn","Supply duct in ceiling void must be insulated",
+    `The ceiling void dew point is ${fmt(S.tdP)} °C, too close to or above the supply air at ${fmt(S.Ts)} °C. Insulation must be thick enough to keep its outer surface above ${fmt(S.tdP+R.margin)} °C, with a sealed vapor barrier.`]);
+  else checks.push(["ok","No condensation on supply duct in ceiling void",
+    `Supply air at ${fmt(S.Ts)} °C is above the ceiling void dew point of ${fmt(S.tdP)} °C.`]);
+  // dT comfort
+  const dT=R.t-S.Ts;
+  if(dT>12) checks.push(["warn","Large ΔT",`ΔT = ${fmt(dT)} K. Select diffusers with good mixing to avoid cold air dumping into the occupied zone.`]);
+  if(dT<0) checks.push(["warn","Supply air warmer than room",`The sensible load is negative or the airflow is very large for the load. Check the inputs.`]);
+
+  $("supplyChecks").innerHTML=checks.map(([c,t,d])=>`
+    <div class="check ${c}"><span class="pill ${c}">${c==="ok"?"Pass":c==="warn"?"Note":"Fail"}</span>
+    <div><strong>${t}</strong><p>${d}</p></div></div>`).join("");
+
+  const rows=[
+    ["R · Room",R.t,R.rh,R.W],
+    ["S · Supply",S.Ts,RHfromW(S.Ts,S.gov==="latent"?S.Ws:S.Wleave,S.p),S.gov==="latent"?S.Ws:S.Wleave],
+    ["C · Coil leaving",S.Tc,RHfromW(S.Tc,S.Wleave,S.p),S.Wleave],
+    ["P · Ceiling void",S.tp,RHfromW(S.tp,S.Wp,S.p),S.Wp]
+  ];
+  $("stateBody").innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td class="r num">${fmt(r[1])}</td><td class="r num">${fmt(Math.min(100,r[2]),0)}</td><td class="r num">${fmt(r[3]*1000,2)}</td><td class="r num">${fmt(tdewFromW(r[3],S.p))}</td><td class="r num">${fmt(enth(r[1],r[3]))}</td></tr>`).join("");
+
+  lastSummary=[
+    `SUPPLY AIR CHECK`,
+    `Room: ${fmt(R.t)} °C / ${fmt(R.rh,0)}% · dew point ${fmt(R.td)} °C · W ${fmt(R.W*1000,2)} g/kg`,
+    `Sensible load ${fmt(S.qs)} kW · moisture load ${fmt(S.mw*3600,2)} kg/h`,
+    `Supply airflow ${fmt(flowH,0)} m³/h${isFinite(S.ach)?` (${fmt(S.ach,1)} ACH)`:""}`,
+    `Supply air ${fmt(S.Ts)} °C · supply dew point ${fmt(S.tdS)} °C`,
+    `Coil leaving ${fmt(S.Tc)} °C · reheat ${fmt(S.reheat)} kW`,
+    ...checks.map(([c,t])=>`- [${c==="ok"?"Pass":c==="warn"?"Note":"Fail"}] ${t}`)
+  ].join("\n");
+}
+$("copyBtn").addEventListener("click",async()=>{
+  const b=$("copyBtn"), old="Copy results";
+  try{ await navigator.clipboard.writeText(lastSummary); b.textContent="Copied"; }
+  catch(e){ b.textContent="Browser blocked copying"; }
+  setTimeout(()=>b.textContent=old,1800);
+});
+
+/* ---------- Tab 3: chart ---------- */
+function renderChart(R,S){
+  const svg=$("chart"), p=R.p;
+  const W0=60,W1=700,H0=20,H1=420; // plot box
+  const tMin=0,tMax=40,wMax=28; // g/kg
+  const X=t=>W0+(t-tMin)/(tMax-tMin)*(W1-W0);
+  const Y=w=>H1-(w/wMax)*(H1-H0);
+  const pts=[];
+  for(let t=tMin;t<=tMax+1e-9;t+=0.5) pts.push(t);
+  const curve=rh=>pts.map(t=>{ const w=Math.min(wMax*1.2,WfromRH(t,rh,p)*1000); return `${X(t).toFixed(1)},${Y(w).toFixed(1)}`; }).join(" ");
+  let g="";
+  g+=`<defs><clipPath id="plotClip"><rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}"/></clipPath>
+      <clipPath id="satClip"><polygon points="${curve(100)} ${X(tMax)},${H1} ${X(tMin)},${H1}"/></clipPath></defs>`;
+  // grid
+  for(let t=0;t<=40;t+=5) g+=`<line x1="${X(t)}" y1="${H0}" x2="${X(t)}" y2="${H1}" stroke="var(--grid)"/><text x="${X(t)}" y="${H1+16}" text-anchor="middle">${t}</text>`;
+  for(let w=0;w<=wMax;w+=4) g+=`<line x1="${W0}" y1="${Y(w)}" x2="${W1}" y2="${Y(w)}" stroke="var(--grid)"/><text x="${W1+8}" y="${Y(w)+4}">${w}</text>`;
+  g+=`<text x="${(W0+W1)/2}" y="${H1+36}" text-anchor="middle">Dry-bulb temperature (°C)</text>`;
+  g+=`<text x="${W1+44}" y="${(H0+H1)/2}" text-anchor="middle" transform="rotate(90 ${W1+44} ${(H0+H1)/2})">Humidity ratio W (g/kg dry air)</text>`;
+  // enthalpy lines
+  let hl="";
+  for(let h=10;h<=120;h+=10){
+    const a=[];
+    for(let t=-10;t<=50;t+=1){ const w=(h-1.006*t)/(2501+1.86*t)*1000; if(w>=-1) a.push(`${X(t).toFixed(1)},${Y(w).toFixed(1)}`); }
+    hl+=`<polyline points="${a.join(" ")}" fill="none" stroke="var(--grid-strong)" stroke-dasharray="2 4"/>`;
+  }
+  g+=`<g clip-path="url(#plotClip)"><g clip-path="url(#satClip)">${hl}</g>`;
+  // RH curves
+  for(let rh=10;rh<100;rh+=10){
+    g+=`<polyline points="${curve(rh)}" fill="none" stroke="var(--grid-strong)" stroke-width="${rh===50?1.2:0.8}"/>`;
+  }
+  g+=`<polyline points="${curve(100)}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
+  g+=`</g>`;
+  // RH labels at t=38
+  [30,50,70,90].forEach(rh=>{ const w=WfromRH(36,rh,p)*1000; if(w<wMax) g+=`<text x="${X(36)}" y="${Y(w)-4}" text-anchor="middle">${rh}%</text>`; });
+  g+=`<rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}" fill="none" stroke="var(--grid-strong)"/>`;
+
+  // room dew point projection
+  const pt=(t,w)=>[X(t),Y(w*1000)];
+  const [rx,ry]=pt(R.t,R.W), dx=X(R.td);
+  g+=`<line x1="${rx}" y1="${ry}" x2="${dx}" y2="${ry}" stroke="var(--c-room)" stroke-dasharray="4 3"/>`;
+  g+=`<line x1="${dx}" y1="${ry}" x2="${dx}" y2="${H1}" stroke="var(--c-room)" stroke-dasharray="2 3" opacity=".6"/>`;
+  g+=`<text x="${dx}" y="${H1-6}" text-anchor="middle" class="lbl" style="fill:var(--c-room)">t<tspan dy="3" font-size="9">s</tspan><tspan dy="-3"> ${fmt(R.td)}</tspan></text>`;
+
+  const dot=(x,y,c,lab,dxl=8,dyl=-8)=>`<circle cx="${x}" cy="${y}" r="5.5" fill="${c}" stroke="var(--surface)" stroke-width="2"/><text x="${x+dxl}" y="${y+dyl}" class="lbl" style="fill:${c}">${lab}</text>`;
+  let note=`Room dew point ${fmt(R.td)} °C. `;
+  if(S && !S.err){
+    const Wsup=S.gov==="latent"?S.Ws:S.Wleave;
+    const [sx,sy]=pt(S.Ts,Wsup), [cx,cy]=pt(S.Tc,S.Wleave), [px,py]=pt(S.tp,S.Wp);
+    g+=`<line x1="${sx}" y1="${sy}" x2="${rx}" y2="${ry}" stroke="var(--c-supply)" stroke-width="2"/>`;
+    if(S.gov==="latent") g+=`<line x1="${cx}" y1="${cy}" x2="${sx}" y2="${sy}" stroke="var(--c-coil)" stroke-width="2" stroke-dasharray="6 3"/>`;
+    if(py>H0) g+=dot(px,py,"var(--c-plenum)","P");
+    if(S.gov==="latent") g+=dot(cx,cy,"var(--c-coil)","C",-16,-8);
+    g+=dot(sx,sy,"var(--c-supply)",S.gov==="latent"?"S":"S = C",8,16);
+    note+=`Line S→R is the supply air picking up heat and moisture in the room. `+
+      (S.gov==="latent"?`Dashed line C→S is ${fmt(S.reheat)} kW of reheat.`:`No reheat: the coil leaves directly at the supply air temperature.`);
+  }else note+="Enter data in tab 2 to plot the supply air process.";
+  g+=dot(rx,ry,"var(--c-room)","R");
+  svg.innerHTML=g;
+  $("chartNote").textContent=note;
+}
+
+/* ---------- Main ---------- */
+function update(){
+  syncModeUI();
+  const R=room();
+  renderRoom(R); renderDew(R);
+  const S=supply(R);
+  renderSupply(R,S); renderChart(R,S);
+  save();
+}
+INPUT_IDS.forEach(id=>{ $(id).addEventListener("input",update); $(id).addEventListener("change",update); });
+$("resetBtn").addEventListener("click",()=>{
+  INPUT_IDS.forEach(id=>$(id).value=defaults[id]);
+  surfaces=DEFAULT_SURF.map(s=>({...s})); latMode="kw";
+  buildSurfRows(); update();
+});
+
+load();
+const h=location.hash.slice(1); if(VIEWS.includes(h)) currentView=h;
+showView(currentView);
+buildSurfRows();
+update();
+})();
+</script>
+</body>
+</html>
