@@ -149,6 +149,16 @@ svg.chart .lbl{fill:var(--ink);font-weight:600;font-size:12px}
 .eq{display:block;padding:8px 10px;overflow-x:auto;white-space:nowrap}
 .method ul{margin:0;padding-left:1.2rem;display:grid;gap:4px}
 footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:space-between}
+.inp input[type=text]{font-family:var(--font-body)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{border-color:var(--line);color:var(--ink)}
+.badge{display:inline-block;min-width:1.5em;padding:0 6px;margin-left:5px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:.74rem;text-align:center;font-family:var(--font-num)}
+table.sum th,table.sum td{white-space:nowrap}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:9px 15px;border-radius:8px;font-size:.88rem;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90vw}
+.toast.on{opacity:1}
+.toast.bad{background:var(--bad);color:#fff}
+.field.full{grid-column:1/-1}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -168,6 +178,12 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
 
   <div class="layout">
     <aside class="panel" aria-label="Inputs">
+      <h2>Room</h2>
+      <div class="grid2">
+        <div class="field"><label for="roomId">Room ID</label><div class="inp"><input id="roomId" type="text" value="R-101" autocomplete="off"></div></div>
+        <div class="field"><label for="acEquip">AC equipment</label><div class="inp"><input id="acEquip" type="text" value="AHU-01" autocomplete="off"></div></div>
+        <div class="field full"><label for="roomName">Room name</label><div class="inp"><input id="roomName" type="text" value="Packing room" autocomplete="off"></div></div>
+      </div>
       <h2>Coil air states</h2>
       <div class="field"><label for="alt">Altitude</label><div class="inp"><input id="alt" type="number" step="10" value="10"><span class="u">m</span></div></div>
       <h3>Entering air (mixed air)</h3>
@@ -192,6 +208,7 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
       <nav class="tabs" role="tablist" aria-label="Sections">
         <button class="tab" role="tab" id="tab-calc" data-view="calc" aria-selected="true">1 · ADP &amp; water temperature</button>
         <button class="tab" role="tab" id="tab-chart" data-view="chart" aria-selected="false">2 · Psychrometric chart</button>
+        <button class="tab" role="tab" id="tab-summary" data-view="summary" aria-selected="false">Summary<span class="badge" id="sumCount">0</span></button>
         <button class="tab" role="tab" id="tab-method" data-view="method" aria-selected="false">Method</button>
       </nav>
 
@@ -220,7 +237,7 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
         <div id="out" style="display:grid;gap:16px">
           <div class="tiles" id="tiles"></div>
           <div><h3 style="margin-bottom:6px">Calculation</h3><div id="eqs" style="display:grid;gap:6px"></div></div>
-          <div class="row"><h2>Checks</h2><button class="btn" type="button" id="copyBtn">Copy results</button></div>
+          <div class="row"><h2>Checks</h2><div class="btns"><button class="btn" type="button" id="copyBtn">Copy results</button><button class="btn primary" type="button" id="addSumBtn">+ Add to summary</button></div></div>
           <div class="checks" id="checks"></div>
         </div>
         <h3>Typical coil bypass factors</h3>
@@ -248,6 +265,20 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
         </div>
         <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 780 470" role="img" aria-label="Psychrometric chart of the coil process"></svg></div>
         <p class="note" id="chartNote"></p>
+      </section>
+
+      <section class="view" id="view-summary" role="tabpanel" aria-labelledby="tab-summary">
+        <div class="row">
+          <h2>Room summary</h2>
+          <div class="btns">
+            <button class="btn" type="button" id="sumXlsx">Export Excel</button>
+            <button class="btn" type="button" id="sumPdf">Export PDF</button>
+            <button class="btn ghost" type="button" id="sumClear">Clear all</button>
+          </div>
+        </div>
+        <p class="note">Calculate a coil in tab 1, then press “+ Add to summary”. A room with the same Room ID replaces the earlier entry. “Load” brings a room back into the calculator to edit it. The summary is saved in this browser.</p>
+        <p class="note hidden" id="sumEmpty" style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center">No rooms yet.</p>
+        <div class="tbl-wrap" id="sumWrap"><table class="sum"><thead id="sumHead"></thead><tbody id="sumBody"></tbody></table></div>
       </section>
 
       <section class="view" id="view-method" role="tabpanel" aria-labelledby="tab-method">
@@ -299,17 +330,18 @@ const tdewFromW=(W,p)=>{ const pw=PwfromW(W,p); return bisect(t=>pws(t)-pw,-80,1
 const WfromWB=(t,tw,p)=>{ const ws=Wsat(tw,p);
   return tw>=0 ? ((2501-2.326*tw)*ws-1.006*(t-tw))/(2501+1.86*t-4.186*tw)
                : ((2830-0.24*tw)*ws-1.006*(t-tw))/(2830+1.86*t-2.1*tw); };
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt=(x,d=1)=>isFinite(x)?x.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"–";
 const n=(id,def=0)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:def; };
 
 const KEY="hvac-chw-temperature-v1";
-const IDS=["alt","te","twe","tl","twl","tr","rhr","bfPreset","bf","adpIn","dtw"];
+const IDS=["roomId","roomName","acEquip","alt","te","twe","tl","twl","tr","rhr","bfPreset","bf","adpIn","dtw"];
 const defaults={}; IDS.forEach(id=>defaults[id]=$(id).value);
 let mode="bf", view="calc";
 function save(){ try{ const o={mode,view}; IDS.forEach(id=>o[id]=$(id).value); localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
 function load(){ try{ const o=JSON.parse(localStorage.getItem(KEY)||"null"); if(!o) return; IDS.forEach(id=>{ if(o[id]!=null) $(id).value=o[id]; }); if(o.mode) mode=o.mode; if(o.view) view=o.view; }catch(e){} }
 
-const VIEWS=["calc","chart","method"];
+const VIEWS=["calc","chart","summary","method"];
 function showView(v){ if(!VIEWS.includes(v)) v="calc"; view=v;
   document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===v?"true":"false"));
   VIEWS.forEach(x=>$("view-"+x).classList.toggle("on",x===v)); }
@@ -342,11 +374,12 @@ function calc(){
     qPerKg: enth(te,We)-enth(tl,Wl)};
 }
 
-let summary="";
+let summary="", lastC=null, lastChecks=[];
 function render(){
   document.querySelectorAll("[data-m]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===mode?"true":"false"));
   document.querySelectorAll("[data-show]").forEach(el=>el.classList.toggle("hidden",el.dataset.show!==mode));
   const C=calc();
+  lastC=C; if(C.err) lastChecks=[];
   const err=$("err"), out=$("out");
   if(C.err){ err.textContent=C.err; err.classList.remove("hidden"); out.classList.add("hidden"); $("stateProps").innerHTML=""; renderChart(null); return; }
   err.classList.add("hidden"); out.classList.remove("hidden");
@@ -380,9 +413,11 @@ function render(){
   else c.push(["ok","Chilled water temperature is practical",`t_w = ${fmt(C.tw)} °C is within the normal chiller range.`]);
   if(C.tret>C.tdr+3) c.push(["warn","Return water well above room dew point",`Return ${fmt(C.tret)} °C vs room dew point ${fmt(C.tdr)} °C. ASHRAE suggests return water near the room dew point (about 3 K above at most). Reduce ΔT or lower t_w.`]);
   else c.push(["ok","Return water near room dew point",`Return ${fmt(C.tret)} °C vs room dew point ${fmt(C.tdr)} °C.`]);
+  lastChecks=c;
   $("checks").innerHTML=c.map(([k,t,d])=>`<div class="check ${k}"><span class="pill ${k}">${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}</span><div><strong>${t}</strong><p>${d}</p></div></div>`).join("");
 
   summary=["CHILLED WATER SUPPLY TEMPERATURE (ASHRAE HVAC S&E 2016, Ch.13 Eq.11)",
+    `Room ${$("roomId").value} ${$("roomName").value} · ${$("acEquip").value}`.trim(),
     `Entering air ${fmt(C.te)} °C DB / ${fmt(C.twe)} °C WB · Leaving air ${fmt(C.tl)} °C DB / ${fmt(C.twl)} °C WB`,
     ...eqs, ...c.map(([k,t])=>`- [${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}] ${t}`)].join("\n");
   renderChart(C);
@@ -423,6 +458,207 @@ function renderChart(C){
   } else note="Enter valid inputs to plot the coil process.";
   svg.innerHTML=g; $("chartNote").textContent=note;
 }
+
+/* ---------- Summary table, Excel (.xlsx) & PDF export — self-contained ---------- */
+const EXPORT=(function(){
+  const xe=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
+  // CRC32 + "stored" ZIP writer (enough for an .xlsx package)
+  const T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+  const crc=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
+  function zip(files){
+    const enc=new TextEncoder(), parts=[], cd=[]; let off=0;
+    files.forEach(f=>{
+      const nm=enc.encode(f.name), d=enc.encode(f.text), c=crc(d);
+      const h=new DataView(new ArrayBuffer(30));
+      h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true);
+      h.setUint16(10,0,true); h.setUint16(12,0x21,true); h.setUint32(14,c,true); h.setUint32(18,d.length,true);
+      h.setUint32(22,d.length,true); h.setUint16(26,nm.length,true); h.setUint16(28,0,true);
+      parts.push(new Uint8Array(h.buffer),nm,d);
+      const e=new DataView(new ArrayBuffer(46));
+      e.setUint32(0,0x02014b50,true); e.setUint16(4,20,true); e.setUint16(6,20,true); e.setUint16(8,0x0800,true);
+      e.setUint16(10,0,true); e.setUint16(12,0,true); e.setUint16(14,0x21,true); e.setUint32(16,c,true);
+      e.setUint32(20,d.length,true); e.setUint32(24,d.length,true); e.setUint16(28,nm.length,true);
+      e.setUint32(42,off,true);
+      cd.push(new Uint8Array(e.buffer),nm);
+      off+=30+nm.length+d.length;
+    });
+    const size=cd.reduce((a,b)=>a+b.length,0), end=new DataView(new ArrayBuffer(22));
+    end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true);
+    end.setUint32(12,size,true); end.setUint32(16,off,true);
+    return new Blob([...parts,...cd,new Uint8Array(end.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }
+  const colRef=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+  const NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border
+  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1C5A85"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC4CFD8"/></left><right style="thin"><color rgb="FFC4CFD8"/></right><top style="thin"><color rgb="FFC4CFD8"/></top><bottom style="thin"><color rgb="FFC4CFD8"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  function xlsx(o){ // o:{sheet,title,subtitle,cols:[{h,w,fmt}],rows:[[...]],file}
+    const cell=(ci,ri,v,s)=>{
+      const ref=colRef(ci)+ri;
+      if(typeof v==="number") return isFinite(v)?`<c r="${ref}" s="${s}"><v>${v}</v></c>`:`<c r="${ref}" s="6"/>`;
+      if(v==null||v==="") return `<c r="${ref}" s="${s===3||s===0?0:6}"/>`;
+      return `<c r="${ref}" t="inlineStr" s="${s}"><is><t xml:space="preserve">${xe(v)}</t></is></c>`;
+    };
+    let r=1; const out=[];
+    out.push(`<row r="${r}">${cell(0,r,o.title,3)}</row>`); r++;
+    if(o.subtitle){ out.push(`<row r="${r}">${cell(0,r,o.subtitle,0)}</row>`); r++; }
+    r++;
+    const hr=r;
+    out.push(`<row r="${r}" ht="32" customHeight="1">${o.cols.map((c,i)=>cell(i,r,c.h,1)).join("")}</row>`); r++;
+    o.rows.forEach(row=>{
+      out.push(`<row r="${r}">${row.map((v,i)=>{ const f=o.cols[i].fmt; return cell(i,r,v, typeof v==="number"?(f==="0"?4:f==="0.00"?5:2):6); }).join("")}</row>`); r++;
+    });
+    const last=colRef(o.cols.length-1), lastRow=hr+Math.max(1,o.rows.length);
+    const sheetName=xe(o.sheet||"Summary");
+    const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane xSplit="2" ySplit="${hr}" topLeftCell="C${hr+1}" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${o.cols.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.w||12}" customWidth="1"/>`).join("")}</cols><sheetData>${out.join("")}</sheetData><autoFilter ref="A${hr}:${last}${lastRow}"/><pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape"/></worksheet>`;
+    const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${NS}><sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${sheetName}'!$A$${hr}:$${last}$${lastRow}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="0">'${sheetName}'!$${hr}:$${hr}</definedName></definedNames></workbook>`;
+    const files=[
+      {name:"[Content_Types].xml",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+      {name:"_rels/.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+      {name:"xl/workbook.xml",text:wb},
+      {name:"xl/_rels/workbook.xml.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+      {name:"xl/worksheets/sheet1.xml",text:ws},
+      {name:"xl/styles.xml",text:STY}
+    ];
+    download(zip(files),o.file);
+  }
+  function download(blob,name){
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000);
+  }
+  function cellText(v,f){
+    if(typeof v!=="number") return v==null?"":String(v);
+    if(!isFinite(v)) return "–";
+    const d=f==="0"?0:f==="0.00"?2:1;
+    return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+  }
+  function reportHTML(o){ // printable A4 landscape report
+    const head=o.cols.map(c=>`<th>${xe(c.h)}</th>`).join("");
+    const body=o.rows.map(r=>`<tr>${r.map((v,i)=>{ const t=cellText(v,o.cols[i].fmt);
+      const cls=typeof v==="number"?"n":(["Pass","Note","Fail"].includes(v)?v:"");
+      return `<td class="${cls}">${xe(t)}</td>`; }).join("")}</tr>`).join("");
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${xe(o.file.replace(/\.xlsx$/,""))}</title><style>
+@page{size:A4 landscape;margin:10mm}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
+body{font-family:"Segoe UI",Arial,"Helvetica Neue",sans-serif;color:#13212c;margin:0}
+h1{font-size:15pt;margin:0 0 2pt}
+.sub{color:#5a6a77;margin:0 0 8pt;font-size:9pt}
+table{border-collapse:collapse;width:100%}
+th,td{border:.5pt solid #c4cfd8;padding:2.5pt 3.5pt;vertical-align:top}
+th{background:#1c5a85;color:#fff;font-weight:600;font-size:7pt;text-align:left}
+td{font-size:7.5pt}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tbody tr:nth-child(even) td{background:#f2f5f8}
+thead{display:table-header-group}
+tr{page-break-inside:avoid}
+.Pass{color:#1d7548;font-weight:700}.Note{color:#9a5c00;font-weight:700}.Fail{color:#b0281f;font-weight:700}
+.foot{margin-top:8pt;color:#5a6a77;font-size:7pt}
+</style></head><body><h1>${xe(o.title)}</h1><p class="sub">${xe(o.subtitle||"")}</p>
+<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
+<p class="foot">${xe(o.footer||"")}</p></body></html>`;
+  }
+  function pdf(o){
+    const f=document.createElement("iframe");
+    f.setAttribute("aria-hidden","true");
+    f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    document.body.appendChild(f);
+    const d=f.contentWindow.document; d.open(); d.write(reportHTML(o)); d.close();
+    setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(()=>f.remove(),60000); },350);
+  }
+  return {xlsx,pdf,reportHTML,cellText};
+})();
+
+let toastTimer=null;
+function toast(msg,bad){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; t.setAttribute("role","status"); document.body.appendChild(t); }
+  t.textContent=msg; t.classList.toggle("bad",!!bad); t.classList.add("on");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),2600);
+}
+
+function makeSummary(cfg){
+  let rows=[];
+  try{ rows=JSON.parse(localStorage.getItem(cfg.key)||"[]"); if(!Array.isArray(rows)) rows=[]; }catch(e){ rows=[]; }
+  const persist=()=>{ try{ localStorage.setItem(cfg.key,JSON.stringify(rows)); }catch(e){} };
+  const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+  const table=()=>rows.map(r=>cfg.cols.map(c=>r[c.k]));
+  function render(){
+    $(cfg.countId).textContent=rows.length;
+    const has=rows.length>0;
+    $(cfg.emptyId).classList.toggle("hidden",has);
+    $(cfg.wrapId).classList.toggle("hidden",!has);
+    cfg.buttons.forEach(id=>$(id).disabled=!has);
+    $(cfg.headId).innerHTML=`<tr><th></th>${cfg.cols.map(c=>`<th class="${c.fmt?"r":""}">${esc(c.h)}</th>`).join("")}</tr>`;
+    $(cfg.bodyId).innerHTML=rows.map((r,i)=>`<tr>
+      <td><div class="btns" style="flex-wrap:nowrap;gap:2px"><button class="btn ghost" type="button" data-load="${i}" title="Load this room back into the calculator">Load</button><button class="btn ghost" type="button" data-rm="${i}" aria-label="Remove ${esc(r.id||"row")}">✕</button></div></td>
+      ${cfg.cols.map(c=>{ const v=r[c.k];
+        if(c.k==="result") return `<td><span class="pill ${v==="Pass"?"ok":v==="Note"?"warn":"bad"}">${esc(v)}</span></td>`;
+        return `<td class="${typeof v==="number"?"r num":""}">${esc(EXPORT.cellText(v,c.fmt))}</td>`; }).join("")}
+    </tr>`).join("");
+  }
+  function add(){
+    const r=cfg.collect();
+    if(r.err){ toast(r.err,true); return; }
+    const i=r.id?rows.findIndex(x=>x.id===r.id):-1;
+    if(i>=0){ rows[i]=r; toast(`Updated ${r.id} in the summary (${rows.length} room${rows.length>1?"s":""})`); }
+    else { rows.push(r); toast(`Added ${r.id||"room"} to the summary (${rows.length} room${rows.length>1?"s":""})`); }
+    persist(); render();
+  }
+  $(cfg.bodyId).addEventListener("click",e=>{
+    const ld=e.target.closest("[data-load]"), rm=e.target.closest("[data-rm]");
+    if(ld){ cfg.restore(rows[+ld.dataset.load]); toast(`Loaded ${rows[+ld.dataset.load].id||"room"}`); }
+    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; persist(); render(); toast(`Removed ${r.id||"room"}`); }
+  });
+  $(cfg.addId).addEventListener("click",add);
+  $(cfg.clearId).addEventListener("click",()=>{
+    if(!rows.length) return;
+    if(!confirm(`Remove all ${rows.length} rooms from the summary?`)) return;
+    rows=[]; persist(); render();
+  });
+  const meta=()=>({title:cfg.title, subtitle:`${rows.length} room${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`,
+    footer:cfg.footer, cols:cfg.cols, rows:table(), sheet:"Summary", file:`${cfg.file}_${dateStr()}.xlsx`});
+  $(cfg.xlsxId).addEventListener("click",()=>{ if(rows.length) EXPORT.xlsx(meta()); });
+  $(cfg.pdfId).addEventListener("click",()=>{ if(rows.length){ EXPORT.pdf(meta()); toast("Choose “Save as PDF” in the print dialog"); } });
+  render();
+  return {render, get rows(){ return rows; }};
+}
+
+const METHOD_LABEL={bf:"Bypass factor",chart:"Chart (line E–L)",direct:"Entered"};
+const SUMMARY=makeSummary({
+  key:"hvac-chw-summary-v1",
+  title:"Chilled water supply temperature (ASHRAE) — summary",
+  file:"CHW-temperature-summary",
+  footer:"hochvacsbs.wordpress.com · t_w = 2·t_ad − t_wb, ASHRAE Handbook—HVAC Systems and Equipment (2016), Ch. 13, Eq. 11. Preliminary selection only; confirm with coil and chiller manufacturers.",
+  countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap", headId:"sumHead", bodyId:"sumBody",
+  addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
+  cols:[
+    {k:"id",h:"Room ID",w:10},{k:"name",h:"Room name",w:22},{k:"equip",h:"AC equipment",w:13},
+    {k:"te",h:"Entering DB (°C)",w:9,fmt:"0.0"},{k:"twe",h:"Entering WB (°C)",w:9,fmt:"0.0"},
+    {k:"tl",h:"Leaving DB (°C)",w:9,fmt:"0.0"},{k:"twl",h:"Leaving WB (°C)",w:9,fmt:"0.0"},{k:"tdl",h:"Leaving dew point (°C)",w:10,fmt:"0.0"},
+    {k:"method",h:"ADP method",w:14},{k:"bf",h:"Bypass factor",w:8,fmt:"0.00"},{k:"adp",h:"ADP (°C)",w:8,fmt:"0.0"},
+    {k:"tw",h:"CHW supply t_w (°C)",w:10,fmt:"0.0"},{k:"dtw",h:"CHW ΔT (K)",w:8,fmt:"0.0"},{k:"tret",h:"CHW return (°C)",w:9,fmt:"0.0"},
+    {k:"tr",h:"Room DB (°C)",w:9,fmt:"0.0"},{k:"rhr",h:"Room RH (%)",w:8,fmt:"0"},{k:"tdr",h:"Room dew point (°C)",w:10,fmt:"0.0"},
+    {k:"q",h:"Coil load (kJ/kg air)",w:10,fmt:"0.0"},{k:"result",h:"Result",w:8},{k:"notes",h:"Notes",w:48}
+  ],
+  collect(){
+    const C=lastC;
+    if(!C||C.err) return {err:"Fix the inputs in tab 1 before adding to the summary."};
+    const worst=lastChecks.some(c=>c[0]==="bad")?"Fail":lastChecks.some(c=>c[0]==="warn")?"Note":"Pass";
+    const inputs={}; IDS.forEach(id=>inputs[id]=$(id).value);
+    const r1=(x,d)=>isFinite(x)?Math.round(x*10**d)/10**d:NaN;
+    return {id:$("roomId").value.trim(), name:$("roomName").value.trim(), equip:$("acEquip").value.trim(),
+      te:r1(C.te,2), twe:r1(C.twe,2), tl:r1(C.tl,2), twl:r1(C.twl,2), tdl:r1(C.tdl,2),
+      method:METHOD_LABEL[mode], bf:r1(C.bf,3), adp:r1(C.adp,2), tw:r1(C.tw,2), dtw:r1(C.dtw,2), tret:r1(C.tret,2),
+      tr:r1(n("tr",24),2), rhr:r1(n("rhr",50),1), tdr:r1(C.tdr,2), q:r1(C.qPerKg,2),
+      result:worst, notes:lastChecks.filter(c=>c[0]!=="ok").map(c=>c[1]).join("; "), inputs, mode};
+  },
+  restore(r){
+    if(r.inputs) IDS.forEach(id=>{ if(r.inputs[id]!=null) $(id).value=r.inputs[id]; });
+    if(r.mode) mode=r.mode;
+    update(); showView("calc");
+    try{ history.replaceState(null,"","#calc"); }catch(e){}
+  }
+});
 
 function update(){ render(); save(); }
 IDS.forEach(id=>{ $(id).addEventListener("input",update); $(id).addEventListener("change",update); });
