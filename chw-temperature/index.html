@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chilled Water Supply Temperature (ASHRAE)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: shared "room conditions" sidebar + tabbed results area */
+  --bg:#edf1f4;
+  --surface:#ffffff;
+  --ink:#13212c;
+  --muted:#5a6a77;
+  --line:#d3dce3;
+  --accent:#1c5a85;
+  --accent-soft:#e2edf5;
+  --ok:#1d7548; --ok-bg:#e2f3e9;
+  --warn:#9a5c00; --warn-bg:#fcefd8;
+  --bad:#b0281f; --bad-bg:#fbe4e1;
+  --c-room:#1c5a85; --c-supply:#0f8a8a; --c-coil:#6a4bb5; --c-plenum:#b5651d; --c-shr:#c0392b;
+  --grid:#e3e9ee; --grid-strong:#c4cfd8;
+  --font-display:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f161c; --surface:#17212a; --ink:#e4ecf2; --muted:#93a4b2; --line:#2a3946;
+    --accent:#6cb3e3; --accent-soft:#1c3142;
+    --ok:#5cc98f; --ok-bg:#143326; --warn:#f0b452; --warn-bg:#3a2a10; --bad:#f2817a; --bad-bg:#3d1a18;
+    --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e; --c-shr:#ff8a7a;
+    --grid:#22303b; --grid-strong:#36485a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --surface:#17212a; --ink:#e4ecf2; --muted:#93a4b2; --line:#2a3946;
+  --accent:#6cb3e3; --accent-soft:#1c3142;
+  --ok:#5cc98f; --ok-bg:#143326; --warn:#f0b452; --warn-bg:#3a2a10; --bad:#f2817a; --bad-bg:#3d1a18;
+  --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e; --c-shr:#ff8a7a;
+  --grid:#22303b; --grid-strong:#36485a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+h1{font-size:1.55rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.1rem;font-weight:600}
+h3{font-size:.95rem;font-weight:600}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.wrap{max-width:1240px;margin:0 auto;padding:20px 16px 40px;display:grid;gap:18px}
+header.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.eyebrow{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.lede{color:var(--muted);margin:.25rem 0 0;max-width:62ch}
+
+.layout{display:grid;grid-template-columns:290px 1fr;gap:18px;align-items:start}
+@media (max-width:900px){.layout{grid-template-columns:1fr}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+aside.panel{position:sticky;top:12px;display:grid;gap:14px}
+@media (max-width:900px){aside.panel{position:static}}
+
+.field{display:grid;gap:4px}
+.field label{font-size:.82rem;color:var(--muted);font-weight:500}
+.inp{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;background:var(--bg);overflow:hidden}
+.inp input,.inp select{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-family:var(--font-num);padding:7px 9px}
+.inp select{font-family:var(--font-body)}
+.inp .u{padding:0 9px;color:var(--muted);font-size:.8rem;white-space:nowrap}
+.inp:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:520px){.grid3{grid-template-columns:1fr 1fr}}
+
+.props{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:.88rem;border-top:1px solid var(--line);padding-top:12px}
+.props dt{color:var(--muted)}
+.props dd{margin:0;text-align:right}
+.props dd.big{font-size:1.05rem;font-weight:600;color:var(--accent)}
+
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tab{appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 14px;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.view{display:none;gap:16px}
+.view.on{display:grid}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--surface)}
+.tile .k{font-size:.78rem;color:var(--muted)}
+.tile .v{font-family:var(--font-num);font-size:1.35rem;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .v small{font-size:.75rem;color:var(--muted);font-weight:400;margin-left:3px}
+.tile.key{border-color:var(--accent);background:var(--accent-soft)}
+
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:.76rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+td.r,th.r{text-align:right}
+td.num{white-space:nowrap}
+td input{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;padding:5px 7px}
+td input[type=number]{font-family:var(--font-num);max-width:90px}
+
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.76rem;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+
+.checks{display:grid;gap:8px}
+.check{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--bg)}
+.check.ok{border-left-color:var(--ok)}
+.check.warn{border-left-color:var(--warn)}
+.check.bad{border-left-color:var(--bad)}
+.check p{margin:2px 0 0;color:var(--muted);font-size:.86rem}
+.check strong{font-weight:600}
+
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;font-size:.85rem;padding:7px 12px;border-radius:7px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.btn.primary:hover{opacity:.9;color:var(--surface)}
+.btn.ghost{border-color:transparent;color:var(--muted);padding:4px 8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+
+.seg{display:inline-flex;justify-self:start;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:.82rem;font-weight:600;padding:5px 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+
+.note{font-size:.84rem;color:var(--muted);margin:0}
+.err{background:var(--bad-bg);color:var(--bad);padding:10px 12px;border-radius:8px;font-weight:500}
+.hidden{display:none!important}
+
+.chart-wrap{overflow-x:auto}
+svg.chart{display:block;width:100%;min-width:620px;height:auto}
+svg.chart text{font-family:var(--font-body);fill:var(--muted);font-size:11px}
+svg.chart .lbl{fill:var(--ink);font-weight:600;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.84rem}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+
+.method{max-width:72ch;display:grid;gap:12px}
+.method p,.method li{font-size:.92rem}
+.method code,.eq{font-family:var(--font-num);font-size:.86rem;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.eq{display:block;padding:8px 10px;overflow-x:auto;white-space:nowrap}
+.method ul{margin:0;padding-left:1.2rem;display:grid;gap:4px}
+footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:space-between}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">HVAC tools · Chilled water</div>
+      <h1>Chilled water supply temperature (ASHRAE)</h1>
+      <p class="lede">Find the apparatus dew point (ADP) of a cooling coil, then the chilled water temperature entering the coil: t<sub>w</sub> = 2·t<sub>ad</sub> − t<sub>wb</sub> (ASHRAE Handbook—HVAC Systems and Equipment 2016, Ch. 13, Eq. 11).</p>
+    </div>
+    <div class="row" style="justify-content:flex-end">
+      <a class="btn" href="../">← Dew point &amp; supply air tool</a>
+      <button class="btn" id="resetBtn" type="button">Restore sample data</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" aria-label="Inputs">
+      <h2>Coil air states</h2>
+      <div class="field"><label for="alt">Altitude</label><div class="inp"><input id="alt" type="number" step="10" value="10"><span class="u">m</span></div></div>
+      <h3>Entering air (mixed air)</h3>
+      <div class="grid2">
+        <div class="field"><label for="te">Dry bulb</label><div class="inp"><input id="te" type="number" step="0.1" value="34.9"><span class="u">°C</span></div></div>
+        <div class="field"><label for="twe">Wet bulb</label><div class="inp"><input id="twe" type="number" step="0.1" value="27"><span class="u">°C</span></div></div>
+      </div>
+      <h3>Leaving air</h3>
+      <div class="grid2">
+        <div class="field"><label for="tl">Dry bulb</label><div class="inp"><input id="tl" type="number" step="0.1" value="13"><span class="u">°C</span></div></div>
+        <div class="field"><label for="twl">Wet bulb</label><div class="inp"><input id="twl" type="number" step="0.1" value="11.5"><span class="u">°C</span></div></div>
+      </div>
+      <h3>Room (for return water check)</h3>
+      <div class="grid2">
+        <div class="field"><label for="tr">Dry bulb</label><div class="inp"><input id="tr" type="number" step="0.1" value="24"><span class="u">°C</span></div></div>
+        <div class="field"><label for="rhr">RH</label><div class="inp"><input id="rhr" type="number" step="1" value="50"><span class="u">%</span></div></div>
+      </div>
+      <dl class="props" id="stateProps"></dl>
+    </aside>
+
+    <main class="panel">
+      <nav class="tabs" role="tablist" aria-label="Sections">
+        <button class="tab" role="tab" id="tab-calc" data-view="calc" aria-selected="true">1 · ADP &amp; water temperature</button>
+        <button class="tab" role="tab" id="tab-chart" data-view="chart" aria-selected="false">2 · Psychrometric chart</button>
+        <button class="tab" role="tab" id="tab-method" data-view="method" aria-selected="false">Method</button>
+      </nav>
+
+      <section class="view on" id="view-calc" role="tabpanel" aria-labelledby="tab-calc">
+        <div class="field"><label>How to find the ADP</label>
+          <div class="seg" role="group" aria-label="ADP method">
+            <button type="button" data-m="bf" aria-pressed="true">From bypass factor</button>
+            <button type="button" data-m="chart" aria-pressed="false">From chart (line E–L)</button>
+            <button type="button" data-m="direct" aria-pressed="false">Enter ADP</button>
+          </div>
+        </div>
+        <div class="grid3">
+          <div class="field" data-show="bf"><label for="bfPreset">Application (typical BF)</label><div class="inp"><select id="bfPreset">
+            <option value="">Custom value</option>
+            <option value="0.4">Residence, small load or high latent · 0.30–0.50</option>
+            <option value="0.25">Small comfort, low SHF · 0.20–0.30</option>
+            <option value="0.15">Typical comfort · 0.10–0.20</option>
+            <option value="0.08">High internal sensible / much outdoor air · 0.05–0.10</option>
+            <option value="0.05">100% outdoor air (hospital, OR, factory) · 0–0.10</option>
+          </select></div></div>
+          <div class="field" data-show="bf"><label for="bf">Coil bypass factor BF</label><div class="inp"><input id="bf" type="number" step="0.01" min="0" max="0.9" value="0.1"><span class="u">–</span></div></div>
+          <div class="field" data-show="direct"><label for="adpIn">Apparatus dew point</label><div class="inp"><input id="adpIn" type="number" step="0.1" value="10.6"><span class="u">°C</span></div></div>
+          <div class="field"><label for="dtw">Chilled water ΔT</label><div class="inp"><input id="dtw" type="number" step="0.5" value="5.5"><span class="u">K</span></div></div>
+        </div>
+        <div id="err" class="err hidden"></div>
+        <div id="out" style="display:grid;gap:16px">
+          <div class="tiles" id="tiles"></div>
+          <div><h3 style="margin-bottom:6px">Calculation</h3><div id="eqs" style="display:grid;gap:6px"></div></div>
+          <div class="row"><h2>Checks</h2><button class="btn" type="button" id="copyBtn">Copy results</button></div>
+          <div class="checks" id="checks"></div>
+        </div>
+        <h3>Typical coil bypass factors</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>BF</th><th>Type of application</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td class="num">0.30–0.50</td><td>Small total load, or a larger load with low sensible heat factor (high latent load)</td><td>Residence</td></tr>
+            <tr><td class="num">0.20–0.30</td><td>Typical comfort application with a fairly small total load, or a low SHF with a somewhat larger load</td><td>Residence, small retail shop, factory</td></tr>
+            <tr><td class="num">0.10–0.20</td><td>Typical comfort application</td><td>Department store, bank, factory</td></tr>
+            <tr><td class="num">0.05–0.10</td><td>High internal sensible load, or a large amount of outdoor air for ventilation</td><td>Department store, restaurant, factory</td></tr>
+            <tr><td class="num">0–0.10</td><td>All outdoor air</td><td>Hospital operating room, factory</td></tr>
+          </tbody>
+        </table></div>
+      </section>
+
+      <section class="view" id="view-chart" role="tabpanel" aria-labelledby="tab-chart">
+        <div class="row">
+          <h2>Coil process</h2>
+          <div class="legend">
+            <span><i style="background:var(--c-plenum)"></i>E · Entering</span>
+            <span><i style="background:var(--c-supply)"></i>L · Leaving</span>
+            <span><i style="background:var(--c-coil)"></i>ADP</span>
+            <span><i style="background:var(--c-room)"></i>R · Room</span>
+          </div>
+        </div>
+        <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 780 470" role="img" aria-label="Psychrometric chart of the coil process"></svg></div>
+        <p class="note" id="chartNote"></p>
+      </section>
+
+      <section class="view" id="view-method" role="tabpanel" aria-labelledby="tab-method">
+        <div class="method">
+          <h2>Apparatus dew point</h2>
+          <span class="eq">BF = (t_leave − ADP) / (t_enter − ADP) &nbsp;⇔&nbsp; ADP = (t_leave − BF·t_enter) / (1 − BF)</span>
+          <ul>
+            <li><strong>From bypass factor:</strong> pick BF from the table for the application (or from the coil selection), then solve for ADP from the dry-bulb temperatures.</li>
+            <li><strong>From chart:</strong> the straight line from entering state E through leaving state L is extended to the saturation curve; the crossing is the ADP. BF then follows from the equation above. This uses both dry and wet bulb, so it also checks whether the leaving state is achievable.</li>
+            <li>Physically the ADP cannot be above the leaving air dew point, because leaving air is a mix of bypassed entering air and saturated air at the ADP.</li>
+          </ul>
+          <h2>Chilled water temperature entering the coil</h2>
+          <span class="eq">t_w = 2·t_ad − t_wb</span>
+          <ul>
+            <li>t_w: coil entering water temperature; t_ad: apparatus dew point; t_wb: coil leaving air wet-bulb temperature.</li>
+            <li>Source: ASHRAE Handbook—HVAC Systems and Equipment (2016, SI), Chapter 13 “Hydronic Heating and Cooling”, Eq. (11).</li>
+            <li>The same chapter notes that, for a space held at 24 °C / 50% RH (dew point about 13 °C), return water should be near 13 °C (16 °C at most), and that about 2 °C is the lowest practical chilled water temperature. Chiller limits (refrigerant, minimum flow) must be confirmed with the manufacturer.</li>
+          </ul>
+          <h2>Moist air properties</h2>
+          <p>ASHRAE Handbook – Fundamentals (Psychrometrics), saturation pressure by Hyland–Wexler; wet bulb solved iteratively. Results are for preliminary selection and should be confirmed with the coil and chiller manufacturers' software.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <span>hochvacsbs.wordpress.com · Free tools for HVAC engineers</span>
+    <span>Your inputs are saved in your browser.</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+function pws(t){ const T=t+273.15; let ln;
+  if(t>=0){ ln=-5.8002206e3/T+1.3914993-4.8640239e-2*T+4.1764768e-5*T*T-1.4452093e-8*T*T*T+6.5459673*Math.log(T); }
+  else { ln=-5.6745359e3/T+6.3925247-9.677843e-3*T+6.2215701e-7*T*T+2.0747825e-9*T*T*T-9.484024e-13*T*T*T*T+4.1635019*Math.log(T); }
+  return Math.exp(ln)/1000; }
+const pressure=z=>101.325*Math.pow(1-2.25577e-5*z,5.2559);
+const WfromPw=(pw,p)=>0.621945*pw/(p-pw);
+const PwfromW=(W,p)=>p*W/(0.621945+W);
+const WfromRH=(t,rh,p)=>WfromPw(rh/100*pws(t),p);
+const RHfromW=(t,W,p)=>PwfromW(W,p)/pws(t)*100;
+const Wsat=(t,p)=>WfromPw(pws(t),p);
+const enth=(t,W)=>1.006*t+W*(2501+1.86*t);
+function bisect(f,a,b){ let fa=f(a); for(let i=0;i<80;i++){ const m=(a+b)/2, fm=f(m); if((fm>0)===(fa>0)){a=m;fa=fm;} else b=m; } return (a+b)/2; }
+const tdewFromW=(W,p)=>{ const pw=PwfromW(W,p); return bisect(t=>pws(t)-pw,-80,100); };
+const WfromWB=(t,tw,p)=>{ const ws=Wsat(tw,p);
+  return tw>=0 ? ((2501-2.326*tw)*ws-1.006*(t-tw))/(2501+1.86*t-4.186*tw)
+               : ((2830-0.24*tw)*ws-1.006*(t-tw))/(2830+1.86*t-2.1*tw); };
+const fmt=(x,d=1)=>isFinite(x)?x.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"–";
+const n=(id,def=0)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:def; };
+
+const KEY="hvac-chw-temperature-v1";
+const IDS=["alt","te","twe","tl","twl","tr","rhr","bfPreset","bf","adpIn","dtw"];
+const defaults={}; IDS.forEach(id=>defaults[id]=$(id).value);
+let mode="bf", view="calc";
+function save(){ try{ const o={mode,view}; IDS.forEach(id=>o[id]=$(id).value); localStorage.setItem(KEY,JSON.stringify(o)); }catch(e){} }
+function load(){ try{ const o=JSON.parse(localStorage.getItem(KEY)||"null"); if(!o) return; IDS.forEach(id=>{ if(o[id]!=null) $(id).value=o[id]; }); if(o.mode) mode=o.mode; if(o.view) view=o.view; }catch(e){} }
+
+const VIEWS=["calc","chart","method"];
+function showView(v){ if(!VIEWS.includes(v)) v="calc"; view=v;
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===v?"true":"false"));
+  VIEWS.forEach(x=>$("view-"+x).classList.toggle("on",x===v)); }
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{ showView(b.dataset.view); try{history.replaceState(null,"","#"+b.dataset.view);}catch(e){} save(); }));
+document.querySelectorAll("[data-m]").forEach(b=>b.addEventListener("click",()=>{ mode=b.dataset.m; update(); }));
+$("bfPreset").addEventListener("change",()=>{ if($("bfPreset").value) $("bf").value=$("bfPreset").value; update(); });
+$("bf").addEventListener("input",()=>{ if($("bfPreset").value && $("bfPreset").value!==$("bf").value) $("bfPreset").value=""; });
+
+function calc(){
+  const p=pressure(n("alt",0));
+  const te=n("te"), twe=n("twe"), tl=n("tl"), twl=n("twl"), dtw=n("dtw",5.5);
+  if(twe>te) return {err:"Entering wet bulb cannot be higher than entering dry bulb."};
+  if(twl>tl) return {err:"Leaving wet bulb cannot be higher than leaving dry bulb."};
+  if(te<=tl) return {err:"Entering dry bulb must be higher than leaving dry bulb."};
+  const We=WfromWB(te,twe,p), Wl=WfromWB(tl,twl,p);
+  if(We<=0||Wl<=0) return {err:"Wet bulb is too low for the dry bulb entered."};
+  const tdl=tdewFromW(Wl,p), tde=tdewFromW(We,p);
+  // chart method: extend line E→L to saturation
+  let adpChart=NaN;
+  const sl=(We-Wl)/(te-tl), f=t=>(Wl+sl*(t-tl))-Wsat(t,p);
+  if(f(tl)<0){ let hi=tl; for(let t=tl;t>=-30;t-=0.1){ if(f(t)>=0){ adpChart=bisect(f,t,hi); break; } hi=t; } }
+  let adp,bf;
+  if(mode==="bf"){ bf=n("bf",0.1); if(!(bf>=0&&bf<1)) return {err:"Bypass factor must be between 0 and 1."}; adp=(tl-bf*te)/(1-bf); }
+  else if(mode==="chart"){ if(!isFinite(adpChart)) return {err:"The line from E through L does not reach the saturation curve. Check the wet-bulb inputs: the leaving air must be drier than the entering air."}; adp=adpChart; bf=(tl-adp)/(te-adp); }
+  else { adp=n("adpIn",10.6); if(adp>=tl) return {err:"ADP must be lower than the leaving dry bulb."}; bf=(tl-adp)/(te-adp); }
+  const tw=2*adp-twl, tret=tw+dtw;
+  const tdr=tdewFromW(WfromRH(n("tr",24),Math.min(100,Math.max(1,n("rhr",50))),p),p);
+  return {p,te,twe,tl,twl,We,Wl,tdl,tde,adp,bf,adpChart,tw,tret,dtw,tdr,
+    bfChart: isFinite(adpChart)?(tl-adpChart)/(te-adpChart):NaN,
+    qPerKg: enth(te,We)-enth(tl,Wl)};
+}
+
+let summary="";
+function render(){
+  document.querySelectorAll("[data-m]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.m===mode?"true":"false"));
+  document.querySelectorAll("[data-show]").forEach(el=>el.classList.toggle("hidden",el.dataset.show!==mode));
+  const C=calc();
+  const err=$("err"), out=$("out");
+  if(C.err){ err.textContent=C.err; err.classList.remove("hidden"); out.classList.add("hidden"); $("stateProps").innerHTML=""; renderChart(null); return; }
+  err.classList.add("hidden"); out.classList.remove("hidden");
+  $("stateProps").innerHTML=`
+    <dt>Entering W / RH</dt><dd class="num">${fmt(C.We*1000,2)} g/kg · ${fmt(RHfromW(C.te,C.We,C.p),0)}%</dd>
+    <dt>Leaving W / RH</dt><dd class="num">${fmt(C.Wl*1000,2)} g/kg · ${fmt(RHfromW(C.tl,C.Wl,C.p),0)}%</dd>
+    <dt>Leaving dew point</dt><dd class="num">${fmt(C.tdl)} °C</dd>
+    <dt>Room dew point</dt><dd class="num">${fmt(C.tdr)} °C</dd>
+    <dt>Coil load per kg air</dt><dd class="num">${fmt(C.qPerKg)} kJ/kg</dd>`;
+  $("tiles").innerHTML=`
+    <div class="tile key"><div class="k">Apparatus dew point</div><div class="v">${fmt(C.adp)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">Bypass factor</div><div class="v">${fmt(C.bf,2)}<small>CF ${fmt(1-C.bf,2)}</small></div></div>
+    <div class="tile key"><div class="k">CHW supply t<sub>w</sub></div><div class="v">${fmt(C.tw)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">CHW return</div><div class="v">${fmt(C.tret)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">ADP from chart (E–L line)</div><div class="v">${fmt(C.adpChart)}<small>${isFinite(C.adpChart)?`°C · BF ${fmt(C.bfChart,2)}`:"line E–L misses saturation"}</small></div></div>`;
+  const eqs=[];
+  if(mode==="bf") eqs.push(`ADP = (t_leave − BF·t_enter)/(1 − BF) = (${fmt(C.tl)} − ${fmt(C.bf,2)}×${fmt(C.te)})/(1 − ${fmt(C.bf,2)}) = ${fmt(C.adp)} °C`);
+  else eqs.push(`BF = (t_leave − ADP)/(t_enter − ADP) = (${fmt(C.tl)} − ${fmt(C.adp)})/(${fmt(C.te)} − ${fmt(C.adp)}) = ${fmt(C.bf,2)}`);
+  eqs.push(`t_w = 2·t_ad − t_wb = 2×${fmt(C.adp)} − ${fmt(C.twl)} = ${fmt(C.tw)} °C`);
+  eqs.push(`t_return = t_w + ΔT = ${fmt(C.tw)} + ${fmt(C.dtw)} = ${fmt(C.tret)} °C`);
+  $("eqs").innerHTML=eqs.map(e=>`<span class="eq"></span>`).join("");
+  $("eqs").querySelectorAll(".eq").forEach((el,i)=>el.textContent=eqs[i]);
+
+  const c=[];
+  if(C.adp>C.tdl+0.5) c.push(["warn","ADP above leaving dew point",`ADP ${fmt(C.adp)} °C > leaving dew point ${fmt(C.tdl)} °C. The coil cannot reach this leaving humidity with BF ${fmt(C.bf,2)}: use a lower BF (more rows, lower face velocity) or a lower leaving wet bulb.`]);
+  else c.push(["ok","ADP consistent with leaving state",C.adp>C.tdl?`ADP ${fmt(C.adp)} °C ≈ leaving dew point ${fmt(C.tdl)} °C (within 0.5 K, input rounding).`:`ADP ${fmt(C.adp)} °C ≤ leaving dew point ${fmt(C.tdl)} °C.`]);
+  if(mode!=="chart" && isFinite(C.adpChart) && Math.abs(C.adpChart-C.adp)>1) c.push(["warn","BF and wet-bulb inputs disagree",`The chart line E–L gives ADP ${fmt(C.adpChart)} °C (BF ${fmt(C.bfChart,2)}), ${fmt(Math.abs(C.adpChart-C.adp))} K from the value used. Check the entering wet bulb or the BF.`]);
+  if(C.bf>0.5) c.push(["warn","High bypass factor",`BF ${fmt(C.bf,2)} is above the usual range (≤ 0.5). Check the inputs.`]);
+  if(C.tw<2) c.push(["bad","Below practical chilled water limit",`t_w = ${fmt(C.tw)} °C. About 2 °C is the lowest practical chilled water temperature (freezing, economics). Consider glycol, ice storage, DX or desiccant dehumidification.`]);
+  else if(C.tw<5) c.push(["warn","Low-temperature chilled water",`t_w = ${fmt(C.tw)} °C needs a low-temperature chiller selection. Confirm with the chiller manufacturer.`]);
+  else c.push(["ok","Chilled water temperature is practical",`t_w = ${fmt(C.tw)} °C is within the normal chiller range.`]);
+  if(C.tret>C.tdr+3) c.push(["warn","Return water well above room dew point",`Return ${fmt(C.tret)} °C vs room dew point ${fmt(C.tdr)} °C. ASHRAE suggests return water near the room dew point (about 3 K above at most). Reduce ΔT or lower t_w.`]);
+  else c.push(["ok","Return water near room dew point",`Return ${fmt(C.tret)} °C vs room dew point ${fmt(C.tdr)} °C.`]);
+  $("checks").innerHTML=c.map(([k,t,d])=>`<div class="check ${k}"><span class="pill ${k}">${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}</span><div><strong>${t}</strong><p>${d}</p></div></div>`).join("");
+
+  summary=["CHILLED WATER SUPPLY TEMPERATURE (ASHRAE HVAC S&E 2016, Ch.13 Eq.11)",
+    `Entering air ${fmt(C.te)} °C DB / ${fmt(C.twe)} °C WB · Leaving air ${fmt(C.tl)} °C DB / ${fmt(C.twl)} °C WB`,
+    ...eqs, ...c.map(([k,t])=>`- [${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}] ${t}`)].join("\n");
+  renderChart(C);
+}
+$("copyBtn").addEventListener("click",async()=>{ const b=$("copyBtn");
+  try{ await navigator.clipboard.writeText(summary); b.textContent="Copied"; }catch(e){ b.textContent="Browser blocked copying"; }
+  setTimeout(()=>b.textContent="Copy results",1800); });
+
+function renderChart(C){
+  const svg=$("chart"), p=pressure(n("alt",0));
+  const W0=60,W1=700,H0=20,H1=420, tMin=0,tMax=40,wMax=28;
+  const X=t=>W0+(t-tMin)/(tMax-tMin)*(W1-W0), Y=w=>H1-(w/wMax)*(H1-H0);
+  const pts=[]; for(let t=tMin;t<=tMax+1e-9;t+=0.5) pts.push(t);
+  const curve=rh=>pts.map(t=>{ const w=Math.min(wMax*1.2,WfromRH(t,rh,p)*1000); return `${X(t).toFixed(1)},${Y(w).toFixed(1)}`; }).join(" ");
+  let g=`<defs><clipPath id="plotClip"><rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}"/></clipPath></defs>`;
+  for(let t=0;t<=40;t+=5) g+=`<line x1="${X(t)}" y1="${H0}" x2="${X(t)}" y2="${H1}" stroke="var(--grid)"/><text x="${X(t)}" y="${H1+16}" text-anchor="middle">${t}</text>`;
+  for(let w=0;w<=wMax;w+=4) g+=`<line x1="${W0}" y1="${Y(w)}" x2="${W1}" y2="${Y(w)}" stroke="var(--grid)"/><text x="${W1+8}" y="${Y(w)+4}">${w}</text>`;
+  g+=`<text x="${(W0+W1)/2}" y="${H1+36}" text-anchor="middle">Dry-bulb temperature (°C)</text>`;
+  g+=`<text x="${W1+44}" y="${(H0+H1)/2}" text-anchor="middle" transform="rotate(90 ${W1+44} ${(H0+H1)/2})">Humidity ratio W (g/kg dry air)</text>`;
+  g+=`<g clip-path="url(#plotClip)">`;
+  for(let rh=10;rh<100;rh+=10) g+=`<polyline points="${curve(rh)}" fill="none" stroke="var(--grid-strong)" stroke-width="${rh===50?1.2:0.8}"/>`;
+  g+=`<polyline points="${curve(100)}" fill="none" stroke="var(--ink)" stroke-width="1.6"/></g>`;
+  [30,50,70,90].forEach(rh=>{ const w=WfromRH(36,rh,p)*1000; if(w<wMax) g+=`<text x="${X(36)}" y="${Y(w)-4}" text-anchor="middle">${rh}%</text>`; });
+  g+=`<rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}" fill="none" stroke="var(--grid-strong)"/>`;
+  const dot=(x,y,c,lab,dx=8,dy=-8,anchor="start")=>`<circle cx="${x}" cy="${y}" r="5.5" fill="${c}" stroke="var(--surface)" stroke-width="2"/><text x="${x+dx}" y="${y+dy}" text-anchor="${anchor}" class="lbl" style="fill:${c}">${lab}</text>`;
+  let note="";
+  if(C){
+    const pt=(t,W)=>[X(t),Y(W*1000)];
+    const [ex,ey]=pt(C.te,C.We), [lx,ly]=pt(C.tl,C.Wl), Wa=Wsat(C.adp,p), [ax,ay]=pt(C.adp,Wa);
+    const pr=n("tr",24), Wr=WfromRH(pr,Math.min(100,n("rhr",50)),p), [rx,ry]=pt(pr,Wr);
+    g+=`<g clip-path="url(#plotClip)"><line x1="${ex}" y1="${ey}" x2="${ax}" y2="${ay}" stroke="var(--c-coil)" stroke-width="1.6" stroke-dasharray="7 4"/>`;
+    g+=`<line x1="${ex}" y1="${ey}" x2="${lx}" y2="${ly}" stroke="var(--c-supply)" stroke-width="2.2"/></g>`;
+    g+=dot(rx,ry,"var(--c-room)","R",8,16);
+    g+=dot(ex,ey,"var(--c-plenum)","E");
+    g+=dot(lx,ly,"var(--c-supply)","L",8,16);
+    g+=dot(ax,ay,"var(--c-coil)",`ADP ${fmt(C.adp)}`,-8,-8,"end");
+    note=`Solid line E→L is the coil process. Dashed line E→ADP is the ideal coil line used for the bypass factor (BF ${fmt(C.bf,2)}); L lies ${fmt(C.bf*100,0)}% of the way back from ADP towards E${isFinite(C.adpChart)&&mode!=="chart"&&Math.abs(C.adpChart-C.adp)>0.3?`. With the wet-bulb inputs, the E–L line itself would meet saturation at ${fmt(C.adpChart)} °C`:""}.`;
+  } else note="Enter valid inputs to plot the coil process.";
+  svg.innerHTML=g; $("chartNote").textContent=note;
+}
+
+function update(){ render(); save(); }
+IDS.forEach(id=>{ $(id).addEventListener("input",update); $(id).addEventListener("change",update); });
+$("resetBtn").addEventListener("click",()=>{ IDS.forEach(id=>$(id).value=defaults[id]); mode="bf"; update(); });
+load();
+const h=location.hash.slice(1); if(VIEWS.includes(h)) view=h;
+showView(view); update();
+})();
+</script>
+</body>
+</html>
