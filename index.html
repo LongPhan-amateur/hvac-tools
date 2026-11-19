@@ -20,7 +20,7 @@
   --ok:#1d7548; --ok-bg:#e2f3e9;
   --warn:#9a5c00; --warn-bg:#fcefd8;
   --bad:#b0281f; --bad-bg:#fbe4e1;
-  --c-room:#1c5a85; --c-supply:#0f8a8a; --c-coil:#6a4bb5; --c-plenum:#b5651d;
+  --c-room:#1c5a85; --c-supply:#0f8a8a; --c-coil:#6a4bb5; --c-plenum:#b5651d; --c-shr:#c0392b;
   --grid:#e3e9ee; --grid-strong:#c4cfd8;
   --font-display:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
   --font-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -32,7 +32,7 @@
     --bg:#0f161c; --surface:#17212a; --ink:#e4ecf2; --muted:#93a4b2; --line:#2a3946;
     --accent:#6cb3e3; --accent-soft:#1c3142;
     --ok:#5cc98f; --ok-bg:#143326; --warn:#f0b452; --warn-bg:#3a2a10; --bad:#f2817a; --bad-bg:#3d1a18;
-    --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e;
+    --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e; --c-shr:#ff8a7a;
     --grid:#22303b; --grid-strong:#36485a;
     color-scheme:dark;
   }
@@ -41,7 +41,7 @@
   --bg:#0f161c; --surface:#17212a; --ink:#e4ecf2; --muted:#93a4b2; --line:#2a3946;
   --accent:#6cb3e3; --accent-soft:#1c3142;
   --ok:#5cc98f; --ok-bg:#143326; --warn:#f0b452; --warn-bg:#3a2a10; --bad:#f2817a; --bad-bg:#3d1a18;
-  --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e;
+  --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e; --c-shr:#ff8a7a;
   --grid:#22303b; --grid-strong:#36485a;
   color-scheme:dark;
 }
@@ -103,6 +103,7 @@ table{border-collapse:collapse;width:100%;font-size:.88rem}
 th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
 th{font-size:.76rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
 td.r,th.r{text-align:right}
+td.num{white-space:nowrap}
 td input{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;padding:5px 7px}
 td input[type=number]{font-family:var(--font-num);max-width:90px}
 
@@ -126,7 +127,7 @@ td input[type=number]{font-family:var(--font-num);max-width:90px}
 .btn.ghost{border-color:transparent;color:var(--muted);padding:4px 8px}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
 
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg{display:inline-flex;justify-self:start;border:1px solid var(--line);border-radius:7px;overflow:hidden}
 .seg button{appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:.82rem;font-weight:600;padding:5px 10px;cursor:pointer}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
 
@@ -180,6 +181,7 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
         <button class="tab" role="tab" id="tab-dew" data-view="dew" aria-selected="true">1 · Dew point & condensation</button>
         <button class="tab" role="tab" id="tab-supply" data-view="supply" aria-selected="false">2 · Supply air temperature</button>
         <button class="tab" role="tab" id="tab-chart" data-view="chart" aria-selected="false">3 · Psychrometric chart</button>
+        <button class="tab" role="tab" id="tab-adp" data-view="adp" aria-selected="false">4 · ADP & chilled water</button>
         <button class="tab" role="tab" id="tab-method" data-view="method" aria-selected="false">Method</button>
       </nav>
 
@@ -262,10 +264,57 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
             <span><i style="background:var(--c-supply)"></i>S · Supply</span>
             <span><i style="background:var(--c-coil)"></i>C · Coil leaving</span>
             <span><i style="background:var(--c-plenum)"></i>P · Ceiling void</span>
+            <span><i style="background:var(--c-shr);border-radius:1px;height:3px;width:16px"></i>RSHR line → ADP</span>
           </div>
         </div>
         <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 780 470" role="img" aria-label="Psychrometric chart"></svg></div>
         <p class="note" id="chartNote"></p>
+      </section>
+
+      <!-- TAB ADP -->
+      <section class="view" id="view-adp" role="tabpanel" aria-labelledby="tab-adp">
+        <p class="note">Apparatus dew point from the coil bypass factor, then the chilled water supply temperature from ASHRAE Handbook—HVAC Systems and Equipment (2016), Ch. 13, Eq. (11). For a full stand-alone version, open the <a href="chw-temperature/">chilled water temperature tool</a>.</p>
+        <div class="grid3">
+          <div class="field"><label for="te">Coil entering air DB (mixed air)</label><div class="inp"><input id="te" type="number" step="0.1" value="27"><span class="u">°C</span></div></div>
+          <div class="field"><label for="bfPreset">Application (typical BF)</label><div class="inp"><select id="bfPreset">
+            <option value="">Custom value</option>
+            <option value="0.4">Residence, small load or high latent · 0.30–0.50</option>
+            <option value="0.25">Small comfort, low SHF · 0.20–0.30</option>
+            <option value="0.15">Typical comfort · 0.10–0.20</option>
+            <option value="0.08">High internal sensible / much outdoor air · 0.05–0.10</option>
+            <option value="0.05">100% outdoor air (hospital, OR, factory) · 0–0.10</option>
+          </select></div></div>
+          <div class="field"><label for="bf">Coil bypass factor BF</label><div class="inp"><input id="bf" type="number" step="0.01" min="0" max="0.9" value="0.1"><span class="u">–</span></div></div>
+        </div>
+        <div class="grid3">
+          <div class="field"><label for="leaveSrc">Coil leaving air state</label><div class="inp"><select id="leaveSrc">
+            <option value="calc">From tab 2 (coil leaving)</option>
+            <option value="manual">Enter manually</option>
+          </select></div></div>
+          <div class="field" data-leave="manual"><label for="tl">Coil leaving air DB</label><div class="inp"><input id="tl" type="number" step="0.1" value="13"><span class="u">°C</span></div></div>
+          <div class="field" data-leave="manual"><label for="twbl">Coil leaving air WB</label><div class="inp"><input id="twbl" type="number" step="0.1" value="11.5"><span class="u">°C</span></div></div>
+          <div class="field"><label for="chwdt">Chilled water ΔT (return − supply)</label><div class="inp"><input id="chwdt" type="number" step="0.5" value="5.5"><span class="u">K</span></div></div>
+        </div>
+        <div id="adpErr" class="err hidden"></div>
+        <div id="adpOut" style="display:grid;gap:16px">
+          <div class="tiles" id="adpTiles"></div>
+          <div>
+            <span class="eq" id="adpEq1"></span>
+            <span class="eq" id="adpEq2" style="margin-top:6px"></span>
+          </div>
+          <div class="checks" id="adpChecks"></div>
+        </div>
+        <h3>Typical coil bypass factors</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>BF</th><th>Type of application</th><th>Example</th></tr></thead>
+          <tbody>
+            <tr><td class="num">0.30–0.50</td><td>Small total load, or a larger load with low sensible heat factor (high latent load)</td><td>Residence</td></tr>
+            <tr><td class="num">0.20–0.30</td><td>Typical comfort application with a fairly small total load, or a low SHF with a somewhat larger load</td><td>Residence, small retail shop, factory</td></tr>
+            <tr><td class="num">0.10–0.20</td><td>Typical comfort application</td><td>Department store, bank, factory</td></tr>
+            <tr><td class="num">0.05–0.10</td><td>High internal sensible load, or a large amount of outdoor air for ventilation</td><td>Department store, restaurant, factory</td></tr>
+            <tr><td class="num">0–0.10</td><td>All outdoor air</td><td>Hospital operating room, factory</td></tr>
+          </tbody>
+        </table></div>
       </section>
 
       <!-- TAB 4 -->
@@ -281,6 +330,15 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
           <h2>Supply air temperature selection</h2>
           <span class="eq">ṁ = Q / v_s ; &nbsp; T_s = T_r − Q_sens / (ṁ·c_p) ; &nbsp; c_p = 1.006 + 1.86·W_r</span>
           <span class="eq">W_s = W_r − ṁ_w / ṁ ; &nbsp; ṁ_w = Q_lat / 2501 &nbsp;(or kg/h ÷ 3600)</span>
+          <h2>Sensible heat ratio line &amp; ADP</h2>
+          <span class="eq">RSHR = Q_sens / (Q_sens + Q_lat) ; &nbsp; Q_lat = ṁ_w × 2501 &nbsp;[kW]</span>
+          <span class="eq">dW/dt along the line = c_p·(1 − RSHR) / (2501·RSHR) = c_p·ṁ_w / Q_sens</span>
+          <span class="eq">ADP: W_r − (T_r − t)·dW/dt = W_sat(t) ; &nbsp; BF = (T_s − ADP) / (T_r − ADP)</span>
+          <ul>
+            <li>The RSHR line passes through the room point. Every supply state on it removes sensible and latent load in the right proportion, so the room holds design conditions. The supply point S always lies on this line.</li>
+            <li>Where the line meets the saturation curve is the apparatus dew point (ADP), the lowest effective coil surface temperature. If the line never reaches saturation, a coil alone cannot hold the room humidity.</li>
+            <li>BF is the equivalent coil bypass factor if the coil cooled room air directly to T_s (no outdoor air, no reheat).</li>
+          </ul>
           <ul>
             <li>The coil leaving temperature needed for dehumidification is the temperature at which air with W = W_s reaches the “coil leaving RH” (default 95%).</li>
             <li>If that temperature is below T_s: <strong>the latent load governs</strong>. The coil must cool deeper, then the air is reheated to T_s.</li>
@@ -300,7 +358,7 @@ footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16
   </div>
 
   <footer>
-    <span>hochvacsbs.wordpress.com · Free tools for HVAC engineers</span>
+    <span>hochvacsbs.wordpress.com · Free tools for HVAC engineers · <a href="chw-temperature/">Chilled water temperature tool</a></span>
     <span>Your inputs are saved in your browser.</span>
   </footer>
 </div>
@@ -343,7 +401,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 
 /* ---------- State ---------- */
 const KEY="hvac-dewpoint-supply-en-v1";
-const INPUT_IDS=["tr","rhr","alt","margin","qs","ql","flowMode","vol","ach","flow","dt","rhc","chws","approach","tp","rhp"];
+const INPUT_IDS=["tr","rhr","alt","margin","qs","ql","flowMode","vol","ach","flow","dt","rhc","chws","approach","tp","rhp","te","bfPreset","bf","leaveSrc","tl","twbl","chwdt"];
 const DEFAULT_SURF=[
   {name:"Supply diffuser (aluminium frame)",t:14},
   {name:"Uninsulated supply duct",t:13},
@@ -374,7 +432,7 @@ const n=(id,def=0)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:def;
 
 /* ---------- Tabs ---------- */
 let currentView="dew";
-const VIEWS=["dew","supply","chart","method"];
+const VIEWS=["dew","supply","chart","adp","method"];
 function showView(v){
   if(!VIEWS.includes(v)) v="dew";
   currentView=v;
@@ -498,9 +556,20 @@ function supply(R){
     rhRoomActual=RHfromW(R.t,Wleave+mw/mda,p);
   }
   const tdC=tdewFromW(Wleave,p);
+  // Room sensible heat ratio & apparatus dew point (RSHR line meets saturation curve)
+  const qlKW=mw*2501, shr=qs>0? qs/(qs+qlKW) : NaN;
+  const slope= qs>0? cp*mw/qs : NaN; // dW/dt along RSHR line (kg/kg per K)
+  let adp=NaN, Wadp=NaN;
+  if(isFinite(slope)){
+    const f=t=>(R.W-(R.t-t)*slope)-Wsat(t,p);
+    if(slope===0){ adp=R.td; }
+    else{ let hi=R.td; for(let t=R.td;t>=-40;t-=0.25){ if(f(t)>=0){ adp=bisect(f,t,hi); break; } hi=t; } }
+    if(isFinite(adp)) Wadp=Wsat(adp,p);
+  }
+  const bf= isFinite(adp)&&R.t-adp>0 ? (Ts-adp)/(R.t-adp) : NaN;
   const Wp=WfromRH(n("tp",30),Math.min(100,n("rhp",70)),p), tdP=tdewFromW(Wp,p);
   return {p,mda,Q,Ts,Ws,tdS,Tc,Wleave,tdC,gov,reheat,rhRoomActual,rhc,chws,appr,vol,mode,
-    ach: vol>0? Q*3600/vol : NaN, tp:n("tp",30), Wp, tdP, qs, mw, rhS:RHfromW(Ts,Wleave,p)};
+    ach: vol>0? Q*3600/vol : NaN, tp:n("tp",30), Wp, tdP, qs, mw, rhS:RHfromW(Ts,Wleave,p), qlKW, shr, slope, adp, Wadp, bf};
 }
 
 let lastSummary="";
@@ -514,6 +583,8 @@ function renderSupply(R,S){
     <div class="tile"><div class="k">Required supply dew point</div><div class="v">${fmt(S.tdS)}<small>°C</small></div></div>
     <div class="tile"><div class="k">Coil leaving air temp.</div><div class="v">${fmt(S.Tc)}<small>°C</small></div></div>
     <div class="tile"><div class="k">Reheat</div><div class="v">${fmt(S.reheat)}<small>kW</small></div></div>
+    <div class="tile key"><div class="k">Room sensible heat ratio</div><div class="v">${fmt(S.shr,2)}<small>RSHR</small></div></div>
+    <div class="tile"><div class="k">Apparatus dew point (ADP)</div><div class="v">${fmt(S.adp)}<small>°C${isFinite(S.bf)?` · BF ${fmt(S.bf,2)}`:""}</small></div></div>
     <div class="tile"><div class="k">Supply airflow</div><div class="v">${fmt(flowH,0)}<small>m³/h</small></div></div>
     <div class="tile"><div class="k">ΔT room − supply</div><div class="v">${fmt(R.t-S.Ts)}<small>K${isFinite(S.ach)?` · ${fmt(S.ach,1)} ACH`:""}</small></div></div>`;
 
@@ -525,6 +596,15 @@ function renderSupply(R,S){
   }else{
     checks.push(["ok","Sensible load governs, no reheat needed",
       `Cooling to ${fmt(S.Ts)} °C already removes enough moisture. With ${fmt(S.rhc,0)}% coil leaving RH, the room may run drier than design, at about ${fmt(S.rhRoomActual,0)}% RH or lower.`]);
+  }
+  // sensible heat ratio
+  if(isFinite(S.shr)){
+    const adpTxt=isFinite(S.adp)?`The RSHR line through the room point meets the saturation curve at ADP = ${fmt(S.adp)} °C.`:`The RSHR line does not reach the saturation curve above −40 °C: cooling alone (without reheat or a separate dehumidifier) cannot hold this room condition.`;
+    if(S.shr<0.7) checks.push(["warn",`Low room sensible heat ratio (RSHR ${fmt(S.shr,2)})`,
+      `Latent load is ${fmt(S.qlKW)} kW of ${fmt(S.qs+S.qlKW)} kW total. ${adpTxt} A steep RSHR line usually means a low ADP, reheat, or a separate dehumidifier (desiccant / dedicated outdoor air unit).`]);
+    else if(!isFinite(S.adp)) checks.push(["warn",`RSHR line does not cross saturation (RSHR ${fmt(S.shr,2)})`,adpTxt]);
+    else checks.push(["ok",`Room sensible heat ratio RSHR ${fmt(S.shr,2)}`,
+      `${adpTxt} Every supply state on this line holds the room at design conditions${isFinite(S.bf)?`; at T_s = ${fmt(S.Ts)} °C the equivalent coil bypass factor is ${fmt(S.bf,2)}`:""}.`]);
   }
   // coil feasibility
   const minCoil=S.chws+S.appr;
@@ -577,6 +657,7 @@ function renderSupply(R,S){
     `SUPPLY AIR CHECK`,
     `Room: ${fmt(R.t)} °C / ${fmt(R.rh,0)}% · dew point ${fmt(R.td)} °C · W ${fmt(R.W*1000,2)} g/kg`,
     `Sensible load ${fmt(S.qs)} kW · moisture load ${fmt(S.mw*3600,2)} kg/h`,
+    `RSHR ${fmt(S.shr,2)} · ADP ${fmt(S.adp)} °C${isFinite(S.bf)?` · bypass factor ${fmt(S.bf,2)}`:""}`,
     `Supply airflow ${fmt(flowH,0)} m³/h${isFinite(S.ach)?` (${fmt(S.ach,1)} ACH)`:""}`,
     `Supply air ${fmt(S.Ts)} °C · supply dew point ${fmt(S.tdS)} °C`,
     `Coil leaving ${fmt(S.Tc)} °C · reheat ${fmt(S.reheat)} kW`,
@@ -638,17 +719,71 @@ function renderChart(R,S){
   if(S && !S.err){
     const Wsup=S.gov==="latent"?S.Ws:S.Wleave;
     const [sx,sy]=pt(S.Ts,Wsup), [cx,cy]=pt(S.Tc,S.Wleave), [px,py]=pt(S.tp,S.Wp);
+    // RSHR line: from ADP (or chart edge) through R, extended 4 K past R
+    if(isFinite(S.slope)){
+      const tA=isFinite(S.adp)?S.adp:Math.max(tMin,R.t-(R.W/S.slope));
+      const tB=R.t+4, WA=R.W-(R.t-tA)*S.slope, WB=R.W+(tB-R.t)*S.slope;
+      const [ax,ay]=pt(tA,WA), [bx,by]=pt(tB,WB);
+      g+=`<g clip-path="url(#plotClip)"><line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by}" stroke="var(--c-shr)" stroke-width="1.8" stroke-dasharray="8 4"/></g>`;
+      const ang=Math.atan2(by-ay,bx-ax)*180/Math.PI, mx=(ax+rx)/2, my=(ay+ry)/2;
+      g+=`<text x="${mx}" y="${my+16}" text-anchor="middle" class="lbl" style="fill:var(--c-shr)" transform="rotate(${ang.toFixed(1)} ${mx} ${my})">RSHR ${fmt(S.shr,2)}</text>`;
+      if(isFinite(S.adp)) g+=`<circle cx="${ax}" cy="${ay}" r="4.5" fill="var(--surface)" stroke="var(--c-shr)" stroke-width="2"/><text x="${ax-8}" y="${ay-8}" text-anchor="end" class="lbl" style="fill:var(--c-shr)">ADP ${fmt(S.adp)}</text>`;
+    }
     g+=`<line x1="${sx}" y1="${sy}" x2="${rx}" y2="${ry}" stroke="var(--c-supply)" stroke-width="2"/>`;
     if(S.gov==="latent") g+=`<line x1="${cx}" y1="${cy}" x2="${sx}" y2="${sy}" stroke="var(--c-coil)" stroke-width="2" stroke-dasharray="6 3"/>`;
     if(py>H0) g+=dot(px,py,"var(--c-plenum)","P");
     if(S.gov==="latent") g+=dot(cx,cy,"var(--c-coil)","C",-16,-8);
     g+=dot(sx,sy,"var(--c-supply)",S.gov==="latent"?"S":"S = C",8,16);
-    note+=`Line S→R is the supply air picking up heat and moisture in the room. `+
+    note+=`Red dashed line: room sensible heat ratio RSHR = ${fmt(S.shr,2)}${isFinite(S.adp)?`, meeting saturation at ADP ${fmt(S.adp)} °C`:""}. Any supply state on it holds the room at design. `+
+      (S.gov==="latent"?"":`Here the coil leaves at S = C, below the line, so the room ends up drier than design. `)+
+      `Line S→R is the supply air picking up heat and moisture in the room. `+
       (S.gov==="latent"?`Dashed line C→S is ${fmt(S.reheat)} kW of reheat.`:`No reheat: the coil leaves directly at the supply air temperature.`);
   }else note+="Enter data in tab 2 to plot the supply air process.";
   g+=dot(rx,ry,"var(--c-room)","R");
   svg.innerHTML=g;
   $("chartNote").textContent=note;
+}
+
+/* ---------- Tab 4: ADP from bypass factor & CHW temperature ---------- */
+$("bfPreset").addEventListener("change",()=>{ if($("bfPreset").value) $("bf").value=$("bfPreset").value; update(); });
+$("bf").addEventListener("input",()=>{ if($("bfPreset").value && $("bfPreset").value!==$("bf").value) $("bfPreset").value=""; });
+function renderADP(R,S){
+  const src=$("leaveSrc").value, p=R.p;
+  document.querySelectorAll("[data-leave]").forEach(el=>el.classList.toggle("hidden",src!=="manual"));
+  const err=$("adpErr"), out=$("adpOut");
+  const fail=m=>{ err.textContent=m; err.classList.remove("hidden"); out.classList.add("hidden"); };
+  let tl,twb,Wl;
+  if(src==="calc"){
+    if(!S||S.err) return fail("Complete tab 2 first, or enter the coil leaving state manually.");
+    tl=S.Tc; Wl=S.Wleave; twb=wetbulb(tl,Wl,p);
+  }else{
+    tl=n("tl",13); twb=n("twbl",11.5);
+    if(twb>tl) return fail("Leaving wet bulb cannot be higher than leaving dry bulb.");
+    Wl=bisect(W=>wetbulb(tl,W,p)-twb,1e-6,Wsat(tl,p));
+  }
+  const te=n("te",27), bf=n("bf",0.1), dt=n("chwdt",5.5);
+  if(!(bf>=0&&bf<1)) return fail("Bypass factor must be between 0 and 1.");
+  if(te<=tl) return fail("Coil entering DB must be higher than coil leaving DB.");
+  err.classList.add("hidden"); out.classList.remove("hidden");
+  const adp=(tl-bf*te)/(1-bf), tw=2*adp-twb, tr=tw+dt, tdl=tdewFromW(Wl,p);
+  $("adpTiles").innerHTML=`
+    <div class="tile key"><div class="k">ADP (bypass factor)</div><div class="v">${fmt(adp)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">Coil leaving WB</div><div class="v">${fmt(twb)}<small>°C</small></div></div>
+    <div class="tile key"><div class="k">CHW supply t<sub>w</sub></div><div class="v">${fmt(tw)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">CHW return</div><div class="v">${fmt(tr)}<small>°C</small></div></div>
+    <div class="tile"><div class="k">ADP on RSHR line (tab 2)</div><div class="v">${fmt(S&&!S.err?S.adp:NaN)}<small>°C</small></div></div>`;
+  $("adpEq1").textContent=`ADP = (t_leave − BF·t_enter)/(1 − BF) = (${fmt(tl)} − ${fmt(bf,2)}×${fmt(te)})/(1 − ${fmt(bf,2)}) = ${fmt(adp)} °C`;
+  $("adpEq2").textContent=`t_w = 2·t_ad − t_wb = 2×${fmt(adp)} − ${fmt(twb)} = ${fmt(tw)} °C   (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11)`;
+  const c=[];
+  if(adp>tdl+0.5) c.push(["warn","ADP is above the coil leaving dew point",`ADP ${fmt(adp)} °C > leaving dew point ${fmt(tdl)} °C. The coil cannot dehumidify to this leaving state with BF ${fmt(bf,2)}; use a lower BF (more rows / lower face velocity) or check the entering temperature.`]);
+  else c.push(["ok","ADP consistent with the leaving state",adp>tdl?`ADP ${fmt(adp)} °C ≈ leaving dew point ${fmt(tdl)} °C (within 0.5 K).`:`ADP ${fmt(adp)} °C ≤ leaving dew point ${fmt(tdl)} °C.`]);
+  if(tw<2) c.push(["bad","Below practical chilled water limit",`t_w = ${fmt(tw)} °C. About 2 °C is the lowest practical chilled water temperature; consider glycol/ice storage, DX or a desiccant dehumidifier.`]);
+  else if(tw<5) c.push(["warn","Low-temperature chilled water",`t_w = ${fmt(tw)} °C needs a low-temperature chiller selection; check with the chiller manufacturer.`]);
+  const chws=n("chws",6);
+  if(chws>tw+0.05) c.push(["warn","Design CHWS in tab 2 is warmer than required",`Tab 2 uses ${fmt(chws)} °C; this coil needs about ${fmt(tw)} °C or colder.`]);
+  else c.push(["ok","Design CHWS in tab 2 is cold enough",`${fmt(chws)} °C ≤ ${fmt(tw)} °C.`]);
+  if(tr>R.td+3) c.push(["warn","Return water well above room dew point",`Return ${fmt(tr)} °C vs room dew point ${fmt(R.td)} °C. ASHRAE notes return water should sit near the room dew point; a large ΔT may limit dehumidification at the coil outlet rows.`]);
+  $("adpChecks").innerHTML=c.map(([k,t,d])=>`<div class="check ${k}"><span class="pill ${k}">${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}</span><div><strong>${t}</strong><p>${d}</p></div></div>`).join("");
 }
 
 /* ---------- Main ---------- */
@@ -657,7 +792,7 @@ function update(){
   const R=room();
   renderRoom(R); renderDew(R);
   const S=supply(R);
-  renderSupply(R,S); renderChart(R,S);
+  renderSupply(R,S); renderChart(R,S); renderADP(R,S);
   save();
 }
 INPUT_IDS.forEach(id=>{ $(id).addEventListener("input",update); $(id).addEventListener("change",update); });
