@@ -359,14 +359,14 @@ table.sched th{text-align:center;vertical-align:middle}
       <section class="view" id="view-method" role="tabpanel" aria-labelledby="tab-method">
         <div class="method">
           <h2>How the air is followed through the AHU</h2>
-          <p>The calculation is a steady design-cooling case. Each section changes the dry-bulb temperature t and the humidity ratio W of the dry-air mass flow ṁ passing through it; enthalpy is h = 1.006·t + W·(2501 + 1.86·t). Moist-air properties follow ASHRAE Handbook – Fundamentals (Psychrometrics).</p>
+          <p>The calculation is a steady design-cooling case. Each section changes the dry-bulb temperature t and the humidity ratio W of the dry-air mass flow ṁ passing through it; enthalpy is h = 1.006·t + W·(2501 + 1.86·t). Moist-air properties follow ASHRAE Handbook – Fundamentals 2021, Ch. 1 Psychrometrics: saturation pressure Eq. (5)/(6), humidity ratio Eq. (20), specific volume Eq. (26), enthalpy Eq. (30), wet bulb Eq. (33)/(35), barometric pressure from altitude Eq. (3). Air mass flow is V̇ / v at the actual state, so no standard-air factor (1.23 / 3010) is needed and altitude is included.</p>
           <ul>
             <li><strong>Outdoor and return air:</strong> outdoor (or MAU leaving) state from DB/WB; return air = room state plus the return temperature rise and the return-fan heat.</li>
             <li><strong>Energy recovery (outdoor air ↔ exhaust):</strong> Q = ε·C<sub>min</sub>·(t<sub>OA</sub> − t<sub>EA</sub>); the wheel also transfers moisture with the latent effectiveness. If recovery would add heat or moisture to the outdoor air, the device is taken as bypassed.</li>
             <li><strong>Mixing:</strong> mass-weighted W and h of outdoor and return air. Return air reaching the AHU = supply − room leakage; relief / exhaust = return − recirculated air.</li>
             <li><strong>Desiccant wheel (simplified):</strong> dries the air to the set dew point; the process air heats by about 1.1 × the latent heat removed; reactivation heat ≈ factor × latent heat removed.</li>
             <li><strong>Wrap-around heat pipe / run-around coil:</strong> pre-cools by ε·(t<sub>in</sub> − t<sub>coil leaving</sub>) (not below the air dew point) and gives the same heat back after the cooling coil.</li>
-            <li><strong>Cooling coil:</strong> leaves at the set DB and dew point (or keeps W when the entering air is already drier). Q<sub>total</sub> = ṁ·(h<sub>in</sub> − h<sub>out</sub>); condensate = ṁ·ΔW. The apparatus dew point is where the line through the coil entering and leaving states meets saturation, and the required chilled water supply is t<sub>w</sub> = 2·t<sub>ad</sub> − t<sub>wb,leaving</sub> (ASHRAE HVAC Systems &amp; Equipment 2016, Ch. 13, Eq. 11). Water flow = Q / (4.186·ΔT).</li>
+            <li><strong>Cooling coil:</strong> leaves at the set DB and dew point (or keeps W when the entering air is already drier). Q<sub>total</sub> = ṁ·[(h<sub>in</sub> − h<sub>out</sub>) − (W<sub>in</sub> − W<sub>out</sub>)·h<sub>w</sub>], h<sub>w</sub> = 4.186·t<sub>out</sub> (ASHRAE Fundamentals 2021, Ch. 1 Eq. (43) and (32)); condensate = ṁ·ΔW. The apparatus dew point is where the line through the coil entering and leaving states meets saturation, and the required chilled water supply is t<sub>w</sub> = 2·t<sub>ad</sub> − t<sub>wb,leaving</sub> (ASHRAE HVAC Systems &amp; Equipment 2016, Ch. 13, Eq. 11). Water flow = Q / (4.186·ΔT).</li>
             <li><strong>Reheat:</strong> heats to the supply target, less the draw-through fan temperature rise. Hot-water flow = Q / (4.186·ΔT).</li>
             <li><strong>Humidifier:</strong> raises W to the minimum supply dew point (steam: constant DB; adiabatic: constant enthalpy).</li>
             <li><strong>Fans:</strong> total pressure = external static + sum of component pressure drops; absorbed power = V̇·Δp / η<sub>total</sub>. All absorbed power is taken as heat into the airstream (motor in air stream): Δt = P / (ṁ·c<sub>p</sub>). Motor per fan = next standard size ≥ absorbed power per fan × (1 + margin).</li>
@@ -611,7 +611,7 @@ function calc(){
   const CI={...x};
   if(CI.t<=ccT+1e-9) notes.push(["warn","Cooling coil entering air is already at or below the coil target",`Coil entering ${fmt(CI.t)} °C vs target ${fmt(ccT)} °C. Check the targets.`]);
   const CO={t:ccT, W:Math.min(CI.W,Wt)};
-  const qTot=m*(enth(CI.t,CI.W)-enth(CO.t,CO.W)), qSens=m*cpm(CI.W)*(CI.t-CO.t), cond=m*(CI.W-CO.W)*3600;
+  const qTot=m*((enth(CI.t,CI.W)-enth(CO.t,CO.W))-(CI.W-CO.W)*4.186*CO.t), qSens=m*cpm(CI.W)*(CI.t-CO.t), cond=m*(CI.W-CO.W)*3600;
   if(!pts.some(q=>q.code==="M"&&Math.abs(q.t-CI.t)<1e-6&&Math.abs(q.W-CI.W)<1e-9)) st("CI","Cooling coil entering",CI,"var(--c-coil)");
   st("C","Cooling coil leaving",CO,"var(--c-coil)");
   let adp=NaN, bf=NaN, twReq=NaN;
@@ -1225,7 +1225,7 @@ const COORD_COLS=[
 ];
 const SUMMARY=makeSummary({
   key:SHARED_KEYS.ahu, unit:"AHU", file:"AHU-schedule", paper:"A3",
-  footer:"hochvacsbs.wordpress.com · AHU process per ASHRAE Fundamentals psychrometrics; CHW supply t_w = 2·t_ad − t_wb (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11). Size, weight and electrical load are estimates for coordination; confirm with the AHU manufacturer's selection.",
+  footer:"hochvacsbs.wordpress.com · AHU process per ASHRAE Fundamentals 2021, Ch. 1 psychrometrics; CHW supply t_w = 2·t_ad − t_wb (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11). Size, weight and electrical load are estimates for coordination; confirm with the AHU manufacturer's selection.",
   countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
   tables:[
