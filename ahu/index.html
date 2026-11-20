@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AHU Process, Selection &amp; Schedule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* layout: shared "room conditions" sidebar + tabbed results area */
+  --bg:#edf1f4;
+  --surface:#ffffff;
+  --ink:#13212c;
+  --muted:#5a6a77;
+  --line:#d3dce3;
+  --accent:#1c5a85;
+  --accent-soft:#e2edf5;
+  --ok:#1d7548; --ok-bg:#e2f3e9;
+  --warn:#9a5c00; --warn-bg:#fcefd8;
+  --bad:#b0281f; --bad-bg:#fbe4e1;
+  --c-room:#1c5a85; --c-supply:#0f8a8a; --c-coil:#6a4bb5; --c-plenum:#b5651d; --c-shr:#c0392b;
+  --grid:#e3e9ee; --grid-strong:#c4cfd8;
+  --font-display:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-body:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f161c; --surface:#17212a; --ink:#e4ecf2; --muted:#93a4b2; --line:#2a3946;
+    --accent:#6cb3e3; --accent-soft:#1c3142;
+    --ok:#5cc98f; --ok-bg:#143326; --warn:#f0b452; --warn-bg:#3a2a10; --bad:#f2817a; --bad-bg:#3d1a18;
+    --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e; --c-shr:#ff8a7a;
+    --grid:#22303b; --grid-strong:#36485a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f161c; --surface:#17212a; --ink:#e4ecf2; --muted:#93a4b2; --line:#2a3946;
+  --accent:#6cb3e3; --accent-soft:#1c3142;
+  --ok:#5cc98f; --ok-bg:#143326; --warn:#f0b452; --warn-bg:#3a2a10; --bad:#f2817a; --bad-bg:#3d1a18;
+  --c-room:#6cb3e3; --c-supply:#4fd1c5; --c-coil:#b49cf0; --c-plenum:#e8a25e; --c-shr:#ff8a7a;
+  --grid:#22303b; --grid-strong:#36485a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--font-display);text-wrap:balance;margin:0}
+h1{font-size:1.55rem;font-weight:700;letter-spacing:-.01em}
+h2{font-size:1.1rem;font-weight:600}
+h3{font-size:.95rem;font-weight:600}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.wrap{max-width:1240px;margin:0 auto;padding:20px 16px 40px;display:grid;gap:18px}
+header.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:12px}
+.eyebrow{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.lede{color:var(--muted);margin:.25rem 0 0;max-width:62ch}
+
+.layout{display:grid;grid-template-columns:290px 1fr;gap:18px;align-items:start}
+@media (max-width:900px){.layout{grid-template-columns:1fr}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+aside.panel{position:sticky;top:12px;display:grid;gap:14px}
+@media (max-width:900px){aside.panel{position:static}}
+
+.field{display:grid;gap:4px}
+.field label{font-size:.82rem;color:var(--muted);font-weight:500}
+.inp{display:flex;align-items:center;border:1px solid var(--line);border-radius:7px;background:var(--bg);overflow:hidden}
+.inp input,.inp select{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);font:inherit;font-family:var(--font-num);padding:7px 9px}
+.inp select{font-family:var(--font-body)}
+.inp .u{padding:0 9px;color:var(--muted);font-size:.8rem;white-space:nowrap}
+.inp:focus-within{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:520px){.grid3{grid-template-columns:1fr 1fr}}
+
+.props{display:grid;grid-template-columns:1fr auto;gap:4px 10px;font-size:.88rem;border-top:1px solid var(--line);padding-top:12px}
+.props dt{color:var(--muted)}
+.props dd{margin:0;text-align:right}
+.props dd.big{font-size:1.05rem;font-weight:600;color:var(--accent)}
+
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tab{appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-weight:600;padding:9px 14px;border-bottom:2px solid transparent;cursor:pointer;margin-bottom:-1px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.view{display:none;gap:16px}
+.view.on{display:grid}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--surface)}
+.tile .k{font-size:.78rem;color:var(--muted)}
+.tile .v{font-family:var(--font-num);font-size:1.35rem;font-weight:600;font-variant-numeric:tabular-nums}
+.tile .v small{font-size:.75rem;color:var(--muted);font-weight:400;margin-left:3px}
+.tile.key{border-color:var(--accent);background:var(--accent-soft)}
+
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:.76rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+td.r,th.r{text-align:right}
+td.num{white-space:nowrap}
+td input{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;padding:5px 7px}
+td input[type=number]{font-family:var(--font-num);max-width:90px}
+
+.pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.76rem;font-weight:600;white-space:nowrap}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+
+.checks{display:grid;gap:8px}
+.check{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;padding:10px 12px;border-radius:8px;border-left:4px solid var(--line);background:var(--bg)}
+.check.ok{border-left-color:var(--ok)}
+.check.warn{border-left-color:var(--warn)}
+.check.bad{border-left-color:var(--bad)}
+.check p{margin:2px 0 0;color:var(--muted);font-size:.86rem}
+.check strong{font-weight:600}
+
+.btn{appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:inherit;font-weight:600;font-size:.85rem;padding:7px 12px;border-radius:7px;cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.btn.primary:hover{opacity:.9;color:var(--surface)}
+.btn.ghost{border-color:transparent;color:var(--muted);padding:4px 8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+
+.seg{display:inline-flex;justify-self:start;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.seg button{appearance:none;border:0;background:transparent;color:var(--muted);font:inherit;font-size:.82rem;font-weight:600;padding:5px 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+
+.note{font-size:.84rem;color:var(--muted);margin:0}
+.err{background:var(--bad-bg);color:var(--bad);padding:10px 12px;border-radius:8px;font-weight:500}
+.hidden{display:none!important}
+
+.chart-wrap{overflow-x:auto}
+svg.chart{display:block;width:100%;min-width:620px;height:auto}
+svg.chart text{font-family:var(--font-body);fill:var(--muted);font-size:11px}
+svg.chart .lbl{fill:var(--ink);font-weight:600;font-size:12px}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:.84rem}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+
+.method{max-width:72ch;display:grid;gap:12px}
+.method p,.method li{font-size:.92rem}
+.method code,.eq{font-family:var(--font-num);font-size:.86rem;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+.eq{display:block;padding:8px 10px;overflow-x:auto;white-space:nowrap}
+.method ul{margin:0;padding-left:1.2rem;display:grid;gap:4px}
+footer{font-size:.8rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px;justify-content:space-between}
+.inp input[type=text]{font-family:var(--font-body)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{border-color:var(--line);color:var(--ink)}
+.badge{display:inline-block;min-width:1.5em;padding:0 6px;margin-left:5px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-size:.74rem;text-align:center;font-family:var(--font-num)}
+table.sum th,table.sum td{white-space:nowrap}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:9px 15px;border-radius:8px;font-size:.88rem;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:90vw}
+.toast.on{opacity:1}
+.toast.bad{background:var(--bad);color:#fff}
+.field.full{grid-column:1/-1}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+.dlg{border:1px solid var(--line);border-radius:12px;padding:0;max-width:580px;width:calc(100% - 32px);background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.dlg::backdrop{background:rgba(10,20,30,.45)}
+.dlg-body{padding:20px 22px;display:grid;gap:10px}
+.dlg-body h2{margin:0}
+.scope{border:0;padding:0;margin:4px 0 0;display:grid;gap:10px}
+.opt{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:.92rem}
+.opt input{accent-color:var(--accent)}
+.opt small{color:var(--muted)}
+.opt select{grid-column:2;font:inherit;font-size:.88rem;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.sr{position:absolute;left:-9999px}
+td.ctr{text-align:center}
+tr.units th{font-weight:400;font-style:italic;color:var(--accent);text-transform:none}
+th.grp{text-align:center}
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.comp-grp{grid-column:1/-1;margin:8px 0 0;font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.comp{border:1px solid var(--line);border-radius:9px;padding:10px 12px;display:grid;gap:8px;background:var(--surface);align-content:start}
+.comp.off{opacity:.62}
+.comp.off .comp-f{display:none}
+.comp.fixed{border-color:var(--accent)}
+.comp-h{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.comp-h input{margin-top:3px;width:16px;height:16px;accent-color:var(--accent);flex:none}
+.comp-h small{display:block;color:var(--muted);font-size:.78rem;font-weight:400;margin-top:2px}
+.comp-f{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.comp-f .field label{font-size:.76rem}
+.diag-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:9px;padding:8px;background:var(--bg)}
+svg.diagram{display:block;width:100%;min-width:780px;height:auto}
+svg.diagram .dl{font:600 11px var(--font-body);fill:var(--ink)}
+svg.diagram .ds{font:10px var(--font-num);fill:var(--muted)}
+svg.diagram .dp{font:700 9px var(--font-body);fill:var(--ink)}
+table.sched th,table.sched td{white-space:nowrap;font-size:.78rem}
+table.sched th{text-align:center;vertical-align:middle}
+#sizeBody th{text-align:left;white-space:nowrap;width:1%}
+#sizeBody td.note{font-size:.8rem}
+.layout>main.panel{min-width:0}
+.tbl-wrap{overflow-x:auto;max-width:100%}
+.view>*,#sumWrap>*,#calcOut>*{min-width:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">HVAC tools · Air handling unit</div>
+      <h1>AHU process, selection &amp; schedule</h1>
+      <p class="lede">Pick the AHU sections, see the airflow diagram, follow the air through every component on the psychrometric chart, and build an AHU schedule and a coordination list for many units.</p>
+    </div>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn primary" id="linkBtn" type="button">⇄ Link data from other tools</button>
+      <button class="btn" id="resetBtn" type="button">Restore sample data</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="panel" aria-label="AHU and design inputs">
+      <h2>AHU</h2>
+      <div class="grid2">
+        <div class="field"><label for="ahuId">AHU tag</label><div class="inp"><input id="ahuId" data-save type="text" value="F1/1F/AHU/001" autocomplete="off"></div></div>
+        <div class="field"><label for="ahuType">AHU type</label><div class="inp"><input id="ahuType" data-save type="text" value="A1" autocomplete="off"></div></div>
+        <div class="field full"><label for="block">Block – floor</label><div class="inp"><input id="block" data-save type="text" value="F1 – Ground floor" autocomplete="off"></div></div>
+        <div class="field"><label for="clean">Clean class</label><div class="inp"><select id="clean" data-save>
+          <option>CNC</option><option>GRADE D</option><option selected>GRADE C</option><option>GRADE B</option><option>ISO 8</option><option>ISO 7</option><option>ISO 5</option><option>Comfort</option></select></div></div>
+        <div class="field"><label for="qty">Quantity</label><div class="inp"><input id="qty" data-save type="number" step="1" min="1" value="1"><span class="u">set</span></div></div>
+        <div class="field full"><label for="rooms">Rooms served (Room IDs)</label><div class="inp"><input id="rooms" data-save type="text" value="R-101" autocomplete="off"></div></div>
+        <div class="field full"><label for="pumpTag">Coil pump tag <small>(blank = automatic)</small></label><div class="inp"><input id="pumpTag" data-save type="text" value="" autocomplete="off" placeholder="auto"></div></div>
+      </div>
+      <input type="hidden" id="roomsData" data-save value="">
+      <p class="note hidden" id="linkedNote"></p>
+
+      <h2>Design conditions</h2>
+      <div class="grid2">
+        <div class="field"><label for="alt">Altitude</label><div class="inp"><input id="alt" data-save type="number" step="10" value="10"><span class="u">m</span></div></div>
+        <div class="field"><label for="oaSrc">Outdoor air source</label><div class="inp"><select id="oaSrc" data-save><option value="outdoor">Outdoor</option><option value="mau">MAU (pre-treated)</option></select></div></div>
+        <div class="field"><label for="oaDb" id="oaDbLbl">Outdoor air DB</label><div class="inp"><input id="oaDb" data-save type="number" step="0.1" value="35"><span class="u">°C</span></div></div>
+        <div class="field"><label for="oaWb" id="oaWbLbl">Outdoor air WB</label><div class="inp"><input id="oaWb" data-save type="number" step="0.1" value="28"><span class="u">°C</span></div></div>
+        <div class="field"><label for="roomT">Room DB</label><div class="inp"><input id="roomT" data-save type="number" step="0.1" value="23"><span class="u">°C</span></div></div>
+        <div class="field"><label for="roomRH">Room RH</label><div class="inp"><input id="roomRH" data-save type="number" step="1" value="55"><span class="u">%</span></div></div>
+        <div class="field full"><label for="retRise">Return air temperature rise (ceiling, lights)</label><div class="inp"><input id="retRise" data-save type="number" step="0.1" value="0.5"><span class="u">K</span></div></div>
+      </div>
+      <dl class="props" id="sideProps"></dl>
+    </aside>
+
+    <main class="panel">
+      <nav class="tabs" role="tablist" aria-label="Sections">
+        <button class="tab" role="tab" id="tab-config" data-view="config" aria-selected="true">1 · Configuration</button>
+        <button class="tab" role="tab" id="tab-calc" data-view="calc" aria-selected="false">2 · Calculation</button>
+        <button class="tab" role="tab" id="tab-chart" data-view="chart" aria-selected="false">3 · Psychrometric chart</button>
+        <button class="tab" role="tab" id="tab-summary" data-view="summary" aria-selected="false">Summary<span class="badge" id="sumCount">0</span></button>
+        <button class="tab" role="tab" id="tab-method" data-view="method" aria-selected="false">Method</button>
+      </nav>
+
+      <!-- CONFIGURATION -->
+      <section class="view on" id="view-config" role="tabpanel" aria-labelledby="tab-config">
+        <div class="row">
+          <div class="field" style="margin:0"><label>System</label>
+            <div class="seg" role="group" aria-label="System type">
+              <button type="button" data-sys="recirc" aria-pressed="true">Return air + outdoor air</button>
+              <button type="button" data-sys="fa" aria-pressed="false">100% fresh air</button>
+            </div>
+          </div>
+          <input type="hidden" id="sys" data-save value="recirc">
+        </div>
+        <div class="grid3">
+          <div class="field"><label for="qSa">Supply airflow</label><div class="inp"><input id="qSa" data-save type="number" step="10" value="12000"><span class="u">m³/h</span></div></div>
+          <div class="field" data-recirc><label for="oaMode">Outdoor air given as</label><div class="inp"><select id="oaMode" data-save><option value="pct">% of supply</option><option value="flow">Airflow</option></select></div></div>
+          <div class="field" data-recirc><label for="oaVal" id="oaValLbl">Outdoor air</label><div class="inp"><input id="oaVal" data-save type="number" step="1" value="20"><span class="u" id="oaValU">%</span></div></div>
+          <div class="field"><label for="leak">Room pressurisation / leakage</label><div class="inp"><input id="leak" data-save type="number" step="10" value="600"><span class="u">m³/h</span></div></div>
+          <div class="field" data-recirc><label for="mixPd">Mixing box &amp; dampers, air PD</label><div class="inp"><input id="mixPd" data-save type="number" step="5" value="50"><span class="u">Pa</span></div></div>
+          <div class="field"><label for="casePd">Casing, inlet &amp; outlet allowance</label><div class="inp"><input id="casePd" data-save type="number" step="5" value="100"><span class="u">Pa</span></div></div>
+        </div>
+        <h3 style="margin-bottom:0">Air targets</h3>
+        <div class="grid3">
+          <div class="field"><label for="ccT">Cooling coil leaving DB</label><div class="inp"><input id="ccT" data-save type="number" step="0.1" value="13"><span class="u">°C</span></div></div>
+          <div class="field"><label for="ccTd">Cooling coil leaving dew point</label><div class="inp"><input id="ccTd" data-save type="number" step="0.1" value="12.5"><span class="u">°C</span></div></div>
+          <div class="field"><label for="ts">Supply air DB (at AHU outlet)</label><div class="inp"><input id="ts" data-save type="number" step="0.1" value="16"><span class="u">°C</span></div></div>
+        </div>
+
+        <div class="row" style="margin-top:4px">
+          <h2>AHU diagram</h2>
+          <div class="legend">
+            <span><i style="background:#2b7bb9"></i>Cooling</span>
+            <span><i style="background:#c0392b"></i>Heating</span>
+            <span><i style="background:#2e8b57"></i>Energy recovery</span>
+            <span><i style="background:#b5651d"></i>Desiccant</span>
+          </div>
+        </div>
+        <div class="diag-wrap"><svg id="diagram" class="diagram" role="img" aria-label="AHU airflow diagram"></svg></div>
+        <p class="note" id="diagNote"></p>
+
+        <h2>Components</h2>
+        <p class="note">Tick the sections the AHU has. Choices for position (wrap-around or outdoor-air side, blow- or draw-through fan, desiccant before or after mixing) change the diagram and the calculation.</p>
+        <div id="compGrid" class="comp-grid"></div>
+      </section>
+
+      <!-- CALCULATION -->
+      <section class="view" id="view-calc" role="tabpanel" aria-labelledby="tab-calc">
+        <div id="calcErr" class="err hidden"></div>
+        <div id="calcOut" style="display:grid;gap:16px">
+          <div class="tiles" id="tiles"></div>
+          <div>
+            <h3 style="margin-bottom:6px">Air states through the AHU</h3>
+            <div class="tbl-wrap"><table><thead><tr><th>Point</th><th>Location</th><th class="r">DB °C</th><th class="r">WB °C</th><th class="r">RH %</th><th class="r">W g/kg</th><th class="r">Dew point °C</th><th class="r">h kJ/kg</th></tr></thead><tbody id="ptsBody"></tbody></table></div>
+          </div>
+          <div>
+            <h3 style="margin-bottom:6px">Component duties</h3>
+            <div class="tbl-wrap"><table><thead><tr><th>Component</th><th class="r">Duty</th><th>Details</th><th class="r">Air PD Pa</th></tr></thead><tbody id="dutyBody"></tbody></table></div>
+          </div>
+          <div>
+            <h3 style="margin-bottom:6px">Fans</h3>
+            <div class="tbl-wrap"><table><thead><tr><th>Fan</th><th class="r">Airflow m³/h</th><th class="r">ESP Pa</th><th class="r">Internal PD Pa</th><th class="r">Total SP Pa</th><th class="r">Absorbed kW</th><th>Array</th><th class="r">Installed kW</th><th>Drive</th></tr></thead><tbody id="fanBody"></tbody></table></div>
+          </div>
+          <div>
+            <h3 style="margin-bottom:6px">Size, weight &amp; electrical load <small class="note">(estimate for coordination)</small></h3>
+            <div class="tbl-wrap"><table><tbody id="sizeBody"></tbody></table></div>
+          </div>
+          <div class="row"><h2>Checks</h2><div class="btns"><button class="btn" type="button" id="copyBtn">Copy results</button><button class="btn primary" type="button" id="addSumBtn">+ Add to summary</button></div></div>
+          <div class="checks" id="checks"></div>
+        </div>
+      </section>
+
+      <!-- CHART -->
+      <section class="view" id="view-chart" role="tabpanel" aria-labelledby="tab-chart">
+        <div class="row">
+          <h2>AHU process on the psychrometric chart</h2>
+          <div class="legend">
+            <span><i style="background:var(--c-plenum)"></i>Outdoor air</span>
+            <span><i style="background:var(--c-room)"></i>Room / return</span>
+            <span><i style="background:var(--c-coil)"></i>Coil &amp; ADP</span>
+            <span><i style="background:var(--c-supply)"></i>Supply</span>
+          </div>
+        </div>
+        <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 780 470" role="img" aria-label="Psychrometric chart of the AHU process"></svg></div>
+        <p class="note" id="chartNote"></p>
+      </section>
+
+      <!-- SUMMARY -->
+      <section class="view" id="view-summary" role="tabpanel" aria-labelledby="tab-summary">
+        <div class="row">
+          <h2>AHU summary</h2>
+          <div class="btns">
+            <button class="btn" type="button" id="sumXlsx">Export Excel</button>
+            <button class="btn" type="button" id="sumPdf">Export PDF</button>
+            <button class="btn ghost" type="button" id="sumClear">Clear all</button>
+          </div>
+        </div>
+        <p class="note">Press “+ Add to summary” in tab 2 for each AHU, or link all AHUs at once from the other tools. An AHU with the same tag replaces the earlier entry; “Load” brings it back to edit. Excel exports both tables as two sheets; PDF prints them on A3 landscape.</p>
+        <p class="note hidden" id="sumEmpty" style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center">No AHUs yet.</p>
+        <div id="sumWrap" style="display:grid;gap:18px">
+          <div><h3 style="margin-bottom:6px">Table 1 · Air handling unit schedule</h3>
+            <div class="tbl-wrap"><table class="sum sched"><thead id="sumHead"></thead><tbody id="sumBody"></tbody></table></div></div>
+          <div><h3 style="margin-bottom:6px">Table 2 · AHU coordination</h3>
+            <div class="tbl-wrap"><table class="sum sched"><thead id="coHead"></thead><tbody id="coBody"></tbody></table></div></div>
+        </div>
+      </section>
+
+      <!-- METHOD -->
+      <section class="view" id="view-method" role="tabpanel" aria-labelledby="tab-method">
+        <div class="method">
+          <h2>How the air is followed through the AHU</h2>
+          <p>The calculation is a steady design-cooling case. Each section changes the dry-bulb temperature t and the humidity ratio W of the dry-air mass flow ṁ passing through it; enthalpy is h = 1.006·t + W·(2501 + 1.86·t). Moist-air properties follow ASHRAE Handbook – Fundamentals (Psychrometrics).</p>
+          <ul>
+            <li><strong>Outdoor and return air:</strong> outdoor (or MAU leaving) state from DB/WB; return air = room state plus the return temperature rise and the return-fan heat.</li>
+            <li><strong>Energy recovery (outdoor air ↔ exhaust):</strong> Q = ε·C<sub>min</sub>·(t<sub>OA</sub> − t<sub>EA</sub>); the wheel also transfers moisture with the latent effectiveness. If recovery would add heat or moisture to the outdoor air, the device is taken as bypassed.</li>
+            <li><strong>Mixing:</strong> mass-weighted W and h of outdoor and return air. Return air reaching the AHU = supply − room leakage; relief / exhaust = return − recirculated air.</li>
+            <li><strong>Desiccant wheel (simplified):</strong> dries the air to the set dew point; the process air heats by about 1.1 × the latent heat removed; reactivation heat ≈ factor × latent heat removed.</li>
+            <li><strong>Wrap-around heat pipe / run-around coil:</strong> pre-cools by ε·(t<sub>in</sub> − t<sub>coil leaving</sub>) (not below the air dew point) and gives the same heat back after the cooling coil.</li>
+            <li><strong>Cooling coil:</strong> leaves at the set DB and dew point (or keeps W when the entering air is already drier). Q<sub>total</sub> = ṁ·(h<sub>in</sub> − h<sub>out</sub>); condensate = ṁ·ΔW. The apparatus dew point is where the line through the coil entering and leaving states meets saturation, and the required chilled water supply is t<sub>w</sub> = 2·t<sub>ad</sub> − t<sub>wb,leaving</sub> (ASHRAE HVAC Systems &amp; Equipment 2016, Ch. 13, Eq. 11). Water flow = Q / (4.186·ΔT).</li>
+            <li><strong>Reheat:</strong> heats to the supply target, less the draw-through fan temperature rise. Hot-water flow = Q / (4.186·ΔT).</li>
+            <li><strong>Humidifier:</strong> raises W to the minimum supply dew point (steam: constant DB; adiabatic: constant enthalpy).</li>
+            <li><strong>Fans:</strong> total pressure = external static + sum of component pressure drops; absorbed power = V̇·Δp / η<sub>total</sub>. All absorbed power is taken as heat into the airstream (motor in air stream): Δt = P / (ṁ·c<sub>p</sub>). Motor per fan = next standard size ≥ absorbed power per fan × (1 + margin).</li>
+            <li><strong>Size and weight (estimate):</strong> face area = supply airflow / coil face velocity, width ≈ 1.5 × height, plus panels; length is the sum of typical section lengths. Operating weight sums 50 mm double-skin panels, base frame, and typical weights per m² of face area for each section (wet coils included). Use the manufacturer's selection for the final figures.</li>
+          </ul>
+          <h2>Linking with the other tools</h2>
+          <p>All tools on this site share the browser's storage. “Link data” reads the room summaries of the <a href="../">dew point &amp; supply air tool</a> (airflow, room condition, coil leaving DB and dew point, supply temperature) and, when present, the <a href="../chw-temperature/">chilled water tool</a> (required chilled water supply and ΔT). Rooms are grouped by AC equipment name into AHUs: airflows are added, and the coil and supply targets follow the most demanding room (lowest dew point / coil leaving temperature).</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer>
+    <span>hochvacsbs.wordpress.com · Free tools for HVAC engineers · <a href="../">Dew point &amp; supply air</a> · <a href="../chw-temperature/">Chilled water temperature</a></span>
+    <span>Your inputs are saved in your browser.</span>
+  </footer>
+</div>
+<script>
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/* ---------- Psychrometrics (ASHRAE Fundamentals) ---------- */
+function pws(t){ const T=t+273.15; let ln;
+  if(t>=0){ ln=-5.8002206e3/T+1.3914993-4.8640239e-2*T+4.1764768e-5*T*T-1.4452093e-8*T*T*T+6.5459673*Math.log(T); }
+  else { ln=-5.6745359e3/T+6.3925247-9.677843e-3*T+6.2215701e-7*T*T+2.0747825e-9*T*T*T-9.484024e-13*T*T*T*T+4.1635019*Math.log(T); }
+  return Math.exp(ln)/1000; }
+const pressure=z=>101.325*Math.pow(1-2.25577e-5*z,5.2559);
+const WfromPw=(pw,p)=>0.621945*pw/(p-pw);
+const PwfromW=(W,p)=>p*W/(0.621945+W);
+const WfromRH=(t,rh,p)=>WfromPw(rh/100*pws(t),p);
+const RHfromW=(t,W,p)=>PwfromW(W,p)/pws(t)*100;
+const Wsat=(t,p)=>WfromPw(pws(t),p);
+const enth=(t,W)=>1.006*t+W*(2501+1.86*t);
+const tFromH=(h,W)=>(h-2501*W)/(1.006+1.86*W);
+const vol=(t,W,p)=>0.287042*(t+273.15)*(1+1.607858*W)/p;
+function bisect(f,a,b){ let fa=f(a); for(let i=0;i<80;i++){ const m=(a+b)/2, fm=f(m); if((fm>0)===(fa>0)){a=m;fa=fm;} else b=m; } return (a+b)/2; }
+const tdewFromW=(W,p)=>{ const pw=PwfromW(Math.max(W,1e-7),p); return bisect(t=>pws(t)-pw,-80,100); };
+const WfromTd=(td,p)=>WfromPw(pws(td),p);
+const WfromWB=(t,tw,p)=>{ const ws=Wsat(tw,p);
+  return tw>=0 ? ((2501-2.326*tw)*ws-1.006*(t-tw))/(2501+1.86*t-4.186*tw)
+               : ((2830-0.24*tw)*ws-1.006*(t-tw))/(2830+1.86*t-2.1*tw); };
+const wetbulb=(t,W,p)=>bisect(tw=>WfromWB(t,tw,p)-W,-40,t);
+const cpm=W=>1.006+1.86*W;
+const fmt=(x,d=1)=>isFinite(x)?x.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}):"–";
+const n=(id,def=0)=>{ const v=parseFloat($(id).value); return isFinite(v)?v:def; };
+const chk=id=>!!($(id)&&$(id).checked);
+const r2=(x,d)=>isFinite(x)?Math.round(x*10**d)/10**d:NaN;
+const MOTORS=[0.37,0.55,0.75,1.1,1.5,2.2,3,4,5.5,7.5,11,15,18.5,22,30,37,45,55,75,90,110];
+const motorFor=kw=>MOTORS.find(m=>m>=kw)||Math.ceil(kw);
+
+/* ---------- Component definitions (drive the cards, the diagram and the calculation) ---------- */
+const COMPS=[
+  {grp:"Filters", id:"cPre", name:"Pre-filter", def:true, desc:"Panel filter at the air inlet.",
+    f:[{id:"preCls",l:"Class",sel:["G3","G4","M5","M6"],v:"G4"},{id:"prePd",l:"Air PD (mid-life)",u:"Pa",v:100}]},
+  {grp:"Filters", id:"cFin", name:"Final filter", def:true, desc:"Bag or rigid filter after mixing.",
+    f:[{id:"finCls",l:"Class",sel:["F7","F8","F9","E10","E11","E12"],v:"F8"},{id:"finPd",l:"Air PD (mid-life)",u:"Pa",v:200}]},
+  {grp:"Filters", id:"cRoomF", name:"Terminal & return filters", fixed:true, desc:"In the rooms and return ducts (not in the AHU casing; covered by the ESP).",
+    f:[{id:"term",l:"Terminal (supply)",sel:["—","H13","H14","U15"],v:"H14"},{id:"retf",l:"Return",sel:["—","G4 mesh","F7","BIBO G4+H14"],v:"G4 mesh"}]},
+  {grp:"Energy recovery", id:"cWheel", name:"Heat recovery wheel", desc:"Enthalpy wheel between outdoor and exhaust air.",
+    f:[{id:"wheelEs",l:"Sensible effectiveness",u:"%",v:75},{id:"wheelEl",l:"Latent effectiveness",u:"%",v:65},{id:"wheelPd",l:"Air PD each side",u:"Pa",v:150},{id:"wheelKw",l:"Drive motor",u:"kW",v:0.37}]},
+  {grp:"Energy recovery", id:"cPlate", name:"Heat recovery coil / plate HX", desc:"Sensible recovery between outdoor and exhaust air.",
+    f:[{id:"plateE",l:"Effectiveness",u:"%",v:60},{id:"platePd",l:"Air PD each side",u:"Pa",v:200}]},
+  {grp:"Energy recovery", id:"cRa", name:"Run-around coil", desc:"Two coils joined by a pumped glycol loop.",
+    f:[{id:"raPos",l:"Position",sel:[["oa","Outdoor air ↔ exhaust"],["wrap","Wrap-around cooling coil"]],v:"oa"},{id:"raE",l:"Effectiveness",u:"%",v:50},{id:"raPd",l:"Air PD per coil",u:"Pa",v:120},{id:"raPump",l:"Loop pump",u:"kW",v:0.75}]},
+  {grp:"Energy recovery", id:"cHp", name:"Heat pipe", desc:"Passive heat pipe; wrap-around saves cooling and reheat.",
+    f:[{id:"hpPos",l:"Position",sel:[["wrap","Wrap-around cooling coil"],["oa","Outdoor air ↔ exhaust"]],v:"wrap"},{id:"hpE",l:"Effectiveness",u:"%",v:45},{id:"hpPd",l:"Air PD per section",u:"Pa",v:100}]},
+  {grp:"Dehumidification", id:"cDes", name:"Desiccant wheel", desc:"Dries the air below what the cooling coil can reach.",
+    f:[{id:"desPos",l:"Position",sel:[["oa","On outdoor air (before mixing)"],["mix","After mixing"]],v:"oa"},{id:"desTd",l:"Leaving dew point",u:"°C",v:8},{id:"desReact",l:"Reactivation heat",sel:["Electric","Hot water","Steam","Gas"],v:"Electric"},{id:"desFac",l:"Reactivation factor",u:"×",v:1.4},{id:"desPd",l:"Process air PD",u:"Pa",v:200},{id:"desKw",l:"Drive motor",u:"kW",v:0.37}]},
+  {grp:"Coils", id:"cPh", name:"Preheat coil", desc:"Heats before the cooling coil (winter, or before a desiccant).",
+    f:[{id:"phT",l:"Leaving DB (minimum)",u:"°C",v:18},{id:"phType",l:"Type",sel:["Hot water","Electric"],v:"Hot water"},{id:"phPd",l:"Air PD",u:"Pa",v:60}]},
+  {grp:"Coils", id:"cCc", name:"Cooling coil (chilled water)", fixed:true, desc:"Cools and dehumidifies to the coil leaving target.",
+    f:[{id:"ewt",l:"CHW EWT (design)",u:"°C",v:7.5},{id:"lwt",l:"CHW LWT",u:"°C",v:15},{id:"ccWpd",l:"Water PD (max.)",u:"kPa",v:60},{id:"ccPd",l:"Air PD (wet)",u:"Pa",v:250},{id:"vface",l:"Face velocity",u:"m/s",v:2.5}]},
+  {grp:"Coils", id:"cRh", name:"Reheat coil", def:true, desc:"Reheats to the supply air temperature.",
+    f:[{id:"rhType",l:"Type",sel:["Hot water","Electric"],v:"Hot water"},{id:"hwEwt",l:"HW EWT",u:"°C",v:30},{id:"hwLwt",l:"HW LWT",u:"°C",v:26},{id:"hwWpd",l:"Water PD (max.)",u:"kPa",v:60},{id:"rhPd",l:"Air PD",u:"Pa",v:60}]},
+  {grp:"Humidification & other", id:"cHum", name:"Humidifier", desc:"Keeps a minimum supply dew point.",
+    f:[{id:"humType",l:"Type",sel:["Steam (electric)","Steam (plant)","Adiabatic"],v:"Steam (electric)"},{id:"humTd",l:"Min. supply dew point",u:"°C",v:5},{id:"humPd",l:"Air PD",u:"Pa",v:40}]},
+  {grp:"Humidification & other", id:"cUv", name:"UV-C lamp", desc:"Coil and drain-pan disinfection.",
+    f:[{id:"uvKw",l:"Lamp power",u:"kW",v:0.3}]},
+  {grp:"Humidification & other", id:"cAtt", name:"Sound attenuator", desc:"Splitter silencer at the discharge.",
+    f:[{id:"attPd",l:"Air PD",u:"Pa",v:80}]},
+  {grp:"Fans", id:"cSf", name:"Supply fan", fixed:true, desc:"Plug-fan array; its heat goes into the supply air.",
+    f:[{id:"sfPos",l:"Position",sel:[["draw","Draw-through (after coils)"],["blow","Blow-through (before cooling coil)"]],v:"draw"},{id:"esp",l:"External static pressure",u:"Pa",v:650},{id:"sfEff",l:"Total efficiency",u:"%",v:60},{id:"sfN",l:"Fans in array (0 = auto)",u:"no.",v:0},{id:"sfDrive",l:"Drive",sel:["EC","VFD"],v:"EC"},{id:"margin",l:"Motor margin",u:"%",v:15}]},
+  {grp:"Fans", id:"cRf", name:"Return fan", desc:"Return / exhaust fan in the top deck.",
+    f:[{id:"rfEsp",l:"External static pressure",u:"Pa",v:300},{id:"rfEff",l:"Total efficiency",u:"%",v:55},{id:"rfN",l:"Fans in array (0 = auto)",u:"no.",v:0},{id:"rfDrive",l:"Drive",sel:["EC","VFD"],v:"EC"}]}
+];
+(function buildCards(){
+  const grid=$("compGrid"); let html="", g="";
+  COMPS.forEach(c=>{
+    if(c.grp!==g){ g=c.grp; html+=`<h3 class="comp-grp">${esc(g)}</h3>`; }
+    html+=`<div class="comp ${c.fixed?"fixed":""}" data-comp="${c.id}">
+      <label class="comp-h">${c.fixed?`<span class="pill ok">Included</span>`:`<input type="checkbox" id="${c.id}" data-save ${c.def?"checked":""}>`}<span><strong>${esc(c.name)}</strong><small>${esc(c.desc)}</small></span></label>
+      <div class="comp-f">${c.f.map(f=>{
+        const ctl=f.sel?`<select id="${f.id}" data-save>${f.sel.map(o=>{ const [v,l]=Array.isArray(o)?o:[o,o]; return `<option value="${esc(v)}" ${v===f.v?"selected":""}>${esc(l)}</option>`; }).join("")}</select>`
+          :`<input id="${f.id}" data-save type="number" step="any" value="${f.v}">${f.u?`<span class="u">${esc(f.u)}</span>`:""}`;
+        return `<div class="field"><label for="${f.id}">${esc(f.l)}</label><div class="inp">${ctl}</div></div>`; }).join("")}</div>
+    </div>`;
+  });
+  grid.innerHTML=html;
+})();
+
+/* ---------- Persistence ---------- */
+const KEY="hvac-ahu-v1";
+const CTRLS=()=>[...document.querySelectorAll("[data-save]")];
+const defaults={}; CTRLS().forEach(el=>defaults[el.id]=el.type==="checkbox"?el.checked:el.value);
+let view="config";
+const getInputs=()=>{ const o={}; CTRLS().forEach(el=>o[el.id]=el.type==="checkbox"?el.checked:el.value); return o; };
+const setInputs=o=>{ CTRLS().forEach(el=>{ if(o[el.id]==null) return; if(el.type==="checkbox") el.checked=!!o[el.id]; else el.value=o[el.id]; }); };
+function save(){ try{ localStorage.setItem(KEY,JSON.stringify({inputs:getInputs(),view})); }catch(e){} }
+function load(){ try{ const o=JSON.parse(localStorage.getItem(KEY)||"null"); if(!o) return; if(o.inputs) setInputs(o.inputs); if(o.view) view=o.view; }catch(e){} }
+
+const VIEWS=["config","calc","chart","summary","method"];
+function showView(v){ if(!VIEWS.includes(v)) v="config"; view=v;
+  document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===v?"true":"false"));
+  VIEWS.forEach(x=>$("view-"+x).classList.toggle("on",x===v)); }
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{ showView(b.dataset.view); try{history.replaceState(null,"","#"+b.dataset.view);}catch(e){} save(); }));
+document.querySelectorAll("[data-sys]").forEach(b=>b.addEventListener("click",()=>{ $("sys").value=b.dataset.sys; update(); }));
+
+const roomsList=()=>{ try{ const a=JSON.parse($("roomsData").value||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } };
+const pumpTagOf=tag=>$("pumpTag").value.trim()||(/AHU/i.test(tag)?tag.replace(/AHU/i,"PU/AHU"):("PU-"+tag));
+
+/* ---------- Calculation ---------- */
+function calc(){
+  const p=pressure(n("alt",0)), sys=$("sys").value, fa=sys==="fa";
+  const Q=n("qSa",0); if(!(Q>0)) return {err:"Enter a supply airflow greater than 0."};
+  const qOa=fa?Q:($("oaMode").value==="pct"?Q*n("oaVal",0)/100:n("oaVal",0));
+  if(qOa<0||qOa>Q+1e-9) return {err:"Outdoor airflow must be between 0 and the supply airflow."};
+  const leak=Math.max(0,n("leak",0)); if(leak>=Q) return {err:"Room leakage must be smaller than the supply airflow."};
+  const qRet=Q-leak, qRel=fa?qRet:Math.max(0,qRet-(Q-qOa));
+  const oaDb=n("oaDb"), oaWb=n("oaWb"); if(oaWb>oaDb) return {err:"Outdoor (or MAU) wet bulb cannot exceed its dry bulb."};
+  const OA={t:oaDb, W:WfromWB(oaDb,oaWb,p)}; if(!(OA.W>0)) return {err:"Outdoor wet bulb is too low for the dry bulb entered."};
+  const roomT=n("roomT"), roomRH=Math.min(100,Math.max(1,n("roomRH",50))), Wroom=WfromRH(roomT,roomRH,p), tdRoom=tdewFromW(Wroom,p);
+  const ccT=n("ccT"), ccTd=n("ccTd"), Ts=n("ts");
+  if(ccTd>ccT+1e-9) return {err:"Cooling coil leaving dew point cannot be above the leaving dry bulb."};
+  const Wt=WfromTd(ccTd,p);
+  const c={pre:chk("cPre"),fin:chk("cFin"),wheel:chk("cWheel"),plate:chk("cPlate"),ra:chk("cRa"),hp:chk("cHp"),des:chk("cDes"),ph:chk("cPh"),rh:chk("cRh"),hum:chk("cHum"),uv:chk("cUv"),att:chk("cAtt"),rf:chk("cRf")};
+  const raOa=c.ra&&$("raPos").value==="oa", raWrap=c.ra&&!raOa, hpOa=c.hp&&$("hpPos").value==="oa", hpWrap=c.hp&&!hpOa;
+  const desOa=c.des&&$("desPos").value==="oa", desMix=c.des&&!desOa, blow=$("sfPos").value==="blow";
+  const notes=[], duties=[], pts=[], lines=[];
+  const st=(code,desc,s,col)=>{ const o={code,desc,t:s.t,W:s.W,col}; pts.push(o); return o; };
+
+  /* pressure drops */
+  const pd=[]; const addPd=(k,v)=>{ if(v>0) pd.push([k,v]); };
+  addPd("Casing, inlet & outlet",n("casePd",0));
+  if(c.pre) addPd(`Pre-filter ${$("preCls").value}`,n("prePd",0));
+  if(c.wheel) addPd("Heat recovery wheel",n("wheelPd",0));
+  if(c.plate) addPd("Plate HX",n("platePd",0));
+  if(raOa) addPd("Run-around coil",n("raPd",0));
+  if(hpOa) addPd("Heat pipe",n("hpPd",0));
+  if(c.des) addPd("Desiccant wheel",n("desPd",0));
+  if(!fa) addPd("Mixing box & dampers",n("mixPd",0));
+  if(c.fin) addPd(`Final filter ${$("finCls").value}`,n("finPd",0));
+  if(c.ph) addPd("Preheat coil",n("phPd",0));
+  if(raWrap) addPd("Run-around coils (2)",2*n("raPd",0));
+  if(hpWrap) addPd("Heat pipe sections (2)",2*n("hpPd",0));
+  addPd("Cooling coil (wet)",n("ccPd",0));
+  if(c.rh) addPd("Reheat coil",n("rhPd",0));
+  if(c.hum) addPd("Humidifier",n("humPd",0));
+  if(c.att) addPd("Sound attenuator",n("attPd",0));
+  const internal=pd.reduce((a,b)=>a+b[1],0), esp=n("esp",0), tsp=esp+internal;
+  const sfEff=Math.max(5,n("sfEff",60))/100, sfP=Q/3600*tsp/sfEff/1000;
+  const sfN=n("sfN",0)>0?Math.round(n("sfN",0)):Math.max(1,Math.ceil(Q/8000));
+  const sfMotor=motorFor(sfP/sfN*(1+n("margin",15)/100)), sfInst=sfN*sfMotor;
+
+  /* return / exhaust side */
+  const R0={t:roomT+n("retRise",0), W:Wroom};
+  const mRet=qRet/3600/vol(R0.t,R0.W,p);
+  let rf=null, R={...R0};
+  if(c.rf){
+    const rpd=[]; if(c.wheel) rpd.push(n("wheelPd",0)); if(c.plate) rpd.push(n("platePd",0)); if(raOa) rpd.push(n("raPd",0)); if(hpOa) rpd.push(n("hpPd",0));
+    const rInt=50+rpd.reduce((a,b)=>a+b,0), rTsp=n("rfEsp",0)+rInt, rEff=Math.max(5,n("rfEff",55))/100;
+    const P=qRet/3600*rTsp/rEff/1000, N=n("rfN",0)>0?Math.round(n("rfN",0)):Math.max(1,Math.ceil(qRet/8000));
+    const motor=motorFor(P/N*(1+n("margin",15)/100));
+    rf={q:qRet,esp:n("rfEsp",0),internal:rInt,tsp:rTsp,P,N,motor,inst:N*motor,drive:$("rfDrive").value};
+    if(mRet>0) R.t+=P/(mRet*cpm(R.W));
+  }
+  st("OA",$("oaSrc").value==="mau"?"Outdoor air (MAU leaving)":"Outdoor air",OA,"var(--c-plenum)");
+  st("R","Return air"+(c.rf?" (after return fan)":""),R,"var(--c-room)");
+
+  /* outdoor-air stream: energy recovery and desiccant */
+  let o={...OA};
+  const mOa=qOa/3600/vol(OA.t,OA.W,p);
+  const e={...R}; const mEx=qRel/3600/vol(R.t,R.W,p);
+  const hrDevs=[]; if(c.wheel) hrDevs.push(["Heat recovery wheel",n("wheelEs",0)/100,n("wheelEl",0)/100]);
+  if(c.plate) hrDevs.push(["Plate HX / heat recovery coil",n("plateE",0)/100,0]);
+  if(raOa) hrDevs.push(["Run-around coil",n("raE",0)/100,0]);
+  if(hpOa) hrDevs.push(["Heat pipe",n("hpE",0)/100,0]);
+  let hrKw=0; const hrNames=[];
+  hrDevs.forEach(([nm,es,el])=>{
+    if(!(mOa>0)||!(mEx>0)){ notes.push(["warn",`${nm} has no exhaust air`,`There is no relief/exhaust air through the AHU (outdoor air ≤ room leakage), so the ${nm.toLowerCase()} cannot recover energy.`]); duties.push([nm,0,"No exhaust air",0]); return; }
+    const mMin=Math.min(mOa,mEx), cO=mOa*cpm(o.W), cE=mEx*cpm(e.W), cMin=Math.min(cO,cE);
+    const Qs=es*cMin*(o.t-e.t), dW=el*mMin/mOa*(o.W-e.W);
+    const o2={t:o.t-Qs/cO, W:o.W-dW};
+    if(enth(o2.t,o2.W)>enth(o.t,o.W)-1e-6){ notes.push(["warn",`${nm} bypassed`,`Exhaust air is warmer or more humid than the outdoor air (${fmt(o.t)} °C), so recovery would add load; the device is taken as bypassed for this design case.`]); duties.push([nm,0,"Bypassed (no benefit in cooling)",0]); return; }
+    const q=mOa*(enth(o.t,o.W)-enth(o2.t,o2.W)); hrKw+=q; hrNames.push(nm);
+    e.t+=Qs/cE; e.W+=dW*mOa/mEx;
+    if(o2.t<tdewFromW(o2.W,p)) notes.push(["warn",`Condensation in the ${nm.toLowerCase()}`,"The outdoor air is cooled below its dew point; provide a drain pan."]);
+    duties.push([nm,q,`OA ${fmt(o.t)} → ${fmt(o2.t)} °C${dW>0?`, W −${fmt(dW*1000,2)} g/kg`:""}; exhaust leaves at ${fmt(e.t)} °C`,0]);
+    o=o2;
+  });
+  let des=null;
+  const desiccant=(s,m,where)=>{
+    const Wd=WfromTd(n("desTd",8),p);
+    if(s.W<=Wd){ notes.push(["warn","Desiccant wheel removes no moisture",`The air entering the desiccant (${where}) is already drier than the set dew point of ${fmt(n("desTd",8))} °C.`]); duties.push(["Desiccant wheel",0,"No moisture removed",0]); return s; }
+    const dW=s.W-Wd, out={t:s.t+1.1*dW*2501/cpm(Wd), W:Wd};
+    const react=n("desFac",1.4)*m*dW*2501;
+    des={kgh:m*dW*3600, react, type:$("desReact").value};
+    duties.push(["Desiccant wheel",react,`Removes ${fmt(m*dW*3600,1)} kg/h; air ${fmt(s.t)} → ${fmt(out.t)} °C, dew point ${fmt(tdewFromW(s.W,p))} → ${fmt(n("desTd",8))} °C; reactivation ${$("desReact").value.toLowerCase()}`,0]);
+    return out;
+  };
+  if(desOa&&mOa>0) o=desiccant(o,mOa,"outdoor air");
+  if(hrDevs.length||desOa) st("OA'","Outdoor air after "+[hrNames.length?"energy recovery":"",desOa?"desiccant":""].filter(Boolean).join(" & "),o,"var(--c-plenum)");
+
+  /* mixing */
+  let m, M;
+  if(fa){ m=mOa; M={...o}; }
+  else{
+    const mRa=(Q-qOa)/3600/vol(R.t,R.W,p); m=mOa+mRa;
+    const W=(mOa*o.W+mRa*R.W)/m, h=(mOa*enth(o.t,o.W)+mRa*enth(R.t,R.W))/m;
+    M={t:tFromH(h,W), W};
+    st("M","Mixed air",M,"var(--ink)");
+    lines.push(["OA'","M"],["R","M"]);
+  }
+  if(desMix){ M=desiccant(M,m,"mixed air"); st("D","After desiccant wheel",M,"var(--c-plenum)"); }
+  const dTfan=sfP/(m*cpm(M.W));
+  let x={...M};
+  if(blow){ x.t+=dTfan; st("F","After supply fan (blow-through)",x,"var(--c-supply)"); }
+  if(c.ph){
+    const tgt=n("phT",18);
+    if(x.t<tgt){ const q=m*cpm(x.W)*(tgt-x.t); duties.push(["Preheat coil",q,`${fmt(x.t)} → ${fmt(tgt)} °C · ${$("phType").value}`,n("phPd",0)]); x.t=tgt; st("P","After preheat coil",x,"#c0392b"); }
+    else duties.push(["Preheat coil",0,`Not needed in this case (air already ${fmt(x.t)} °C ≥ ${fmt(tgt)} °C)`,n("phPd",0)]);
+  }
+  /* wrap-around pre-cool */
+  let wrapQ=0; const wrapNames=[];
+  [[hpWrap,"Heat pipe",n("hpE",0)/100],[raWrap,"Run-around coil",n("raE",0)/100]].forEach(([on,nm,eps])=>{
+    if(!on) return;
+    const td=tdewFromW(x.W,p), tNew=Math.max(x.t-eps*(x.t-ccT),Math.min(x.t,td));
+    const q=m*cpm(x.W)*(x.t-tNew); wrapQ+=q; wrapNames.push(nm); x.t=tNew;
+  });
+  if(wrapQ>0) st("PC","After wrap-around pre-cool",x,"#2e8b57");
+  /* cooling coil */
+  const CI={...x};
+  if(CI.t<=ccT+1e-9) notes.push(["warn","Cooling coil entering air is already at or below the coil target",`Coil entering ${fmt(CI.t)} °C vs target ${fmt(ccT)} °C. Check the targets.`]);
+  const CO={t:ccT, W:Math.min(CI.W,Wt)};
+  const qTot=m*(enth(CI.t,CI.W)-enth(CO.t,CO.W)), qSens=m*cpm(CI.W)*(CI.t-CO.t), cond=m*(CI.W-CO.W)*3600;
+  if(!pts.some(q=>q.code==="M"&&Math.abs(q.t-CI.t)<1e-6&&Math.abs(q.W-CI.W)<1e-9)) st("CI","Cooling coil entering",CI,"var(--c-coil)");
+  st("C","Cooling coil leaving",CO,"var(--c-coil)");
+  let adp=NaN, bf=NaN, twReq=NaN;
+  if(CI.W-CO.W>1e-6&&CI.t>CO.t){
+    const sl=(CI.W-CO.W)/(CI.t-CO.t), f=t=>(CO.W+sl*(t-CO.t))-Wsat(t,p);
+    if(f(CO.t)<0){ let hi=CO.t; for(let t=CO.t;t>=-30;t-=0.1){ if(f(t)>=0){ adp=bisect(f,t,hi); break; } hi=t; } }
+    if(isFinite(adp)){ bf=(CO.t-adp)/(CI.t-adp); twReq=2*adp-wetbulb(CO.t,CO.W,p); }
+  }
+  const ewt=n("ewt",7.5), lwt=n("lwt",15), chwFlow=lwt>ewt?qTot/(4.186*(lwt-ewt)):NaN;
+  duties.push(["Cooling coil (CHW)",qTot,`Sensible ${fmt(qSens)} kW · condensate ${fmt(cond,1)} kg/h · CHW ${fmt(ewt)}/${fmt(lwt)} °C, ${fmt(chwFlow,2)} L/s${isFinite(adp)?` · ADP ${fmt(adp)} °C, BF ${fmt(bf,2)}`:""}`,n("ccPd",0)]);
+  x={...CO};
+  if(wrapQ>0){ x.t+=wrapQ/(m*cpm(x.W)); st("RW","After wrap-around reheat",x,"#2e8b57"); duties.push([wrapNames.join(" + ")+" (wrap-around)",wrapQ,`Pre-cool ${fmt(CI.t+0)} °C side and free reheat to ${fmt(x.t)} °C`,0]); }
+  if(c.uv) duties.push(["UV-C lamp",n("uvKw",0),"Electrical",0]);
+  /* reheat */
+  const tgt=Ts-(blow?0:dTfan);
+  let qRh=0, hwFlow=NaN;
+  if(c.rh){
+    if(x.t<tgt-1e-9){ qRh=m*cpm(x.W)*(tgt-x.t); x.t=tgt; st("RH","After reheat coil",x,"#c0392b"); }
+    const elec=$("rhType").value==="Electric", he=n("hwEwt",30), hl=n("hwLwt",26);
+    if(!elec&&he>hl) hwFlow=qRh/(4.186*(he-hl));
+    duties.push(["Reheat coil",qRh,elec?"Electric":`HW ${fmt(he)}/${fmt(hl)} °C, ${fmt(hwFlow,2)} L/s`,n("rhPd",0)]);
+  }
+  /* humidifier */
+  let hum=null;
+  if(c.hum){
+    const Wh=WfromTd(n("humTd",5),p), type=$("humType").value;
+    if(x.W<Wh){
+      const kgh=m*(Wh-x.W)*3600;
+      if(type==="Adiabatic"){ const h=enth(x.t,x.W); x={t:tFromH(h,Wh),W:Wh}; } else x={t:x.t,W:Wh};
+      hum={kgh,kw:type==="Steam (electric)"?kgh*0.75:0,type};
+      st("H","After humidifier",x,"var(--c-supply)");
+    } else hum={kgh:0,kw:0,type};
+    duties.push(["Humidifier",hum.kw,`${fmt(hum.kgh,1)} kg/h · ${type}${hum.kgh===0?" (not needed in cooling design)":""}`,n("humPd",0)]);
+  }
+  if(!blow) x.t+=dTfan;
+  const S={...x}; st("S","Supply air (AHU outlet)",S,"var(--c-supply)");
+  duties.push(["Supply fan",sfP,`${sfN} × ${fmt(sfMotor,sfMotor<1?2:1)} kW ${$("sfDrive").value}; air +${fmt(dTfan,2)} K`,0]);
+  if(rf) duties.push(["Return fan",rf.P,`${rf.N} × ${fmt(rf.motor,rf.motor<1?2:1)} kW ${rf.drive}`,0]);
+
+  /* checks */
+  if(isFinite(twReq)){
+    if(ewt>twReq+0.05) notes.unshift(["bad","Chilled water too warm for this coil",`Required t_w = 2·ADP − t_wb = ${fmt(twReq)} °C, design EWT ${fmt(ewt)} °C. Lower the EWT, add rows, or pre-dry the air (desiccant / wrap-around).`]);
+    else notes.unshift(["ok","Chilled water temperature is adequate",`Design EWT ${fmt(ewt)} °C ≤ required ${fmt(twReq)} °C (ADP ${fmt(adp)} °C).`]);
+    if(twReq<2) notes.push(["bad","Below practical chilled water limit","Required chilled water is below about 2 °C; consider desiccant dehumidification."]);
+  } else if(CI.W<=Wt) notes.push(["ok","Dry cooling coil","The air entering the coil is already drier than the target; the coil only cools sensibly."]);
+  if(ccTd>=tdRoom-0.05) notes.push(["warn","Coil leaving dew point is not below the room dew point",`Coil leaving dew point ${fmt(ccTd)} °C vs room ${fmt(tdRoom)} °C: the supply air cannot remove the room's moisture load.`]);
+  if(Math.abs(S.t-Ts)>0.3) notes.push(["warn",`Supply air ${fmt(S.t)} °C differs from the target ${fmt(Ts)} °C`,S.t>Ts?"Fan heat or wrap-around reheat already exceeds the target; lower the coil leaving temperature or reduce the wrap-around effectiveness.":"Add or enable a reheat coil, or raise the coil leaving temperature."]);
+  else notes.push(["ok","Supply air reaches the target",`${fmt(S.t)} °C at the AHU outlet (target ${fmt(Ts)} °C).`]);
+  const vface=Math.max(0.5,n("vface",2.5));
+  if(vface>2.8) notes.push(["warn","High coil face velocity",`${fmt(vface,2)} m/s; keep wet coils at or below about 2.5–2.8 m/s to avoid condensate carry-over.`]);
+  if(qOa>0&&!fa&&qOa/Q<0.05) notes.push(["warn","Very low outdoor air ratio",`${fmt(qOa/Q*100,1)} % of supply; check ventilation and pressurisation needs.`]);
+  if(!fa&&qRel<=0&&(c.rf)) notes.push(["warn","No relief air","Outdoor air is not larger than the room leakage, so all return air is recirculated."]);
+
+  /* size, weight, electrical */
+  const A=Q/3600/vface, Hi=Math.ceil(Math.sqrt(A/1.5)*10)/10, Wi=Math.ceil(A/Hi*10)/10;
+  const topDeck=!fa||c.rf||hrDevs.length>0||c.des;
+  const Ar=topDeck?Math.max(qRet,1)/3600/3.0:0, Hr=topDeck?Math.max(0.5,Math.ceil(Ar/Wi*10)/10):0;
+  const Wo=Wi+0.2, Ho=Hi+0.2+(topDeck?Hr+0.2:0)+0.15;
+  const fanLen=Math.max(1.0,0.9*Hi+0.3);
+  const sec=[["Inlet / plenum",0.6]];
+  if(!fa) sec.push(["Mixing box",0.9]);
+  if(c.pre) sec.push(["Pre-filter",0.3]); if(c.wheel) sec.push(["HR wheel",0.7]); if(c.plate) sec.push(["Plate HX",Math.max(1.2,Ho*0.8)]);
+  if(raOa) sec.push(["Run-around coil",0.4]); if(hpOa) sec.push(["Heat pipe",0.5]); if(c.des) sec.push(["Desiccant wheel",1.0]);
+  if(c.fin) sec.push(["Final filter",0.6]); if(blow) sec.push(["Supply fan",fanLen]); if(c.ph) sec.push(["Preheat coil",0.4]);
+  if(raWrap) sec.push(["Run-around pre-cool",0.4]); if(hpWrap) sec.push(["Heat pipe pre-cool",0.4]);
+  sec.push(["Cooling coil + drain section",1.1]); if(c.uv) sec.push(["UV-C",0.3]);
+  if(raWrap) sec.push(["Run-around reheat",0.4]); if(hpWrap) sec.push(["Heat pipe reheat",0.4]);
+  if(c.rh) sec.push(["Reheat coil",0.4]); if(c.hum) sec.push(["Humidifier",$("humType").value==="Adiabatic"?1.2:1.0]);
+  if(!blow) sec.push(["Supply fan",fanLen]); if(c.att) sec.push(["Sound attenuator",0.9]); sec.push(["Discharge plenum",0.5]);
+  const Lo=Math.ceil(sec.reduce((a,b)=>a+b[1],0)*10)/10;
+  const wt=[]; const addW=(k,v)=>{ if(v>0) wt.push([k,v]); };
+  addW("Casing (50 mm panels)",2*(Wo*Ho+Ho*Lo+Wo*Lo)*22); addW("Base frame",Lo*Wo*25);
+  const Atot=A+(topDeck?Wi*Hr:0);
+  if(c.pre) addW("Pre-filter",A*8); if(c.fin) addW("Final filter",A*18); if(!fa) addW("Mixing dampers",A*25);
+  if(c.wheel) addW("HR wheel",Atot*140); if(c.plate) addW("Plate HX",Atot*120); if(c.ra) addW("Run-around coils",2*A*60); if(c.hp) addW("Heat pipe",Atot*90);
+  if(c.des) addW("Desiccant wheel",Atot*200); if(c.ph) addW("Preheat coil",A*45); addW("Cooling coil (wet)",A*160); if(c.rh) addW("Reheat coil",A*45);
+  if(c.hum) addW("Humidifier",A*40+30); if(c.att) addW("Attenuator",A*55); if(c.uv) addW("UV-C",A*5);
+  addW("Supply fans",sfN*(25+9*sfMotor)); if(rf) addW("Return fans",rf.N*(25+9*rf.motor));
+  const weight=Math.ceil(wt.reduce((a,b)=>a+b[1],0)/10)*10, floorLoad=weight/(Wo*Lo);
+  const el=[]; const addE=(k,v)=>{ if(v>0) el.push([k,v]); };
+  addE("Supply fans (installed)",sfInst); if(rf) addE("Return fans (installed)",rf.inst);
+  if(c.wheel) addE("HR wheel motor",n("wheelKw",0)); if(c.ra) addE("Run-around pump",n("raPump",0));
+  if(c.des){ addE("Desiccant wheel motor",n("desKw",0)); if(des&&des.type==="Electric") addE("Desiccant reactivation heater",des.react); }
+  if(c.ph&&$("phType").value==="Electric") addE("Electric preheat",duties.find(d=>d[0]==="Preheat coil")?.[1]||0);
+  if(c.rh&&$("rhType").value==="Electric") addE("Electric reheat",qRh);
+  if(hum&&hum.kw>0) addE("Electric steam humidifier",hum.kw); if(c.uv) addE("UV-C lamps",n("uvKw",0));
+  const elec=el.reduce((a,b)=>a+b[1],0);
+
+  const tag=$("ahuId").value.trim();
+  return {p,fa,Q,qOa,qRet,qRel,leak,m,mOa,OA,R,M,CI,CO,S,Wroom,tdRoom,roomT,roomRH,ccT,ccTd,Ts,qTot,qSens,cond,adp,bf,twReq,ewt,lwt,chwFlow,
+    qRh,hwFlow,hrKw,hrNames,des,hum,dTfan,internal,pd,esp,tsp,sfP,sfN,sfMotor,sfInst,rf,c,blow,raOa,raWrap,hpOa,hpWrap,desOa,desMix,topDeck,
+    Wo,Ho,Lo,Wi,Hi,Hr,A,sec,wt,weight,floorLoad,el,elec,duties,notes,pts,lines,tag,phQ:duties.find(d=>d[0]==="Preheat coil")?.[1]||0};
+}
+
+/* ---------- Render ---------- */
+let last=null, summaryTxt="";
+function render(){
+  const fa=$("sys").value==="fa";
+  document.querySelectorAll("[data-sys]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sys===$("sys").value?"true":"false"));
+  document.querySelectorAll("[data-recirc]").forEach(e=>e.classList.toggle("hidden",fa));
+  const flowMode=$("oaMode").value==="flow"; $("oaValU").textContent=flowMode?"m³/h":"%";
+  const mau=$("oaSrc").value==="mau"; $("oaDbLbl").textContent=mau?"MAU leaving air DB":"Outdoor air DB"; $("oaWbLbl").textContent=mau?"MAU leaving air WB":"Outdoor air WB";
+  document.querySelectorAll(".comp").forEach(card=>{ const cb=card.querySelector("input[type=checkbox]"); const on=!cb||cb.checked; card.classList.toggle("off",!on); card.querySelectorAll(".comp-f input,.comp-f select").forEach(i=>i.disabled=!on); });
+  const rl=roomsList(); $("linkedNote").classList.toggle("hidden",!rl.length);
+  if(rl.length) $("linkedNote").textContent=`Linked: ${rl.map(r=>`${r.id} (${fmt(r.flow,0)} m³/h)`).join(", ")}`;
+  const R=calc(); last=R;
+  if(R.err){
+    $("calcErr").textContent=R.err; $("calcErr").classList.remove("hidden"); $("calcOut").classList.add("hidden");
+    $("sideProps").innerHTML=""; drawDiagram(null); drawChart(null); return;
+  }
+  $("calcErr").classList.add("hidden"); $("calcOut").classList.remove("hidden");
+  const p=R.p, prop=s=>({twb:wetbulb(s.t,s.W,p),rh:RHfromW(s.t,s.W,p),td:tdewFromW(s.W,p),h:enth(s.t,s.W)});
+  $("sideProps").innerHTML=`
+    <dt>Room dew point</dt><dd class="num big">${fmt(R.tdRoom)} °C</dd>
+    <dt>Room W</dt><dd class="num">${fmt(R.Wroom*1000,2)} g/kg</dd>
+    <dt>Outdoor air W / h</dt><dd class="num">${fmt(R.OA.W*1000,2)} g/kg · ${fmt(enth(R.OA.t,R.OA.W))} kJ/kg</dd>
+    <dt>Outdoor air</dt><dd class="num">${fmt(R.qOa,0)} m³/h (${fmt(R.qOa/R.Q*100,0)} %)</dd>
+    <dt>Relief / exhaust</dt><dd class="num">${fmt(R.qRel,0)} m³/h</dd>`;
+  $("tiles").innerHTML=`
+    <div class="tile key"><div class="k">Cooling coil total</div><div class="v">${fmt(R.qTot)}<small>kW</small></div></div>
+    <div class="tile"><div class="k">Cooling coil sensible</div><div class="v">${fmt(R.qSens)}<small>kW</small></div></div>
+    <div class="tile key"><div class="k">Required CHW supply t<sub>w</sub></div><div class="v">${fmt(R.twReq)}<small>°C${isFinite(R.adp)?` · ADP ${fmt(R.adp)}`:""}</small></div></div>
+    <div class="tile"><div class="k">CHW flow</div><div class="v">${fmt(R.chwFlow,2)}<small>L/s</small></div></div>
+    <div class="tile"><div class="k">Reheat</div><div class="v">${fmt(R.qRh)}<small>kW</small></div></div>
+    <div class="tile"><div class="k">Supply fans</div><div class="v">${R.sfN} × ${fmt(R.sfMotor,R.sfMotor<1?2:1)}<small>kW · TSP ${fmt(R.tsp,0)} Pa</small></div></div>
+    <div class="tile"><div class="k">AHU size W × H × L</div><div class="v" style="font-size:1.05rem">${fmt(R.Wo*1000,0)} × ${fmt(R.Ho*1000,0)} × ${fmt(R.Lo*1000,0)}<small>mm</small></div></div>
+    <div class="tile"><div class="k">Operating weight · electrical</div><div class="v" style="font-size:1.05rem">${fmt(R.weight,0)}<small>kg · ${fmt(R.elec,1)} kW</small></div></div>`;
+  $("ptsBody").innerHTML=R.pts.map(s=>{ const q=prop(s); return `<tr><td><strong>${esc(s.code)}</strong></td><td>${esc(s.desc)}</td><td class="r num">${fmt(s.t)}</td><td class="r num">${fmt(q.twb)}</td><td class="r num">${fmt(q.rh,0)}</td><td class="r num">${fmt(s.W*1000,2)}</td><td class="r num">${fmt(q.td)}</td><td class="r num">${fmt(q.h)}</td></tr>`; }).join("")+
+    (isFinite(R.adp)?`<tr><td><strong>ADP</strong></td><td>Apparatus dew point (cooling coil)</td><td class="r num">${fmt(R.adp)}</td><td class="r num">${fmt(R.adp)}</td><td class="r num">100</td><td class="r num">${fmt(Wsat(R.adp,p)*1000,2)}</td><td class="r num">${fmt(R.adp)}</td><td class="r num">${fmt(enth(R.adp,Wsat(R.adp,p)))}</td></tr>`:"");
+  $("dutyBody").innerHTML=R.duties.map(d=>`<tr><td>${esc(d[0])}</td><td class="r num">${fmt(d[1],d[1]<10?2:1)} kW</td><td>${esc(d[2])}</td><td class="r num">${d[3]?fmt(d[3],0):""}</td></tr>`).join("");
+  $("fanBody").innerHTML=`<tr><td>Supply</td><td class="r num">${fmt(R.Q,0)}</td><td class="r num">${fmt(R.esp,0)}</td><td class="r num">${fmt(R.internal,0)}</td><td class="r num">${fmt(R.tsp,0)}</td><td class="r num">${fmt(R.sfP,2)}</td><td>${R.sfN} × ${fmt(R.sfMotor,R.sfMotor<1?2:1)} kW</td><td class="r num">${fmt(R.sfInst,1)}</td><td>${esc($("sfDrive").value)}</td></tr>`+
+    (R.rf?`<tr><td>Return</td><td class="r num">${fmt(R.rf.q,0)}</td><td class="r num">${fmt(R.rf.esp,0)}</td><td class="r num">${fmt(R.rf.internal,0)}</td><td class="r num">${fmt(R.rf.tsp,0)}</td><td class="r num">${fmt(R.rf.P,2)}</td><td>${R.rf.N} × ${fmt(R.rf.motor,R.rf.motor<1?2:1)} kW</td><td class="r num">${fmt(R.rf.inst,1)}</td><td>${esc(R.rf.drive)}</td></tr>`:"")+
+    `<tr><td colspan="9" class="note">Supply internal PD: ${R.pd.map(x=>`${esc(x[0])} ${fmt(x[1],0)}`).join(" · ")} Pa</td></tr>`;
+  $("sizeBody").innerHTML=`
+    <tr><th>Casing W × H × L</th><td class="num">${fmt(R.Wo*1000,0)} × ${fmt(R.Ho*1000,0)} × ${fmt(R.Lo*1000,0)} mm</td><td class="note">Coil face ${fmt(R.Wi*1000,0)} × ${fmt(R.Hi*1000,0)} mm (${fmt(R.A,2)} m² at ${fmt(n("vface",2.5),2)} m/s)${R.topDeck?` · upper (return) deck ${fmt(R.Hr*1000,0)} mm`:""}</td></tr>
+    <tr><th>Sections (supply deck)</th><td class="num">${fmt(R.Lo*1000,0)} mm</td><td class="note">${R.sec.map(s=>`${esc(s[0])} ${fmt(s[1]*1000,0)}`).join(" · ")}</td></tr>
+    <tr><th>Operating weight</th><td class="num">${fmt(R.weight,0)} kg</td><td class="note">${R.wt.map(w=>`${esc(w[0])} ${fmt(w[1],0)}`).join(" · ")}</td></tr>
+    <tr><th>Floor load</th><td class="num">${fmt(R.floorLoad,0)} kg/m²</td><td class="note">Operating weight over the casing footprint ${fmt(R.Wo,2)} × ${fmt(R.Lo,2)} m</td></tr>
+    <tr><th>Electrical load</th><td class="num">${fmt(R.elec,1)} kW · 380/3/50</td><td class="note">${R.el.map(e=>`${esc(e[0])} ${fmt(e[1],2)}`).join(" · ")}</td></tr>`;
+  $("checks").innerHTML=R.notes.map(([k,t,d])=>`<div class="check ${k}"><span class="pill ${k}">${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}</span><div><strong>${esc(t)}</strong><p>${esc(d)}</p></div></div>`).join("");
+  summaryTxt=[`AHU ${R.tag} · ${$("block").value} · ${$("clean").value}`,
+    `Supply ${fmt(R.Q,0)} m³/h · OA ${fmt(R.qOa,0)} m³/h · ESP ${fmt(R.esp,0)} Pa`,
+    ...R.pts.map(s=>`${s.code}: ${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg`),
+    `Cooling ${fmt(R.qTot)} kW (sensible ${fmt(R.qSens)}), CHW ${fmt(R.ewt)}/${fmt(R.lwt)} °C ${fmt(R.chwFlow,2)} L/s, required t_w ${fmt(R.twReq)} °C`,
+    `Reheat ${fmt(R.qRh)} kW · Fans ${R.sfN} × ${fmt(R.sfMotor,1)} kW · Size ${fmt(R.Wo*1000,0)}×${fmt(R.Ho*1000,0)}×${fmt(R.Lo*1000,0)} mm · ${fmt(R.weight,0)} kg · ${fmt(R.elec,1)} kW`,
+    ...R.notes.map(([k,t])=>`- [${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}] ${t}`)].join("\n");
+  drawDiagram(R); drawChart(R);
+}
+$("copyBtn").addEventListener("click",async()=>{ const b=$("copyBtn");
+  try{ await navigator.clipboard.writeText(summaryTxt); b.textContent="Copied"; }catch(e){ b.textContent="Browser blocked copying"; }
+  setTimeout(()=>b.textContent="Copy results",1800); });
+
+/* ---------- Diagram ---------- */
+function drawDiagram(R){
+  const svg=$("diagram"); const fa=$("sys").value==="fa";
+  const c={pre:chk("cPre"),fin:chk("cFin"),wheel:chk("cWheel"),plate:chk("cPlate"),ra:chk("cRa"),hp:chk("cHp"),des:chk("cDes"),ph:chk("cPh"),rh:chk("cRh"),hum:chk("cHum"),uv:chk("cUv"),att:chk("cAtt"),rf:chk("cRf")};
+  const raOa=c.ra&&$("raPos").value==="oa", hpOa=c.hp&&$("hpPos").value==="oa", raW=c.ra&&!raOa, hpW=c.hp&&!hpOa;
+  const desOa=c.des&&$("desPos").value==="oa", blow=$("sfPos").value==="blow";
+  const top=!fa||c.rf||c.wheel||c.plate||raOa||hpOa||c.des;
+  const S=[]; // supply-deck sections
+  const add=(k,lbl,w,span)=>S.push({k,lbl,w:w||64,span:!!span});
+  add("oa","",34);
+  if(c.pre) add("filter",$("preCls").value);
+  if(c.wheel) add("wheel","HR wheel",70,true);
+  if(c.plate) add("plate","Plate HX",74,true);
+  if(raOa) add("racoil","Run-around",64,true);
+  if(hpOa) add("hpipe","Heat pipe",64,true);
+  if(desOa) add("des","Desiccant",76,true);
+  add("pt","OA'",14);
+  if(!fa) add("mix","Mixing",70,true);
+  if(c.des&&!desOa) add("des","Desiccant",76,true);
+  if(c.fin) add("filter",$("finCls").value);
+  if(blow) add("fan","Supply fan",80);
+  if(c.ph) add("hcoil","Preheat");
+  if(hpW) add("wrapA","Heat pipe");
+  if(raW) add("wrapA","Run-around");
+  add("pt","CI",14);
+  add("ccoil","Cooling coil",70);
+  add("pt","C",14);
+  if(c.uv) add("uv","UV-C",40);
+  if(raW) add("wrapB","Run-around");
+  if(hpW) add("wrapB","Heat pipe");
+  if(c.rh) add("hcoil","Reheat");
+  if(c.hum) add("hum","Humidifier",70);
+  if(!blow) add("fan","Supply fan",80);
+  if(c.att) add("att","Attenuator",64);
+  add("sa","",40);
+  const x0=30, gap=6; let x=x0; S.forEach(s=>{ s.x=x; x+=s.w+gap; });
+  const W=x+30, yTop=40, dh=82, yBot=top?yTop+dh+34:40, H=yBot+dh+70;
+  svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  const CL={cool:"#2b7bb9",heat:"#c0392b",rec:"#2e8b57",des:"#b5651d",ink:"var(--ink)",mute:"var(--muted)",line:"var(--grid-strong)"};
+  let g=`<defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${CL.ink}"/></marker></defs>`;
+  const box=(xx,y,w,h,stroke,fill)=>`<rect x="${xx}" y="${y}" width="${w}" height="${h}" rx="3" fill="${fill||"var(--surface)"}" stroke="${stroke}" stroke-width="1.6"/>`;
+  const label=(xx,y,t,col)=>`<text x="${xx}" y="${y}" text-anchor="middle" class="dl" style="fill:${col||CL.ink}">${esc(t)}</text>`;
+  // casing
+  const cx0=S[1]?S[1].x-4:x0, cx1=S[S.length-1].x+2;
+  g+=`<rect x="${cx0}" y="${yBot-6}" width="${cx1-cx0}" height="${dh+12}" fill="none" stroke="${CL.line}" stroke-width="2" rx="4"/>`;
+  if(top) g+=`<rect x="${cx0}" y="${yTop-6}" width="${cx1-cx0}" height="${dh+12}" fill="none" stroke="${CL.line}" stroke-width="2" rx="4"/>`;
+  // airflow lines
+  const ym=yBot+dh/2, yt=yTop+dh/2;
+  g+=`<line x1="${S[0].x}" y1="${ym}" x2="${W-14}" y2="${ym}" stroke="${CL.line}" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#arr)"/>`;
+  if(top) g+=`<line x1="${W-14}" y1="${yt}" x2="${S[0].x}" y2="${yt}" stroke="${CL.line}" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#arr)"/>`;
+  const mixS=S.find(s=>s.k==="mix");
+  let rfX=null;
+  if(top&&c.rf){ rfX=S[S.length-1].x-110; }
+  const pt=(code)=>R&&R.pts.find(q=>q.code===code);
+  S.forEach(s=>{
+    const xx=s.x, w=s.w, y=yBot, h=dh;
+    switch(s.k){
+      case "oa": { const p0=pt("OA"); g+=`<text x="${xx+w/2}" y="${ym-10}" text-anchor="middle" class="dl">OA</text>`; if(p0) g+=`<text x="${xx+w/2}" y="${ym+20}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text>`;
+        if(top) g+=`<text x="${xx+w/2}" y="${yt-10}" text-anchor="middle" class="dl">EA</text>`; break; }
+      case "sa": { const p0=pt("S"); g+=`<text x="${xx+w/2+4}" y="${ym-10}" text-anchor="middle" class="dl">SA</text>`; if(p0) g+=`<text x="${xx+w/2+4}" y="${ym+20}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text>`;
+        if(top) g+=`<text x="${xx+w/2+4}" y="${yt-10}" text-anchor="middle" class="dl">RA</text>`; break; }
+      case "pt": { const p0=pt(s.lbl); if(!p0) break;
+        const lbl=s.lbl==="OA'"?"O'":s.lbl;
+        g+=`<circle cx="${xx+w/2}" cy="${ym}" r="9" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.2"/><text x="${xx+w/2}" y="${ym+3.5}" text-anchor="middle" class="dp">${esc(lbl)}</text>`;
+        g+=`<text x="${xx+w/2}" y="${ym-15}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text><text x="${xx+w/2}" y="${ym+24}" text-anchor="middle" class="ds">${fmt(tdewFromW(p0.W,R.p))}°dp</text>`; break; }
+      case "filter": { g+=box(xx+w/2-12,y,24,h,CL.mute); let d=""; for(let i=0;i<8;i++){ const yy=y+4+i*(h-8)/8; d+=`${i?"L":"M"}${xx+w/2-8},${yy} L${xx+w/2+8},${yy+(h-8)/16} `; } g+=`<path d="${d}" fill="none" stroke="${CL.mute}" stroke-width="1"/>`+label(xx+w/2,y+h+16,s.lbl); break; }
+      case "ccoil": case "hcoil": case "wrapA": case "wrapB": {
+        const col=s.k==="ccoil"?CL.cool:s.k==="hcoil"?CL.heat:CL.rec; const bw=s.k==="ccoil"?34:24;
+        g+=box(xx+w/2-bw/2,y,bw,h,col); for(let i=0;i<7;i++){ const yy=y+6+i*(h-12)/6; g+=`<line x1="${xx+w/2-bw/2+3}" y1="${yy}" x2="${xx+w/2+bw/2-3}" y2="${yy+6}" stroke="${col}" stroke-width="1"/>`; }
+        if(s.k==="ccoil") g+=`<path d="M${xx+w/2-bw/2-4},${y+h+3} h${bw+8} v6 h-${bw+8} z" fill="${col}" opacity=".35"/>`;
+        g+=label(xx+w/2,y+h+16,s.lbl,col); break; }
+      case "fan": { const r=Math.min(30,h/2-6), cx=xx+w/2, cy=ym; g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.6"/>`;
+        for(let i=0;i<5;i++){ const a=i*2*Math.PI/5; g+=`<path d="M${cx},${cy} Q${cx+r*0.9*Math.cos(a+0.6)},${cy+r*0.9*Math.sin(a+0.6)} ${cx+r*0.8*Math.cos(a+1.1)},${cy+r*0.8*Math.sin(a+1.1)}" fill="none" stroke="${CL.ink}" stroke-width="1.2"/>`; }
+        g+=label(cx,y+h+16,s.lbl)+(R?`<text x="${cx}" y="${y+h+29}" text-anchor="middle" class="ds">${R.sfN}×${fmt(R.sfMotor,R.sfMotor<1?2:1)} kW</text>`:""); break; }
+      case "uv": g+=box(xx+w/2-9,y,18,h,"#7d3cbf"); g+=`<line x1="${xx+w/2}" y1="${y+8}" x2="${xx+w/2}" y2="${y+h-8}" stroke="#7d3cbf" stroke-width="3" stroke-linecap="round"/>`+label(xx+w/2,y+h+16,s.lbl,"#7d3cbf"); break;
+      case "hum": g+=box(xx+w/2-20,y,40,h,CL.cool); for(let i=0;i<4;i++){ const yy=y+14+i*(h-28)/3; g+=`<line x1="${xx+w/2-12}" y1="${yy}" x2="${xx+w/2+12}" y2="${yy}" stroke="${CL.cool}" stroke-width="1.4"/>`; for(let j=0;j<3;j++) g+=`<circle cx="${xx+w/2-8+j*8}" cy="${yy+5}" r="1.4" fill="${CL.cool}"/>`; }
+        g+=label(xx+w/2,y+h+16,s.lbl,CL.cool); break;
+      case "att": g+=box(xx+6,y,w-12,h,CL.mute); for(let i=1;i<4;i++) g+=`<rect x="${xx+6+i*(w-12)/4-3}" y="${y+6}" width="6" height="${h-12}" fill="${CL.mute}" opacity=".35"/>`; g+=label(xx+w/2,y+h+16,s.lbl); break;
+      case "mix": { g+=`<line x1="${xx+8}" y1="${yBot-6}" x2="${xx+w-8}" y2="${yBot-6}" stroke="var(--surface)" stroke-width="5"/>`;
+        for(let i=0;i<3;i++) g+=`<line x1="${xx+14+i*16}" y1="${yBot-14}" x2="${xx+24+i*16}" y2="${yBot+2}" stroke="${CL.ink}" stroke-width="1.6"/>`;
+        g+=`<path d="M${xx+w/2},${yt+12} C${xx+w/2},${yBot-20} ${xx+w/2},${yBot} ${xx+w/2},${ym-12}" fill="none" stroke="${CL.ink}" stroke-width="1.3" marker-end="url(#arr)"/>`;
+        g+=label(xx+w/2,y+h+16,"Mixing box");
+        const pm=pt("M"); if(pm) g+=`<circle cx="${xx+w-8}" cy="${ym}" r="9" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.2"/><text x="${xx+w-8}" y="${ym+3.5}" text-anchor="middle" class="dp">M</text><text x="${xx+w-8}" y="${ym-15}" text-anchor="middle" class="ds">${fmt(pm.t)}°</text><text x="${xx+w-8}" y="${ym+24}" text-anchor="middle" class="ds">${fmt(tdewFromW(pm.W,R.p))}°dp</text>`;
+        break; }
+      case "wheel": { const ry=(yBot+dh)-yTop; g+=`<ellipse cx="${xx+w/2}" cy="${yTop+ry/2}" rx="${w/2-8}" ry="${ry/2+2}" fill="var(--surface)" stroke="${CL.rec}" stroke-width="1.8"/><line x1="${xx+w/2}" y1="${yTop-4}" x2="${xx+w/2}" y2="${yBot+dh+4}" stroke="${CL.rec}" stroke-width="1" stroke-dasharray="3 3"/>`+label(xx+w/2,yBot+dh+16,s.lbl,CL.rec); break; }
+      case "plate": { const y1=yTop, y2=yBot+dh; g+=`<path d="M${xx+4},${(y1+y2)/2} L${xx+w/2},${y1} L${xx+w-4},${(y1+y2)/2} L${xx+w/2},${y2} Z" fill="var(--surface)" stroke="${CL.rec}" stroke-width="1.8"/><line x1="${xx+w/4}" y1="${(y1*3+y2)/4}" x2="${xx+w*3/4}" y2="${(y1+y2*3)/4}" stroke="${CL.rec}"/><line x1="${xx+w*3/4}" y1="${(y1*3+y2)/4}" x2="${xx+w/4}" y2="${(y1+y2*3)/4}" stroke="${CL.rec}"/>`+label(xx+w/2,y2+16,s.lbl,CL.rec); break; }
+      case "hpipe": { g+=box(xx+w/2-16,yTop,32,yBot+dh-yTop,CL.rec); for(let i=0;i<5;i++) g+=`<line x1="${xx+w/2-12+i*6}" y1="${yTop+4}" x2="${xx+w/2-12+i*6}" y2="${yBot+dh-4}" stroke="${CL.rec}" stroke-width="1.4"/>`; g+=label(xx+w/2,yBot+dh+16,s.lbl,CL.rec); break; }
+      case "racoil": { for(const yy of [yTop,yBot]){ g+=box(xx+w/2-12,yy,24,dh,CL.rec); for(let i=0;i<6;i++){ const y3=yy+6+i*(dh-12)/5; g+=`<line x1="${xx+w/2-9}" y1="${y3}" x2="${xx+w/2+9}" y2="${y3+5}" stroke="${CL.rec}"/>`; } }
+        g+=`<path d="M${xx+w/2+12},${yTop+dh/2} h14 v${yBot-yTop} h-14" fill="none" stroke="${CL.rec}" stroke-width="1.4" stroke-dasharray="4 3"/><circle cx="${xx+w/2+26}" cy="${(yTop+yBot+dh)/2}" r="5" fill="var(--surface)" stroke="${CL.rec}"/>`+label(xx+w/2,yBot+dh+16,s.lbl,CL.rec); break; }
+      case "des": { const ry=(yBot+dh)-yTop; g+=`<ellipse cx="${xx+w/2}" cy="${yTop+ry/2}" rx="${w/2-8}" ry="${ry/2+2}" fill="var(--surface)" stroke="${CL.des}" stroke-width="1.8"/><path d="M${xx+12},${yTop+ry/2} h${w-24}" stroke="${CL.des}" stroke-dasharray="3 3"/>`;
+        g+=`<text x="${xx+w/2}" y="${yTop+dh/2+4}" text-anchor="middle" class="ds" style="fill:${CL.des}">React.</text>`+label(xx+w/2,yBot+dh+16,s.lbl,CL.des); break; }
+    }
+  });
+  // wrap-around link
+  const wa=S.filter(s=>s.k==="wrapA"), wb=S.filter(s=>s.k==="wrapB");
+  wa.forEach((a,i)=>{ const b=wb[wb.length-1-i]; if(!b) return; const yy=yBot-14-i*8; g+=`<path d="M${a.x+a.w/2},${yBot} V${yy} H${b.x+b.w/2} V${yBot}" fill="none" stroke="${CL.rec}" stroke-width="1.3" stroke-dasharray="4 3"/>`; });
+  if(rfX!=null){ const r=Math.min(26,dh/2-8), cx=rfX+30, cy=yt; g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.6"/>`;
+    for(let i=0;i<5;i++){ const a=Math.PI+i*2*Math.PI/5; g+=`<path d="M${cx},${cy} Q${cx+r*0.9*Math.cos(a+0.6)},${cy+r*0.9*Math.sin(a+0.6)} ${cx+r*0.8*Math.cos(a+1.1)},${cy+r*0.8*Math.sin(a+1.1)}" fill="none" stroke="${CL.ink}" stroke-width="1.2"/>`; }
+    g+=`<text x="${cx}" y="${yTop-12}" text-anchor="middle" class="dl">Return fan</text>`; }
+  if(top){ const pr=pt("R"); if(pr) g+=`<text x="${W-24}" y="${yt+20}" text-anchor="end" class="ds">${fmt(pr.t)}°</text>`; }
+  svg.innerHTML=g;
+  $("diagNote").textContent=R?`Airflow: supply ${fmt(R.Q,0)} m³/h${R.fa?" (100% outdoor air)":` · outdoor air ${fmt(R.qOa,0)} m³/h · return ${fmt(R.qRet,0)} m³/h`} · relief/exhaust ${fmt(R.qRel,0)} m³/h. Numbers under the circles are dry bulb / dew point at that point.`:"";
+}
+
+/* ---------- Psychrometric chart ---------- */
+function drawChart(R){
+  const svg=$("chart"), p=pressure(n("alt",0));
+  const W0=60,W1=700,H0=20,H1=420, tMin=0,tMax=50,wMax=30;
+  const X=t=>W0+(t-tMin)/(tMax-tMin)*(W1-W0), Y=w=>H1-(w/wMax)*(H1-H0);
+  const ts=[]; for(let t=tMin;t<=tMax+1e-9;t+=0.5) ts.push(t);
+  const curve=rh=>ts.map(t=>{ const w=Math.min(wMax*1.2,WfromRH(t,rh,p)*1000); return `${X(t).toFixed(1)},${Y(w).toFixed(1)}`; }).join(" ");
+  let g=`<defs><clipPath id="plotClip"><rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}"/></clipPath></defs>`;
+  for(let t=0;t<=50;t+=5) g+=`<line x1="${X(t)}" y1="${H0}" x2="${X(t)}" y2="${H1}" stroke="var(--grid)"/><text x="${X(t)}" y="${H1+16}" text-anchor="middle">${t}</text>`;
+  for(let w=0;w<=wMax;w+=5) g+=`<line x1="${W0}" y1="${Y(w)}" x2="${W1}" y2="${Y(w)}" stroke="var(--grid)"/><text x="${W1+8}" y="${Y(w)+4}">${w}</text>`;
+  g+=`<text x="${(W0+W1)/2}" y="${H1+36}" text-anchor="middle">Dry-bulb temperature (°C)</text>`;
+  g+=`<text x="${W1+44}" y="${(H0+H1)/2}" text-anchor="middle" transform="rotate(90 ${W1+44} ${(H0+H1)/2})">Humidity ratio W (g/kg dry air)</text>`;
+  g+=`<g clip-path="url(#plotClip)">`;
+  for(let rh=10;rh<100;rh+=10) g+=`<polyline points="${curve(rh)}" fill="none" stroke="var(--grid-strong)" stroke-width="${rh===50?1.2:0.8}"/>`;
+  g+=`<polyline points="${curve(100)}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
+  let note="";
+  if(R){
+    const P=R.pts, pos=s=>[X(s.t),Y(s.W*1000)], by=k=>P.find(q=>q.code===k);
+    const seq=P.filter(q=>!["OA","R","OA'"].includes(q.code)||(R.fa&&q.code!=="R"));
+    // main supply process path
+    const chain=[]; if(R.fa){ chain.push(by("OA")); if(by("OA'")) chain.push(by("OA'")); }
+    P.forEach(q=>{ if(!["OA","OA'","R"].includes(q.code)) chain.push(q); });
+    const path=chain.filter(Boolean).map(s=>pos(s).map(v=>v.toFixed(1)).join(",")).join(" ");
+    g+=`<polyline points="${path}" fill="none" stroke="var(--c-supply)" stroke-width="2"/>`;
+    if(!R.fa){ const oa=by("OA"), oa2=by("OA'")||oa, m=by("M"), r=by("R");
+      if(by("OA'")) g+=`<line x1="${pos(oa)[0]}" y1="${pos(oa)[1]}" x2="${pos(oa2)[0]}" y2="${pos(oa2)[1]}" stroke="var(--c-plenum)" stroke-width="2"/>`;
+      if(m){ g+=`<line x1="${pos(oa2)[0]}" y1="${pos(oa2)[1]}" x2="${pos(r)[0]}" y2="${pos(r)[1]}" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="5 4"/>`; } }
+    if(isFinite(R.adp)){ const c=by("C"), ci=R.CI, a=[X(R.adp),Y(Wsat(R.adp,p)*1000)];
+      g+=`<line x1="${X(ci.t)}" y1="${Y(ci.W*1000)}" x2="${a[0]}" y2="${a[1]}" stroke="var(--c-coil)" stroke-width="1.3" stroke-dasharray="6 4"/><circle cx="${a[0]}" cy="${a[1]}" r="4.5" fill="var(--surface)" stroke="var(--c-coil)" stroke-width="2"/><text x="${a[0]-8}" y="${a[1]-8}" text-anchor="end" class="lbl" style="fill:var(--c-coil)">ADP ${fmt(R.adp)}</text>`; }
+    g+=`</g>`;
+    const placed=[];
+    P.forEach(s=>{ const [x,y]=pos(s); let dy=-9; placed.forEach(q=>{ if(Math.abs(q[0]-x)<26&&Math.abs(q[1]-(y+dy))<12) dy-=13; }); placed.push([x,y+dy]);
+      g+=`<circle cx="${x}" cy="${y}" r="5" fill="${s.col}" stroke="var(--surface)" stroke-width="1.6"/><text x="${x+7}" y="${y+dy}" class="lbl" style="fill:${s.col}">${esc(s.code)}</text>`; });
+    note=`Points: ${P.map(s=>`${s.code} ${s.desc.toLowerCase()} (${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg)`).join("; ")}.${isFinite(R.adp)?` Dashed purple line: coil process extended to the apparatus dew point ${fmt(R.adp)} °C.`:""}`;
+  } else g+=`</g>`;
+  g+=`<rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}" fill="none" stroke="var(--grid-strong)"/>`;
+  svg.innerHTML=g; $("chartNote").textContent=note||"Enter valid inputs to plot the process.";
+}
+
+/* ---------- Summary table, Excel (.xlsx) & PDF export — self-contained ---------- */
+const EXPORT=(function(){
+  const xe=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
+  // CRC32 + "stored" ZIP writer (enough for an .xlsx package)
+  const T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+  const crc=b=>{let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=T[(c^b[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;};
+  function zip(files){
+    const enc=new TextEncoder(), parts=[], cd=[]; let off=0;
+    files.forEach(f=>{
+      const nm=enc.encode(f.name), d=enc.encode(f.text), c=crc(d);
+      const h=new DataView(new ArrayBuffer(30));
+      h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,0,true);
+      h.setUint16(10,0,true); h.setUint16(12,0x21,true); h.setUint32(14,c,true); h.setUint32(18,d.length,true);
+      h.setUint32(22,d.length,true); h.setUint16(26,nm.length,true); h.setUint16(28,0,true);
+      parts.push(new Uint8Array(h.buffer),nm,d);
+      const e=new DataView(new ArrayBuffer(46));
+      e.setUint32(0,0x02014b50,true); e.setUint16(4,20,true); e.setUint16(6,20,true); e.setUint16(8,0x0800,true);
+      e.setUint16(10,0,true); e.setUint16(12,0,true); e.setUint16(14,0x21,true); e.setUint32(16,c,true);
+      e.setUint32(20,d.length,true); e.setUint32(24,d.length,true); e.setUint16(28,nm.length,true);
+      e.setUint32(42,off,true);
+      cd.push(new Uint8Array(e.buffer),nm);
+      off+=30+nm.length+d.length;
+    });
+    const size=cd.reduce((a,b)=>a+b.length,0), end=new DataView(new ArrayBuffer(22));
+    end.setUint32(0,0x06054b50,true); end.setUint16(8,files.length,true); end.setUint16(10,files.length,true);
+    end.setUint32(12,size,true); end.setUint32(16,off,true);
+    return new Blob([...parts,...cd,new Uint8Array(end.buffer)],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  }
+  const colRef=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
+  const NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border · 7 unit row · 8 centred text w/ border
+  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="4"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font><font><i/><sz val="10"/><color rgb="FF1C5A85"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1C5A85"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE6EFF6"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC4CFD8"/></left><right style="thin"><color rgb="FFC4CFD8"/></right><top style="thin"><color rgb="FFC4CFD8"/></top><bottom style="thin"><color rgb="FFC4CFD8"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const groupSpans=cols=>{ // [{g,start,len}] for consecutive identical group labels
+    const out=[]; cols.forEach((c,i)=>{ const last=out[out.length-1];
+      if(c.g && last && last.g===c.g && last.start+last.len===i) last.len++; else out.push({g:c.g||null,start:i,len:1}); });
+    return out;
+  };
+  function sheetXml(o){
+    const cols=o.cols, hasG=cols.some(c=>c.g), hasU=cols.some(c=>c.u);
+    const cell=(ci,ri,v,s)=>{
+      const ref=colRef(ci)+ri;
+      if(typeof v==="number") return isFinite(v)?`<c r="${ref}" s="${s}"><v>${v}</v></c>`:`<c r="${ref}" s="6"/>`;
+      if(v==null||v==="") return `<c r="${ref}" s="${s===3||s===0?0:s===1||s===7?s:6}"/>`;
+      return `<c r="${ref}" t="inlineStr" s="${s}"><is><t xml:space="preserve">${xe(v)}</t></is></c>`;
+    };
+    let r=1; const out=[], merges=[];
+    out.push(`<row r="${r}">${cell(0,r,o.title,3)}</row>`); r++;
+    if(o.subtitle){ out.push(`<row r="${r}">${cell(0,r,o.subtitle,0)}</row>`); r++; }
+    r++;
+    const firstHead=r;
+    if(hasG){
+      const gr=r, hr=r+1;
+      out.push(`<row r="${gr}" ht="20" customHeight="1">${cols.map((c,i)=>cell(i,gr,c.g?c.g:c.h,1)).join("")}</row>`);
+      groupSpans(cols).forEach(sp=>{
+        if(sp.g){ if(sp.len>1) merges.push(`${colRef(sp.start)}${gr}:${colRef(sp.start+sp.len-1)}${gr}`); }
+        else merges.push(`${colRef(sp.start)}${gr}:${colRef(sp.start)}${hr}`);
+      });
+      out.push(`<row r="${hr}" ht="30" customHeight="1">${cols.map((c,i)=>cell(i,hr,c.g?c.h:"",1)).join("")}</row>`);
+      r=hr+1;
+    }else{
+      out.push(`<row r="${r}" ht="32" customHeight="1">${cols.map((c,i)=>cell(i,r,c.h,1)).join("")}</row>`); r++;
+    }
+    if(hasU){ out.push(`<row r="${r}">${cols.map((c,i)=>cell(i,r,c.u||"",7)).join("")}</row>`); r++; }
+    const lastHead=r-1;
+    o.rows.forEach(row=>{
+      out.push(`<row r="${r}">${row.map((v,i)=>{ const f=cols[i].fmt; return cell(i,r,v, typeof v==="number"?(f==="0"?4:f==="0.00"?5:2):(cols[i].c?8:6)); }).join("")}</row>`); r++;
+    });
+    const last=colRef(cols.length-1), lastRow=lastHead+Math.max(1,o.rows.length);
+    const fx=o.freezeCols==null?2:o.freezeCols;
+    const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane xSplit="${fx}" ySplit="${lastHead}" topLeftCell="${colRef(fx)}${lastHead+1}" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${cols.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.w||12}" customWidth="1"/>`).join("")}</cols><sheetData>${out.join("")}</sheetData><autoFilter ref="A${lastHead}:${last}${lastRow}"/>${merges.length?`<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`:""}<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="${o.paper==="A3"?8:9}" orientation="landscape"/></worksheet>`;
+    return {ws,firstHead,lastHead,lastRow,last};
+  }
+  function xlsx(o){ // o:{file, sheets:[{sheet,title,subtitle,cols,rows}]} or a single sheet object
+    const sheets=o.sheets||[o];
+    const built=sheets.map(sheetXml);
+    const names=sheets.map((s,i)=>xe((s.sheet||("Sheet"+(i+1))).replace(/[\[\]\*\?\/\\:]/g," ").slice(0,31)));
+    const defs=built.map((b,i)=>`<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${names[i]}'!$A$${b.lastHead}:$${b.last}$${b.lastRow}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="${i}">'${names[i]}'!$${b.firstHead}:$${b.lastHead}</definedName>`).join("");
+    const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${NS}><sheets>${names.map((n,i)=>`<sheet name="${n}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets><definedNames>${defs}</definedNames></workbook>`;
+    const files=[
+      {name:"[Content_Types].xml",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${built.map((b,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+      {name:"_rels/.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+      {name:"xl/workbook.xml",text:wb},
+      {name:"xl/_rels/workbook.xml.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${built.map((b,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${built.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+      ...built.map((b,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,text:b.ws})),
+      {name:"xl/styles.xml",text:STY}
+    ];
+    download(zip(files),o.file);
+  }
+  function download(blob,name){
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000);
+  }
+  function cellText(v,f){
+    if(typeof v!=="number") return v==null||v===""?"":String(v);
+    if(!isFinite(v)) return "–";
+    const d=f==="0"?0:f==="0.00"?2:1;
+    return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+  }
+  function headHTML(cols,extraLead){ // returns <tr>… rows (group + header + units)
+    const hasG=cols.some(c=>c.g), hasU=cols.some(c=>c.u), lead=extraLead?`<th rowspan="${hasG?2:1}"></th>`:"";
+    let h="";
+    if(hasG){
+      h+=`<tr>${lead}${groupSpans(cols).map(sp=>sp.g?`<th colspan="${sp.len}" class="grp">${xe(sp.g)}</th>`:`<th rowspan="2">${xe(cols[sp.start].h)}</th>`).join("")}</tr>`;
+      h+=`<tr>${cols.filter(c=>c.g).map(c=>`<th>${xe(c.h)}</th>`).join("")}</tr>`;
+    }else h+=`<tr>${lead}${cols.map(c=>`<th>${xe(c.h)}</th>`).join("")}</tr>`;
+    if(hasU) h+=`<tr class="units">${extraLead?"<th></th>":""}${cols.map(c=>`<th>${xe(c.u||"")}</th>`).join("")}</tr>`;
+    return h;
+  }
+  function reportHTML(o){ // printable report; o.sections or single table
+    const secs=o.sections||[{title:o.title,subtitle:o.subtitle,cols:o.cols,rows:o.rows}];
+    const big=secs.some(s=>s.cols.length>26);
+    const body=secs.map((s,si)=>{
+      const rows=s.rows.map(r=>`<tr>${r.map((v,i)=>{ const t=cellText(v,s.cols[i].fmt);
+        const cls=typeof v==="number"?"n":(["Pass","Note","Fail"].includes(v)?v:(s.cols[i].c?"c":""));
+        return `<td class="${cls}">${xe(t)}</td>`; }).join("")}</tr>`).join("");
+      return `<section${si?' class="brk"':""}><h1>${xe(s.title)}</h1><p class="sub">${xe(s.subtitle||o.subtitle||"")}</p>
+<table><thead>${headHTML(s.cols,false)}</thead><tbody>${rows}</tbody></table></section>`;
+    }).join("");
+    const paper=o.paper||(big?"A3":"A4");
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${xe(o.file.replace(/\.xlsx$/,""))}</title><style>
+@page{size:${paper} landscape;margin:8mm}
+*{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
+body{font-family:"Segoe UI",Arial,"Helvetica Neue",sans-serif;color:#13212c;margin:0}
+h1{font-size:14pt;margin:0 0 2pt}
+.sub{color:#5a6a77;margin:0 0 6pt;font-size:8.5pt}
+table{border-collapse:collapse;width:100%}
+th,td{border:.5pt solid #c4cfd8;padding:2pt 3pt;vertical-align:top}
+th{background:#1c5a85;color:#fff;font-weight:600;font-size:${big?6:7}pt;text-align:center;vertical-align:middle}
+th.grp{background:#164a6e}
+tr.units th{background:#e6eff6;color:#1c5a85;font-weight:500;font-style:italic}
+td{font-size:${big?6.3:7.5}pt}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.c{text-align:center}
+tbody tr:nth-child(even) td{background:#f2f5f8}
+thead{display:table-header-group}
+tr{page-break-inside:avoid}
+section.brk{page-break-before:always}
+.Pass{color:#1d7548;font-weight:700}.Note{color:#9a5c00;font-weight:700}.Fail{color:#b0281f;font-weight:700}
+.foot{margin-top:8pt;color:#5a6a77;font-size:7pt}
+</style></head><body>${body}<p class="foot">${xe(o.footer||"")}</p></body></html>`;
+  }
+  function pdf(o){
+    const f=document.createElement("iframe");
+    f.setAttribute("aria-hidden","true");
+    f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+    document.body.appendChild(f);
+    const d=f.contentWindow.document; d.open(); d.write(reportHTML(o)); d.close();
+    setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(()=>f.remove(),60000); },350);
+  }
+  return {xlsx,pdf,reportHTML,cellText,headHTML};
+})();
+
+let toastTimer=null;
+function toast(msg,bad){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; t.setAttribute("role","status"); document.body.appendChild(t); }
+  t.textContent=msg; t.classList.toggle("bad",!!bad); t.classList.add("on");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),2800);
+}
+
+/* Shared browser storage: all tools on this site read each other's summaries */
+const SHARED_KEYS={dew:"hvac-dewpoint-summary-v1", chw:"hvac-chw-summary-v1", ahu:"hvac-ahu-summary-v1"};
+function readShared(k){ try{ const v=JSON.parse(localStorage.getItem(SHARED_KEYS[k]||k)||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+
+function makeSummary(cfg){
+  let rows=[];
+  try{ rows=JSON.parse(localStorage.getItem(cfg.key)||"[]"); if(!Array.isArray(rows)) rows=[]; }catch(e){ rows=[]; }
+  const persist=()=>{ try{ localStorage.setItem(cfg.key,JSON.stringify(rows)); }catch(e){} };
+  const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+  const tables=cfg.tables||[{headId:cfg.headId, bodyId:cfg.bodyId, cols:cfg.cols, title:cfg.title, sheet:"Summary", records:all=>all, actions:true}];
+  const recs=t=>{ const out=[]; t.records(rows).forEach((r,i)=>out.push(r.__i==null?Object.assign({__i:i},r):r)); return out; };
+  function render(){
+    $(cfg.countId).textContent=rows.length;
+    const has=rows.length>0;
+    $(cfg.emptyId).classList.toggle("hidden",has);
+    $(cfg.wrapId).classList.toggle("hidden",!has);
+    cfg.buttons.forEach(id=>$(id).disabled=!has);
+    tables.forEach(t=>{
+      $(t.headId).innerHTML=EXPORT.headHTML(t.cols,t.actions);
+      $(t.bodyId).innerHTML=recs(t).map(r=>`<tr>
+        ${t.actions?`<td><div class="btns" style="flex-wrap:nowrap;gap:2px"><button class="btn ghost" type="button" data-load="${r.__i}" title="Load back into the calculator">Load</button><button class="btn ghost" type="button" data-rm="${r.__i}" aria-label="Remove ${esc(r.id||"row")}">✕</button></div></td>`:""}
+        ${t.cols.map(c=>{ const v=r[c.k];
+          if(c.k==="result") return `<td><span class="pill ${v==="Pass"?"ok":v==="Note"?"warn":"bad"}">${esc(v)}</span></td>`;
+          return `<td class="${typeof v==="number"?"r num":(c.c?"ctr":"")}">${esc(EXPORT.cellText(v,c.fmt))}</td>`; }).join("")}
+      </tr>`).join("");
+    });
+    if(cfg.onRender) cfg.onRender(rows);
+  }
+  function put(r){ // add or replace by id; returns true when replaced
+    const i=r.id?rows.findIndex(x=>x.id===r.id):-1;
+    if(i>=0){ rows[i]=r; return true; } rows.push(r); return false;
+  }
+  function add(){
+    const r=cfg.collect();
+    if(r.err){ toast(r.err,true); return; }
+    const rep=put(r); persist(); render();
+    const n=rows.length, lbl=cfg.unit||"room";
+    toast(`${rep?"Updated":"Added"} ${r.id||lbl} ${rep?"in":"to"} the summary (${n} ${lbl}${n>1?"s":""})`);
+  }
+  tables.filter(t=>t.actions).forEach(t=>$(t.bodyId).addEventListener("click",e=>{
+    const ld=e.target.closest("[data-load]"), rm=e.target.closest("[data-rm]");
+    if(ld){ const r=rows[+ld.dataset.load]; cfg.restore(r); toast(`Loaded ${r.id||cfg.unit||"room"}`); }
+    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; persist(); render(); toast(`Removed ${r.id||cfg.unit||"room"}`); }
+  }));
+  $(cfg.addId).addEventListener("click",add);
+  $(cfg.clearId).addEventListener("click",()=>{
+    if(!rows.length) return;
+    if(!confirm(`Remove all ${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} from the summary?`)) return;
+    rows=[]; persist(); render();
+  });
+  const sub=()=>`${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`;
+  const table=t=>recs(t).map(r=>t.cols.map(c=>r[c.k]));
+  $(cfg.xlsxId).addEventListener("click",()=>{ if(!rows.length) return;
+    EXPORT.xlsx({file:`${cfg.file}_${dateStr()}.xlsx`, sheets:tables.map(t=>({sheet:t.sheet||"Summary", title:t.title, subtitle:sub(), cols:t.cols, rows:table(t), paper:t.paper, freezeCols:t.freezeCols}))});
+  });
+  $(cfg.pdfId).addEventListener("click",()=>{ if(!rows.length) return;
+    EXPORT.pdf({file:`${cfg.file}_${dateStr()}.xlsx`, subtitle:sub(), footer:cfg.footer, paper:cfg.paper,
+      sections:tables.map(t=>({title:t.title, cols:t.cols, rows:table(t)}))});
+    toast("Choose “Save as PDF” in the print dialog");
+  });
+  render();
+  return {render, put(r){ const x=put(r); persist(); render(); return x; }, get rows(){ return rows; }};
+}
+
+/* Link dialog: pick rooms from the dew point tool's summary (all / by Room ID / by AC equipment) */
+function linkDialog(opts){ // opts:{title, note, rooms:[...], onApply(list, scope, key)}
+  let dlg=document.getElementById("linkDlg");
+  if(dlg) dlg.remove();
+  dlg=document.createElement("dialog"); dlg.id="linkDlg"; dlg.className="dlg";
+  const rooms=opts.rooms;
+  const ids=rooms.map(r=>r.id).filter(Boolean);
+  const eqs=[...new Set(rooms.map(r=>r.equip).filter(Boolean))];
+  dlg.innerHTML=`<form method="dialog" class="dlg-body">
+    <h2>${esc(opts.title)}</h2>
+    <p class="note">${opts.note}</p>
+    ${rooms.length?`
+    <fieldset class="scope"><legend class="sr">Scope</legend>
+      <label class="opt"><input type="radio" name="scope" value="all" checked> <span>All AHUs / all rooms <small>(${rooms.length} room${rooms.length>1?"s":""}${eqs.length?` · ${eqs.length} AC equipment`:""})</small></span></label>
+      <label class="opt"><input type="radio" name="scope" value="room"> <span>By Room ID</span>
+        <select id="lkRoom">${ids.map(i=>{ const r=rooms.find(x=>x.id===i); return `<option value="${esc(i)}">${esc(i)}${r&&r.name?" — "+esc(r.name):""}${r&&r.equip?" ("+esc(r.equip)+")":""}</option>`; }).join("")}</select></label>
+      <label class="opt"><input type="radio" name="scope" value="equip" ${eqs.length?"":"disabled"}> <span>By AC equipment name</span>
+        <select id="lkEquip" ${eqs.length?"":"disabled"}>${eqs.map(e=>`<option value="${esc(e)}">${esc(e)} — ${rooms.filter(r=>r.equip===e).length} room(s)</option>`).join("")}</select></label>
+    </fieldset>`:`<p class="err">No rooms found. Open the <a href="${opts.sourceHref}">dew point &amp; supply air tool</a>, calculate each room in tab 2 and press “+ Add to summary” first. Both tools must be opened in the same browser.</p>`}
+    <div class="btns" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn ghost" value="cancel" type="submit">Cancel</button>
+      ${rooms.length?`<button class="btn primary" id="lkGo" type="button">Link &amp; fill</button>`:""}
+    </div></form>`;
+  document.body.appendChild(dlg);
+  const sel=()=>dlg.querySelector("input[name=scope]:checked").value;
+  dlg.querySelectorAll("select").forEach(s=>s.addEventListener("focus",()=>{ const v=s.id==="lkRoom"?"room":"equip"; dlg.querySelector(`input[value=${v}]`).checked=true; }));
+  const go=dlg.querySelector("#lkGo");
+  if(go) go.addEventListener("click",()=>{
+    const sc=sel();
+    let list=rooms, key="";
+    if(sc==="room"){ key=dlg.querySelector("#lkRoom").value; list=rooms.filter(r=>r.id===key); }
+    if(sc==="equip"){ key=dlg.querySelector("#lkEquip").value; list=rooms.filter(r=>r.equip===key); }
+    dlg.close(); opts.onApply(list,sc,key);
+  });
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
+}
+
+
+/* ---------- Summary: AHU schedule + coordination ---------- */
+const NA="—";
+const kv=(v,d)=>isFinite(v)&&v>0?r2(v,d):NA;
+function collectRow(){
+  const R=last;
+  if(!R||R.err) return {err:"Fix the inputs before adding to the summary."};
+  const worst=R.notes.some(c=>c[0]==="bad")?"Fail":R.notes.some(c=>c[0]==="warn")?"Note":"Pass";
+  const p=R.p, wb=s=>wetbulb(s.t,s.W,p);
+  const rl=roomsList();
+  const roomIds=$("rooms").value.split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
+  const rooms=rl.length?rl:(roomIds.length?roomIds.map(id=>({id,name:"",flow:roomIds.length===1?R.Q:NaN})):[]);
+  const c=R.c, size=`${fmt(R.Wo*1000,0)} × ${fmt(R.Ho*1000,0)} × ${fmt(R.Lo*1000,0)}`.replace(/,/g,"");
+  const fanArr=`${R.sfN} × ${fmt(R.sfMotor,R.sfMotor<1?2:1)}`;
+  const rhElec=c.rh&&$("rhType").value==="Electric";
+  return {id:R.tag, block:$("block").value.trim(), clean:$("clean").value, roomT:r2(R.roomT,1), roomRH:r2(R.roomRH,0), type:$("ahuType").value.trim(), qty:Math.max(1,Math.round(n("qty",1))),
+    qTot:r2(R.qTot,1), qSens:r2(R.qSens,1), flow:r2(R.Q,0), esp:r2(R.esp,0), fanArr, fanPow:r2(R.sfInst,1), drive:$("sfDrive").value, supply:"380/3/50",
+    oaFlow:r2(R.qOa,0), oaSrc:R.fa?($("oaSrc").value==="mau"?"MAU (100%)":"OUTDOOR (100%)"):($("oaSrc").value==="mau"?"MAU":"OUTDOOR"),
+    eat:`${fmt(R.CI.t)} / ${fmt(wb(R.CI))}`, lat:`${fmt(R.CO.t)} / ${fmt(wb(R.CO))}`,
+    pre:c.pre?$("preCls").value:NA, fin:c.fin?$("finCls").value:NA, term:$("term").value, ret:$("retf").value,
+    chwFlow:r2(R.chwFlow,2), ewt:r2(R.ewt,1), lwt:r2(R.lwt,1), chwPd:`≤ ${fmt(n("ccWpd",60),0)}`,
+    hwCap:c.rh?r2(R.qRh,1):NA, hwFlow:c.rh&&!rhElec?r2(R.hwFlow,2):NA, hwT:c.rh?(rhElec?"Electric":`${fmt(n("hwEwt",30),0)} / ${fmt(n("hwLwt",26),0)}`):NA, hwPd:c.rh&&!rhElec?`≤ ${fmt(n("hwWpd",60),0)}`:NA,
+    hr:R.hrNames.length?`${R.hrNames.join(" + ")} ${fmt(R.hrKw,1)} kW`:(c.wheel||c.plate||R.raOa||R.hpOa?"Bypassed":NA),
+    wrap:R.raWrap||R.hpWrap?[R.hpWrap?"Heat pipe":"",R.raWrap?"Run-around":""].filter(Boolean).join(" + "):NA,
+    preheat:c.ph?r2(R.phQ,1):NA,
+    des:c.des&&R.des?`${fmt(R.des.kgh,1)} kg/h · ${fmt(R.des.react,1)} kW ${R.des.type.toLowerCase()}`:(c.des?"No removal":NA),
+    hum:c.hum&&R.hum?`${fmt(R.hum.kgh,1)} kg/h ${R.hum.type}`:NA,
+    rf:R.rf?`${R.rf.N} × ${fmt(R.rf.motor,R.rf.motor<1?2:1)} kW · ${fmt(R.rf.q,0)} m³/h`:NA,
+    adp:r2(R.adp,1), twReq:r2(R.twReq,1),
+    size, weight:r2(R.weight,0), floorLoad:r2(R.floorLoad,0), elec:r2(R.elec,1), pump:pumpTagOf(R.tag),
+    result:worst, notes:R.notes.filter(x=>x[0]!=="ok").map(x=>x[1]).join("; "),
+    rooms, inputs:getInputs()};
+}
+const SCHED_COLS=[
+  {k:"no",h:"No.",w:5,fmt:"0"},{k:"id",h:"AHU TAG",w:18},{k:"block",h:"BLOCK - FLOOR",w:18},{k:"clean",h:"CLEAN CLASS",w:11,c:1},
+  {k:"roomT",g:"ROOM CONDITION",h:"TEMP.",u:"°C",w:7,fmt:"0"},{k:"roomRH",g:"ROOM CONDITION",h:"RH",u:"%",w:6,fmt:"0"},
+  {k:"type",h:"AHU TYPE",w:8,c:1},{k:"qty",h:"QTY",u:"set",w:5,fmt:"0"},
+  {k:"qTot",g:"COOLING CAPACITY",h:"TOTAL",u:"kW",w:8},{k:"qSens",g:"COOLING CAPACITY",h:"SENSIBLE",u:"kW",w:9},
+  {k:"flow",g:"SUPPLY FAN",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},{k:"esp",g:"SUPPLY FAN",h:"EXT. SP",u:"Pa",w:7,fmt:"0"},{k:"fanArr",g:"SUPPLY FAN",h:"FAN ARRAY",u:"n × kW",w:10,c:1},{k:"fanPow",g:"SUPPLY FAN",h:"POWER",u:"kW",w:7},{k:"drive",g:"SUPPLY FAN",h:"DRIVE",w:6,c:1},{k:"supply",g:"SUPPLY FAN",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},
+  {k:"oaFlow",g:"AIR SIDE",h:"OUTSIDE AIR",u:"m³/h",w:9,fmt:"0"},{k:"oaSrc",g:"AIR SIDE",h:"OA SOURCE",w:11,c:1},{k:"eat",g:"AIR SIDE",h:"EAT DB/WB",u:"°C",w:11,c:1},{k:"lat",g:"AIR SIDE",h:"LAT DB/WB",u:"°C",w:11,c:1},
+  {k:"pre",g:"FILTERS",h:"PRE",u:"in AHU",w:6,c:1},{k:"fin",g:"FILTERS",h:"FINAL",u:"in AHU",w:6,c:1},{k:"term",g:"FILTERS",h:"TERMINAL",u:"supply",w:8,c:1},{k:"ret",g:"FILTERS",h:"RETURN",u:"return",w:12,c:1},
+  {k:"chwFlow",g:"CHILLED WATER COIL",h:"FLOW",u:"L/s",w:7,fmt:"0.00"},{k:"ewt",g:"CHILLED WATER COIL",h:"EWT",u:"°C",w:6},{k:"lwt",g:"CHILLED WATER COIL",h:"LWT",u:"°C",w:6},{k:"chwPd",g:"CHILLED WATER COIL",h:"PRESS. DROP",u:"kPa",w:7,c:1},
+  {k:"hwCap",g:"HOT WATER REHEAT COIL",h:"CAPACITY",u:"kW",w:8},{k:"hwFlow",g:"HOT WATER REHEAT COIL",h:"FLOW",u:"L/s",w:7,fmt:"0.00"},{k:"hwT",g:"HOT WATER REHEAT COIL",h:"EWT / LWT",u:"°C",w:9,c:1},{k:"hwPd",g:"HOT WATER REHEAT COIL",h:"PRESS. DROP",u:"kPa",w:7,c:1},
+  {k:"hr",g:"OTHER COMPONENTS",h:"HEAT RECOVERY",w:22},{k:"wrap",g:"OTHER COMPONENTS",h:"WRAP-AROUND",w:12},{k:"preheat",g:"OTHER COMPONENTS",h:"PREHEAT",u:"kW",w:8},{k:"des",g:"OTHER COMPONENTS",h:"DESICCANT",w:22},{k:"hum",g:"OTHER COMPONENTS",h:"HUMIDIFIER",w:18},{k:"rf",g:"OTHER COMPONENTS",h:"RETURN FAN",w:20},
+  {k:"size",g:"AHU DATA (ESTIMATE)",h:"SIZE W × H × L",u:"mm",w:16,c:1},{k:"weight",g:"AHU DATA (ESTIMATE)",h:"OPER. WEIGHT",u:"kg",w:9,fmt:"0"},{k:"elec",g:"AHU DATA (ESTIMATE)",h:"ELEC. LOAD",u:"kW",w:8},
+  {k:"pump",h:"COIL PUMP TAG",w:20},{k:"result",h:"RESULT",w:8,c:1},{k:"notes",h:"NOTES",w:40}
+];
+const COORD_COLS=[
+  {k:"no",h:"No.",w:5,fmt:"0"},{k:"roomId",h:"ROOM ID",w:10},{k:"roomName",h:"ROOM NAME",w:24},{k:"ahu",h:"AHU ID",w:18},
+  {k:"rflow",g:"AIRFLOW",h:"ROOM SUPPLY",u:"m³/h",w:10,fmt:"0"},{k:"aflow",g:"AIRFLOW",h:"AHU SUPPLY",u:"m³/h",w:10,fmt:"0"},
+  {k:"size",g:"AHU",h:"SIZE W × H × L",u:"mm",w:17,c:1},{k:"elec",g:"AHU",h:"ELECTRICAL LOAD",u:"kW",w:10},{k:"supply",g:"AHU",h:"POWER SUPPLY",u:"V/Ph/Hz",w:10,c:1},
+  {k:"weight",g:"WEIGHT LOAD",h:"OPERATING WEIGHT",u:"kg",w:11,fmt:"0"},{k:"floorLoad",g:"WEIGHT LOAD",h:"FLOOR LOAD",u:"kg/m²",w:9,fmt:"0"},
+  {k:"chw",g:"PIPE CONNECTIONS",h:"CHW FLOW",u:"L/s",w:9,fmt:"0.00"},{k:"hw",g:"PIPE CONNECTIONS",h:"HW FLOW",u:"L/s",w:9,fmt:"0.00"}
+];
+const SUMMARY=makeSummary({
+  key:SHARED_KEYS.ahu, unit:"AHU", file:"AHU-schedule", paper:"A3",
+  footer:"hochvacsbs.wordpress.com · AHU process per ASHRAE Fundamentals psychrometrics; CHW supply t_w = 2·t_ad − t_wb (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11). Size, weight and electrical load are estimates for coordination; confirm with the AHU manufacturer's selection.",
+  countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
+  addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
+  tables:[
+    {headId:"sumHead", bodyId:"sumBody", title:"Air handling unit schedule", sheet:"AHU schedule", cols:SCHED_COLS, actions:true, freezeCols:2,
+      records:rows=>rows.map((r,i)=>Object.assign({},r,{no:i+1,__i:i}))},
+    {headId:"coHead", bodyId:"coBody", title:"AHU coordination", sheet:"AHU coordination", cols:COORD_COLS, actions:false, freezeCols:2,
+      records:rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{ const rs=r.rooms&&r.rooms.length?r.rooms:[{id:"",name:"",flow:NaN}];
+        rs.forEach(rm=>out.push({no:++k,__i:i,roomId:rm.id||NA,roomName:rm.name||"",ahu:r.id,rflow:isFinite(rm.flow)?rm.flow:NA,aflow:r.flow,size:r.size,elec:r.elec,supply:r.supply,weight:r.weight,floorLoad:r.floorLoad,chw:r.chwFlow,hw:typeof r.hwFlow==="number"?r.hwFlow:NA})); }); return out; }}
+  ],
+  collect:collectRow,
+  restore(r){ if(r.inputs) setInputs(r.inputs); update(); showView("calc"); try{ history.replaceState(null,"","#calc"); }catch(e){} }
+});
+
+/* ---------- Link from the other tools ---------- */
+function groupRooms(list,scope){
+  if(scope==="room") return list.map(r=>({tag:r.equip||r.id, rooms:[r]}));
+  const m=new Map();
+  list.forEach(r=>{ const k=r.equip||("§"+r.id); if(!m.has(k)) m.set(k,[]); m.get(k).push(r); });
+  return [...m.entries()].map(([k,rs])=>({tag:k.startsWith("§")?rs[0].id:k, rooms:rs}));
+}
+function applyGroup(gp,chwRows){
+  const rs=gp.rooms, crit=rs.reduce((a,b)=>(b.td<a.td?b:a),rs[0]);
+  const min=k=>Math.min(...rs.map(r=>r[k]).filter(v=>isFinite(v)));
+  const set=(id,v)=>{ if(v!=null&&v!==""&&!(typeof v==="number"&&!isFinite(v))) $(id).value=typeof v==="number"?r2(v,2):v; };
+  set("ahuId",gp.tag); set("rooms",rs.map(r=>r.id).join(", "));
+  $("roomsData").value=JSON.stringify(rs.map(r=>({id:r.id,name:r.name||"",flow:r.flow})));
+  set("qSa",rs.reduce((a,r)=>a+(isFinite(r.flow)?r.flow:0),0));
+  set("roomT",crit.t); set("roomRH",crit.rh);
+  if(crit.inputs&&crit.inputs.alt!=null) set("alt",parseFloat(crit.inputs.alt));
+  set("ccT",min("Tc")); set("ccTd",min("tdS")); set("ts",min("Ts"));
+  const cw=chwRows.filter(c=>rs.some(r=>r.id&&r.id===c.id));
+  if(cw.length){ const tw=Math.min(...cw.map(c=>c.tw).filter(isFinite)); const dt=cw[0].dtw;
+    if(isFinite(tw)){ const e=Math.floor(tw*2)/2; set("ewt",e); if(isFinite(dt)) set("lwt",e+dt); } }
+  $("pumpTag").value="";
+}
+$("linkBtn").addEventListener("click",()=>{
+  const rooms=readShared("dew"), chwRows=readShared("chw");
+  linkDialog({title:"Link data from the dew point & chilled water tools", sourceHref:"../#supply", rooms,
+    note:`Rooms come from the <a href="../">dew point &amp; supply air tool</a> summary${chwRows.length?` and the required chilled water temperature from the <a href="../chw-temperature/">chilled water tool</a> (${chwRows.length} row${chwRows.length>1?"s":""})`:""}. Rooms with the same AC equipment name become one AHU: airflows are added, and the coil and supply targets follow the most demanding room. “By Room ID” sizes an AHU for that room only. Component choices (sections, filters, fans, outdoor air) stay as set in this tool. All linked AHUs are added to the summary.`,
+    onApply(list,scope){
+      const groups=groupRooms(list,scope); if(!groups.length) return;
+      const keep=getInputs(), added=[];
+      groups.forEach(gp=>{ setInputs(keep); applyGroup(gp,chwRows); render(); const row=collectRow(); if(!row.err){ SUMMARY.put(row); added.push(row.id); } });
+      setInputs(keep); applyGroup(groups[0],chwRows); update(); showView(groups.length>1?"summary":"calc");
+      toast(`Linked ${added.length} AHU${added.length>1?"s":""} (${list.length} room${list.length>1?"s":""}) and added to the summary`);
+    }});
+});
+
+function update(){ render(); save(); }
+$("rooms").addEventListener("input",()=>{ $("roomsData").value=""; });
+document.addEventListener("input",e=>{ if(e.target.closest("[data-save]")||e.target.matches("[data-save]")) update(); });
+document.addEventListener("change",e=>{ if(e.target.matches("[data-save]")) update(); });
+$("resetBtn").addEventListener("click",()=>{ setInputs(defaults); update(); });
+load();
+const h=location.hash.slice(1); if(VIEWS.includes(h)) view=h;
+showView(view); update();
+})();
+
+</script>
+</body>
+</html>
