@@ -322,7 +322,7 @@ th.grp{text-align:center}
       <section class="view" id="view-method" role="tabpanel" aria-labelledby="tab-method">
         <div class="method">
           <h2>Equations</h2>
-          <p>Moist air properties follow the ASHRAE Handbook – Fundamentals (Psychrometrics chapter), with saturation vapor pressure from Hyland–Wexler.</p>
+          <p>Moist air properties follow the ASHRAE Handbook – Fundamentals 2021 (SI), Ch. 1 Psychrometrics: saturation pressure Eq. (5)/(6) (Hyland–Wexler), humidity ratio Eq. (20), specific volume Eq. (26), enthalpy Eq. (30), wet bulb Eq. (33)/(35), pressure from altitude Eq. (3); dew point by inverting Eq. (5)/(6) with Eq. (36).</p>
           <span class="eq">p = 101.325 × (1 − 2.25577·10⁻⁵ × Z)^5.2559 &nbsp;[kPa]</span>
           <span class="eq">W = 0.621945 × p_w / (p − p_w) &nbsp;[kg/kg dry air]</span>
           <span class="eq">h = 1.006·t + W·(2501 + 1.86·t) &nbsp;[kJ/kg]</span>
@@ -1015,7 +1015,7 @@ const SUMMARY=makeSummary({
   key:"hvac-dewpoint-summary-v1",
   title:"Room dew point & supply air temperature — summary",
   file:"Supply-air-summary",
-  footer:"hochvacsbs.wordpress.com · Psychrometrics per ASHRAE Handbook – Fundamentals. Preliminary selection only; verify with dedicated load calculation software.",
+  footer:"hochvacsbs.wordpress.com · Psychrometrics per ASHRAE Handbook – Fundamentals 2021, Ch. 1. Preliminary selection only; verify with dedicated load calculation software.",
   countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap", headId:"sumHead", bodyId:"sumBody",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
   cols:[
