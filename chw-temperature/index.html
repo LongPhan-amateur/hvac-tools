@@ -314,7 +314,7 @@ th.grp{text-align:center}
             <li>The same chapter notes that, for a space held at 24 °C / 50% RH (dew point about 13 °C), return water should be near 13 °C (16 °C at most), and that about 2 °C is the lowest practical chilled water temperature. Chiller limits (refrigerant, minimum flow) must be confirmed with the manufacturer.</li>
           </ul>
           <h2>Moist air properties</h2>
-          <p>ASHRAE Handbook – Fundamentals (Psychrometrics), saturation pressure by Hyland–Wexler; wet bulb solved iteratively. Results are for preliminary selection and should be confirmed with the coil and chiller manufacturers' software.</p>
+          <p>ASHRAE Handbook – Fundamentals 2021 (SI), Ch. 1 Psychrometrics: saturation pressure Eq. (5)/(6) (Hyland–Wexler), humidity ratio Eq. (20), specific volume Eq. (26), enthalpy Eq. (30), wet bulb Eq. (33)/(35), pressure from altitude Eq. (3); wet bulb solved iteratively. Coil load per kg dry air = (h<sub>E</sub> − h<sub>L</sub>) − (W<sub>E</sub> − W<sub>L</sub>)·4.186·t<sub>L</sub>, Eq. (43) and (32). Results are for preliminary selection and should be confirmed with the coil and chiller manufacturers' software.</p>
         </div>
       </section>
     </main>
@@ -388,7 +388,7 @@ function calc(){
   const tdr=tdewFromW(WfromRH(n("tr",24),Math.min(100,Math.max(1,n("rhr",50))),p),p);
   return {p,te,twe,tl,twl,We,Wl,tdl,tde,adp,bf,adpChart,tw,tret,dtw,tdr,
     bfChart: isFinite(adpChart)?(tl-adpChart)/(te-adpChart):NaN,
-    qPerKg: enth(te,We)-enth(tl,Wl)};
+    qPerKg: (enth(te,We)-enth(tl,Wl))-Math.max(0,We-Wl)*4.186*tl};
 }
 
 let summary="", lastC=null, lastChecks=[];
