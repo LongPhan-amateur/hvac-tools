@@ -159,6 +159,20 @@ table.sum th,table.sum td{white-space:nowrap}
 .toast.on{opacity:1}
 .toast.bad{background:var(--bad);color:#fff}
 .field.full{grid-column:1/-1}
+.dlg{border:1px solid var(--line);border-radius:12px;padding:0;max-width:580px;width:calc(100% - 32px);background:var(--surface);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.dlg::backdrop{background:rgba(10,20,30,.45)}
+.dlg-body{padding:20px 22px;display:grid;gap:10px}
+.dlg-body h2{margin:0}
+.scope{border:0;padding:0;margin:4px 0 0;display:grid;gap:10px}
+.opt{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:.92rem}
+.opt input{accent-color:var(--accent)}
+.opt small{color:var(--muted)}
+.opt select{grid-column:2;font:inherit;font-size:.88rem;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.sr{position:absolute;left:-9999px}
+td.ctr{text-align:center}
+tr.units th{font-weight:400;font-style:italic;color:var(--accent);text-transform:none}
+th.grp{text-align:center}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 </head>
@@ -170,7 +184,7 @@ table.sum th,table.sum td{white-space:nowrap}
       <h1>Room dew point & supply air temperature</h1>
       <p class="lede">Check condensation risk on cold surfaces, then select a supply air temperature that removes both the sensible and the latent load of the room.</p>
     </div>
-    <div class="row" style="justify-content:flex-end"><a class="btn" href="chw-temperature/">Chilled water temperature tool →</a><button class="btn" id="resetBtn" type="button">Restore sample data</button></div>
+    <div class="row" style="justify-content:flex-end"><a class="btn" href="chw-temperature/">Chilled water temperature tool →</a><a class="btn" href="ahu/">AHU tool →</a><button class="btn" id="resetBtn" type="button">Restore sample data</button></div>
   </header>
 
   <div class="layout">
@@ -345,7 +359,7 @@ table.sum th,table.sum td{white-space:nowrap}
   </div>
 
   <footer>
-    <span>hochvacsbs.wordpress.com · Free tools for HVAC engineers · <a href="chw-temperature/">Chilled water temperature tool</a></span>
+    <span>hochvacsbs.wordpress.com · Free tools for HVAC engineers · <a href="chw-temperature/">Chilled water temperature tool</a> · <a href="ahu/">AHU tool</a></span>
     <span>Your inputs are saved in your browser.</span>
   </footer>
 </div>
@@ -765,34 +779,60 @@ const EXPORT=(function(){
   }
   const colRef=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
   const NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
-  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border
-  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1C5A85"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC4CFD8"/></left><right style="thin"><color rgb="FFC4CFD8"/></right><top style="thin"><color rgb="FFC4CFD8"/></top><bottom style="thin"><color rgb="FFC4CFD8"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="7"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
-  function xlsx(o){ // o:{sheet,title,subtitle,cols:[{h,w,fmt}],rows:[[...]],file}
+  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border · 7 unit row · 8 centred text w/ border
+  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="4"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font><font><i/><sz val="10"/><color rgb="FF1C5A85"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1C5A85"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE6EFF6"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC4CFD8"/></left><right style="thin"><color rgb="FFC4CFD8"/></right><top style="thin"><color rgb="FFC4CFD8"/></top><bottom style="thin"><color rgb="FFC4CFD8"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const groupSpans=cols=>{ // [{g,start,len}] for consecutive identical group labels
+    const out=[]; cols.forEach((c,i)=>{ const last=out[out.length-1];
+      if(c.g && last && last.g===c.g && last.start+last.len===i) last.len++; else out.push({g:c.g||null,start:i,len:1}); });
+    return out;
+  };
+  function sheetXml(o){
+    const cols=o.cols, hasG=cols.some(c=>c.g), hasU=cols.some(c=>c.u);
     const cell=(ci,ri,v,s)=>{
       const ref=colRef(ci)+ri;
       if(typeof v==="number") return isFinite(v)?`<c r="${ref}" s="${s}"><v>${v}</v></c>`:`<c r="${ref}" s="6"/>`;
-      if(v==null||v==="") return `<c r="${ref}" s="${s===3||s===0?0:6}"/>`;
+      if(v==null||v==="") return `<c r="${ref}" s="${s===3||s===0?0:s===1||s===7?s:6}"/>`;
       return `<c r="${ref}" t="inlineStr" s="${s}"><is><t xml:space="preserve">${xe(v)}</t></is></c>`;
     };
-    let r=1; const out=[];
+    let r=1; const out=[], merges=[];
     out.push(`<row r="${r}">${cell(0,r,o.title,3)}</row>`); r++;
     if(o.subtitle){ out.push(`<row r="${r}">${cell(0,r,o.subtitle,0)}</row>`); r++; }
     r++;
-    const hr=r;
-    out.push(`<row r="${r}" ht="32" customHeight="1">${o.cols.map((c,i)=>cell(i,r,c.h,1)).join("")}</row>`); r++;
+    const firstHead=r;
+    if(hasG){
+      const gr=r, hr=r+1;
+      out.push(`<row r="${gr}" ht="20" customHeight="1">${cols.map((c,i)=>cell(i,gr,c.g?c.g:c.h,1)).join("")}</row>`);
+      groupSpans(cols).forEach(sp=>{
+        if(sp.g){ if(sp.len>1) merges.push(`${colRef(sp.start)}${gr}:${colRef(sp.start+sp.len-1)}${gr}`); }
+        else merges.push(`${colRef(sp.start)}${gr}:${colRef(sp.start)}${hr}`);
+      });
+      out.push(`<row r="${hr}" ht="30" customHeight="1">${cols.map((c,i)=>cell(i,hr,c.g?c.h:"",1)).join("")}</row>`);
+      r=hr+1;
+    }else{
+      out.push(`<row r="${r}" ht="32" customHeight="1">${cols.map((c,i)=>cell(i,r,c.h,1)).join("")}</row>`); r++;
+    }
+    if(hasU){ out.push(`<row r="${r}">${cols.map((c,i)=>cell(i,r,c.u||"",7)).join("")}</row>`); r++; }
+    const lastHead=r-1;
     o.rows.forEach(row=>{
-      out.push(`<row r="${r}">${row.map((v,i)=>{ const f=o.cols[i].fmt; return cell(i,r,v, typeof v==="number"?(f==="0"?4:f==="0.00"?5:2):6); }).join("")}</row>`); r++;
+      out.push(`<row r="${r}">${row.map((v,i)=>{ const f=cols[i].fmt; return cell(i,r,v, typeof v==="number"?(f==="0"?4:f==="0.00"?5:2):(cols[i].c?8:6)); }).join("")}</row>`); r++;
     });
-    const last=colRef(o.cols.length-1), lastRow=hr+Math.max(1,o.rows.length);
-    const sheetName=xe(o.sheet||"Summary");
-    const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane xSplit="2" ySplit="${hr}" topLeftCell="C${hr+1}" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${o.cols.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.w||12}" customWidth="1"/>`).join("")}</cols><sheetData>${out.join("")}</sheetData><autoFilter ref="A${hr}:${last}${lastRow}"/><pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape"/></worksheet>`;
-    const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${NS}><sheets><sheet name="${sheetName}" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">'${sheetName}'!$A$${hr}:$${last}$${lastRow}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="0">'${sheetName}'!$${hr}:$${hr}</definedName></definedNames></workbook>`;
+    const last=colRef(cols.length-1), lastRow=lastHead+Math.max(1,o.rows.length);
+    const fx=o.freezeCols==null?2:o.freezeCols;
+    const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet ${NS}><sheetViews><sheetView workbookViewId="0"><pane xSplit="${fx}" ySplit="${lastHead}" topLeftCell="${colRef(fx)}${lastHead+1}" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${cols.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.w||12}" customWidth="1"/>`).join("")}</cols><sheetData>${out.join("")}</sheetData><autoFilter ref="A${lastHead}:${last}${lastRow}"/>${merges.length?`<mergeCells count="${merges.length}">${merges.map(m=>`<mergeCell ref="${m}"/>`).join("")}</mergeCells>`:""}<pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="${o.paper==="A3"?8:9}" orientation="landscape"/></worksheet>`;
+    return {ws,firstHead,lastHead,lastRow,last};
+  }
+  function xlsx(o){ // o:{file, sheets:[{sheet,title,subtitle,cols,rows}]} or a single sheet object
+    const sheets=o.sheets||[o];
+    const built=sheets.map(sheetXml);
+    const names=sheets.map((s,i)=>xe((s.sheet||("Sheet"+(i+1))).replace(/[\[\]\*\?\/\\:]/g," ").slice(0,31)));
+    const defs=built.map((b,i)=>`<definedName name="_xlnm._FilterDatabase" localSheetId="${i}" hidden="1">'${names[i]}'!$A$${b.lastHead}:$${b.last}$${b.lastRow}</definedName><definedName name="_xlnm.Print_Titles" localSheetId="${i}">'${names[i]}'!$${b.firstHead}:$${b.lastHead}</definedName>`).join("");
+    const wb=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${NS}><sheets>${names.map((n,i)=>`<sheet name="${n}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets><definedNames>${defs}</definedNames></workbook>`;
     const files=[
-      {name:"[Content_Types].xml",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+      {name:"[Content_Types].xml",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${built.map((b,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
       {name:"_rels/.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
       {name:"xl/workbook.xml",text:wb},
-      {name:"xl/_rels/workbook.xml.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
-      {name:"xl/worksheets/sheet1.xml",text:ws},
+      {name:"xl/_rels/workbook.xml.rels",text:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${built.map((b,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${built.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+      ...built.map((b,i)=>({name:`xl/worksheets/sheet${i+1}.xml`,text:b.ws})),
       {name:"xl/styles.xml",text:STY}
     ];
     download(zip(files),o.file);
@@ -803,35 +843,53 @@ const EXPORT=(function(){
     setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },2000);
   }
   function cellText(v,f){
-    if(typeof v!=="number") return v==null?"":String(v);
+    if(typeof v!=="number") return v==null||v===""?"":String(v);
     if(!isFinite(v)) return "–";
     const d=f==="0"?0:f==="0.00"?2:1;
     return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
   }
-  function reportHTML(o){ // printable A4 landscape report
-    const head=o.cols.map(c=>`<th>${xe(c.h)}</th>`).join("");
-    const body=o.rows.map(r=>`<tr>${r.map((v,i)=>{ const t=cellText(v,o.cols[i].fmt);
-      const cls=typeof v==="number"?"n":(["Pass","Note","Fail"].includes(v)?v:"");
-      return `<td class="${cls}">${xe(t)}</td>`; }).join("")}</tr>`).join("");
+  function headHTML(cols,extraLead){ // returns <tr>… rows (group + header + units)
+    const hasG=cols.some(c=>c.g), hasU=cols.some(c=>c.u), lead=extraLead?`<th rowspan="${hasG?2:1}"></th>`:"";
+    let h="";
+    if(hasG){
+      h+=`<tr>${lead}${groupSpans(cols).map(sp=>sp.g?`<th colspan="${sp.len}" class="grp">${xe(sp.g)}</th>`:`<th rowspan="2">${xe(cols[sp.start].h)}</th>`).join("")}</tr>`;
+      h+=`<tr>${cols.filter(c=>c.g).map(c=>`<th>${xe(c.h)}</th>`).join("")}</tr>`;
+    }else h+=`<tr>${lead}${cols.map(c=>`<th>${xe(c.h)}</th>`).join("")}</tr>`;
+    if(hasU) h+=`<tr class="units">${extraLead?"<th></th>":""}${cols.map(c=>`<th>${xe(c.u||"")}</th>`).join("")}</tr>`;
+    return h;
+  }
+  function reportHTML(o){ // printable report; o.sections or single table
+    const secs=o.sections||[{title:o.title,subtitle:o.subtitle,cols:o.cols,rows:o.rows}];
+    const big=secs.some(s=>s.cols.length>26);
+    const body=secs.map((s,si)=>{
+      const rows=s.rows.map(r=>`<tr>${r.map((v,i)=>{ const t=cellText(v,s.cols[i].fmt);
+        const cls=typeof v==="number"?"n":(["Pass","Note","Fail"].includes(v)?v:(s.cols[i].c?"c":""));
+        return `<td class="${cls}">${xe(t)}</td>`; }).join("")}</tr>`).join("");
+      return `<section${si?' class="brk"':""}><h1>${xe(s.title)}</h1><p class="sub">${xe(s.subtitle||o.subtitle||"")}</p>
+<table><thead>${headHTML(s.cols,false)}</thead><tbody>${rows}</tbody></table></section>`;
+    }).join("");
+    const paper=o.paper||(big?"A3":"A4");
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${xe(o.file.replace(/\.xlsx$/,""))}</title><style>
-@page{size:A4 landscape;margin:10mm}
+@page{size:${paper} landscape;margin:8mm}
 *{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-sizing:border-box}
 body{font-family:"Segoe UI",Arial,"Helvetica Neue",sans-serif;color:#13212c;margin:0}
-h1{font-size:15pt;margin:0 0 2pt}
-.sub{color:#5a6a77;margin:0 0 8pt;font-size:9pt}
+h1{font-size:14pt;margin:0 0 2pt}
+.sub{color:#5a6a77;margin:0 0 6pt;font-size:8.5pt}
 table{border-collapse:collapse;width:100%}
-th,td{border:.5pt solid #c4cfd8;padding:2.5pt 3.5pt;vertical-align:top}
-th{background:#1c5a85;color:#fff;font-weight:600;font-size:7pt;text-align:left}
-td{font-size:7.5pt}
+th,td{border:.5pt solid #c4cfd8;padding:2pt 3pt;vertical-align:top}
+th{background:#1c5a85;color:#fff;font-weight:600;font-size:${big?6:7}pt;text-align:center;vertical-align:middle}
+th.grp{background:#164a6e}
+tr.units th{background:#e6eff6;color:#1c5a85;font-weight:500;font-style:italic}
+td{font-size:${big?6.3:7.5}pt}
 td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.c{text-align:center}
 tbody tr:nth-child(even) td{background:#f2f5f8}
 thead{display:table-header-group}
 tr{page-break-inside:avoid}
+section.brk{page-break-before:always}
 .Pass{color:#1d7548;font-weight:700}.Note{color:#9a5c00;font-weight:700}.Fail{color:#b0281f;font-weight:700}
 .foot{margin-top:8pt;color:#5a6a77;font-size:7pt}
-</style></head><body><h1>${xe(o.title)}</h1><p class="sub">${xe(o.subtitle||"")}</p>
-<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>
-<p class="foot">${xe(o.footer||"")}</p></body></html>`;
+</style></head><body>${body}<p class="foot">${xe(o.footer||"")}</p></body></html>`;
   }
   function pdf(o){
     const f=document.createElement("iframe");
@@ -841,7 +899,7 @@ tr{page-break-inside:avoid}
     const d=f.contentWindow.document; d.open(); d.write(reportHTML(o)); d.close();
     setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(()=>f.remove(),60000); },350);
   }
-  return {xlsx,pdf,reportHTML,cellText};
+  return {xlsx,pdf,reportHTML,cellText,headHTML};
 })();
 
 let toastTimer=null;
@@ -849,54 +907,108 @@ function toast(msg,bad){
   let t=document.getElementById("toast");
   if(!t){ t=document.createElement("div"); t.id="toast"; t.className="toast"; t.setAttribute("role","status"); document.body.appendChild(t); }
   t.textContent=msg; t.classList.toggle("bad",!!bad); t.classList.add("on");
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),2600);
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("on"),2800);
 }
+
+/* Shared browser storage: all tools on this site read each other's summaries */
+const SHARED_KEYS={dew:"hvac-dewpoint-summary-v1", chw:"hvac-chw-summary-v1", ahu:"hvac-ahu-summary-v1"};
+function readShared(k){ try{ const v=JSON.parse(localStorage.getItem(SHARED_KEYS[k]||k)||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
 
 function makeSummary(cfg){
   let rows=[];
   try{ rows=JSON.parse(localStorage.getItem(cfg.key)||"[]"); if(!Array.isArray(rows)) rows=[]; }catch(e){ rows=[]; }
   const persist=()=>{ try{ localStorage.setItem(cfg.key,JSON.stringify(rows)); }catch(e){} };
   const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
-  const table=()=>rows.map(r=>cfg.cols.map(c=>r[c.k]));
+  const tables=cfg.tables||[{headId:cfg.headId, bodyId:cfg.bodyId, cols:cfg.cols, title:cfg.title, sheet:"Summary", records:all=>all, actions:true}];
+  const recs=t=>{ const out=[]; t.records(rows).forEach((r,i)=>out.push(r.__i==null?Object.assign({__i:i},r):r)); return out; };
   function render(){
     $(cfg.countId).textContent=rows.length;
     const has=rows.length>0;
     $(cfg.emptyId).classList.toggle("hidden",has);
     $(cfg.wrapId).classList.toggle("hidden",!has);
     cfg.buttons.forEach(id=>$(id).disabled=!has);
-    $(cfg.headId).innerHTML=`<tr><th></th>${cfg.cols.map(c=>`<th class="${c.fmt?"r":""}">${esc(c.h)}</th>`).join("")}</tr>`;
-    $(cfg.bodyId).innerHTML=rows.map((r,i)=>`<tr>
-      <td><div class="btns" style="flex-wrap:nowrap;gap:2px"><button class="btn ghost" type="button" data-load="${i}" title="Load this room back into the calculator">Load</button><button class="btn ghost" type="button" data-rm="${i}" aria-label="Remove ${esc(r.id||"row")}">✕</button></div></td>
-      ${cfg.cols.map(c=>{ const v=r[c.k];
-        if(c.k==="result") return `<td><span class="pill ${v==="Pass"?"ok":v==="Note"?"warn":"bad"}">${esc(v)}</span></td>`;
-        return `<td class="${typeof v==="number"?"r num":""}">${esc(EXPORT.cellText(v,c.fmt))}</td>`; }).join("")}
-    </tr>`).join("");
+    tables.forEach(t=>{
+      $(t.headId).innerHTML=EXPORT.headHTML(t.cols,t.actions);
+      $(t.bodyId).innerHTML=recs(t).map(r=>`<tr>
+        ${t.actions?`<td><div class="btns" style="flex-wrap:nowrap;gap:2px"><button class="btn ghost" type="button" data-load="${r.__i}" title="Load back into the calculator">Load</button><button class="btn ghost" type="button" data-rm="${r.__i}" aria-label="Remove ${esc(r.id||"row")}">✕</button></div></td>`:""}
+        ${t.cols.map(c=>{ const v=r[c.k];
+          if(c.k==="result") return `<td><span class="pill ${v==="Pass"?"ok":v==="Note"?"warn":"bad"}">${esc(v)}</span></td>`;
+          return `<td class="${typeof v==="number"?"r num":(c.c?"ctr":"")}">${esc(EXPORT.cellText(v,c.fmt))}</td>`; }).join("")}
+      </tr>`).join("");
+    });
+    if(cfg.onRender) cfg.onRender(rows);
+  }
+  function put(r){ // add or replace by id; returns true when replaced
+    const i=r.id?rows.findIndex(x=>x.id===r.id):-1;
+    if(i>=0){ rows[i]=r; return true; } rows.push(r); return false;
   }
   function add(){
     const r=cfg.collect();
     if(r.err){ toast(r.err,true); return; }
-    const i=r.id?rows.findIndex(x=>x.id===r.id):-1;
-    if(i>=0){ rows[i]=r; toast(`Updated ${r.id} in the summary (${rows.length} room${rows.length>1?"s":""})`); }
-    else { rows.push(r); toast(`Added ${r.id||"room"} to the summary (${rows.length} room${rows.length>1?"s":""})`); }
-    persist(); render();
+    const rep=put(r); persist(); render();
+    const n=rows.length, lbl=cfg.unit||"room";
+    toast(`${rep?"Updated":"Added"} ${r.id||lbl} ${rep?"in":"to"} the summary (${n} ${lbl}${n>1?"s":""})`);
   }
-  $(cfg.bodyId).addEventListener("click",e=>{
+  tables.filter(t=>t.actions).forEach(t=>$(t.bodyId).addEventListener("click",e=>{
     const ld=e.target.closest("[data-load]"), rm=e.target.closest("[data-rm]");
-    if(ld){ cfg.restore(rows[+ld.dataset.load]); toast(`Loaded ${rows[+ld.dataset.load].id||"room"}`); }
-    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; persist(); render(); toast(`Removed ${r.id||"room"}`); }
-  });
+    if(ld){ const r=rows[+ld.dataset.load]; cfg.restore(r); toast(`Loaded ${r.id||cfg.unit||"room"}`); }
+    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; persist(); render(); toast(`Removed ${r.id||cfg.unit||"room"}`); }
+  }));
   $(cfg.addId).addEventListener("click",add);
   $(cfg.clearId).addEventListener("click",()=>{
     if(!rows.length) return;
-    if(!confirm(`Remove all ${rows.length} rooms from the summary?`)) return;
+    if(!confirm(`Remove all ${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} from the summary?`)) return;
     rows=[]; persist(); render();
   });
-  const meta=()=>({title:cfg.title, subtitle:`${rows.length} room${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`,
-    footer:cfg.footer, cols:cfg.cols, rows:table(), sheet:"Summary", file:`${cfg.file}_${dateStr()}.xlsx`});
-  $(cfg.xlsxId).addEventListener("click",()=>{ if(rows.length) EXPORT.xlsx(meta()); });
-  $(cfg.pdfId).addEventListener("click",()=>{ if(rows.length){ EXPORT.pdf(meta()); toast("Choose “Save as PDF” in the print dialog"); } });
+  const sub=()=>`${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`;
+  const table=t=>recs(t).map(r=>t.cols.map(c=>r[c.k]));
+  $(cfg.xlsxId).addEventListener("click",()=>{ if(!rows.length) return;
+    EXPORT.xlsx({file:`${cfg.file}_${dateStr()}.xlsx`, sheets:tables.map(t=>({sheet:t.sheet||"Summary", title:t.title, subtitle:sub(), cols:t.cols, rows:table(t), paper:t.paper, freezeCols:t.freezeCols}))});
+  });
+  $(cfg.pdfId).addEventListener("click",()=>{ if(!rows.length) return;
+    EXPORT.pdf({file:`${cfg.file}_${dateStr()}.xlsx`, subtitle:sub(), footer:cfg.footer, paper:cfg.paper,
+      sections:tables.map(t=>({title:t.title, cols:t.cols, rows:table(t)}))});
+    toast("Choose “Save as PDF” in the print dialog");
+  });
   render();
-  return {render, get rows(){ return rows; }};
+  return {render, put(r){ const x=put(r); persist(); render(); return x; }, get rows(){ return rows; }};
+}
+
+/* Link dialog: pick rooms from the dew point tool's summary (all / by Room ID / by AC equipment) */
+function linkDialog(opts){ // opts:{title, note, rooms:[...], onApply(list, scope, key)}
+  let dlg=document.getElementById("linkDlg");
+  if(dlg) dlg.remove();
+  dlg=document.createElement("dialog"); dlg.id="linkDlg"; dlg.className="dlg";
+  const rooms=opts.rooms;
+  const ids=rooms.map(r=>r.id).filter(Boolean);
+  const eqs=[...new Set(rooms.map(r=>r.equip).filter(Boolean))];
+  dlg.innerHTML=`<form method="dialog" class="dlg-body">
+    <h2>${esc(opts.title)}</h2>
+    <p class="note">${opts.note}</p>
+    ${rooms.length?`
+    <fieldset class="scope"><legend class="sr">Scope</legend>
+      <label class="opt"><input type="radio" name="scope" value="all" checked> <span>All AHUs / all rooms <small>(${rooms.length} room${rooms.length>1?"s":""}${eqs.length?` · ${eqs.length} AC equipment`:""})</small></span></label>
+      <label class="opt"><input type="radio" name="scope" value="room"> <span>By Room ID</span>
+        <select id="lkRoom">${ids.map(i=>{ const r=rooms.find(x=>x.id===i); return `<option value="${esc(i)}">${esc(i)}${r&&r.name?" — "+esc(r.name):""}${r&&r.equip?" ("+esc(r.equip)+")":""}</option>`; }).join("")}</select></label>
+      <label class="opt"><input type="radio" name="scope" value="equip" ${eqs.length?"":"disabled"}> <span>By AC equipment name</span>
+        <select id="lkEquip" ${eqs.length?"":"disabled"}>${eqs.map(e=>`<option value="${esc(e)}">${esc(e)} — ${rooms.filter(r=>r.equip===e).length} room(s)</option>`).join("")}</select></label>
+    </fieldset>`:`<p class="err">No rooms found. Open the <a href="${opts.sourceHref}">dew point &amp; supply air tool</a>, calculate each room in tab 2 and press “+ Add to summary” first. Both tools must be opened in the same browser.</p>`}
+    <div class="btns" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn ghost" value="cancel" type="submit">Cancel</button>
+      ${rooms.length?`<button class="btn primary" id="lkGo" type="button">Link &amp; fill</button>`:""}
+    </div></form>`;
+  document.body.appendChild(dlg);
+  const sel=()=>dlg.querySelector("input[name=scope]:checked").value;
+  dlg.querySelectorAll("select").forEach(s=>s.addEventListener("focus",()=>{ const v=s.id==="lkRoom"?"room":"equip"; dlg.querySelector(`input[value=${v}]`).checked=true; }));
+  const go=dlg.querySelector("#lkGo");
+  if(go) go.addEventListener("click",()=>{
+    const sc=sel();
+    let list=rooms, key="";
+    if(sc==="room"){ key=dlg.querySelector("#lkRoom").value; list=rooms.filter(r=>r.id===key); }
+    if(sc==="equip"){ key=dlg.querySelector("#lkEquip").value; list=rooms.filter(r=>r.equip===key); }
+    dlg.close(); opts.onApply(list,sc,key);
+  });
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
 }
 
 const SUMMARY=makeSummary({
