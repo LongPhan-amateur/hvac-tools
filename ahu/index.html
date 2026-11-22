@@ -214,6 +214,10 @@ table.sched th{text-align:center;vertical-align:middle}
 .proc-wrap svg{display:block;min-width:900px}
 .comp-f .finfo{grid-column:1/-1;display:grid;gap:2px;font-size:.78rem;background:var(--bg);border:1px dashed var(--line);border-radius:7px;padding:7px 9px}
 .comp-f .finfo small{color:var(--muted)}
+.mau-box{border:1px dashed var(--accent);border-radius:10px;padding:10px 12px;margin:8px 0;background:var(--bg)}
+.mau-out{display:grid;gap:14px;border-top:2px solid var(--line);padding-top:14px}
+.sys-more{margin-top:6px;font-size:.78rem;padding:4px 10px}
+.upN,.dnN{font:inherit}
 </style>
 </head>
 <body>
@@ -234,8 +238,8 @@ table.sched th{text-align:center;vertical-align:middle}
     <aside class="panel" aria-label="AHU and design inputs">
       <h2>AHU</h2>
       <div class="grid2">
-        <div class="field"><label for="ahuId">AHU tag</label><div class="inp"><input id="ahuId" data-save type="text" value="F1/1F/AHU/001" autocomplete="off"><span class="pickw" title="Pick a saved AHU"><span aria-hidden="true">▾</span><select class="pick" data-pick="tag" aria-label="Pick a saved AHU by tag"></select></span></div></div>
-        <div class="field"><label for="ahuType">AHU type</label><div class="inp"><input id="ahuType" data-save type="text" value="A1" autocomplete="off"><span class="pickw" title="Pick a saved AHU"><span aria-hidden="true">▾</span><select class="pick" data-pick="type" aria-label="Pick a saved AHU by type"></select></span></div></div>
+        <div class="field"><label for="ahuId"><span class="dnN">AHU</span> tag</label><div class="inp"><input id="ahuId" data-save type="text" value="F1/1F/AHU/001" autocomplete="off"><span class="pickw" title="Pick a saved AHU"><span aria-hidden="true">▾</span><select class="pick" data-pick="tag" aria-label="Pick a saved AHU by tag"></select></span></div></div>
+        <div class="field"><label for="ahuType"><span class="dnN">AHU</span> type</label><div class="inp"><input id="ahuType" data-save type="text" value="A1" autocomplete="off"><span class="pickw" title="Pick a saved AHU"><span aria-hidden="true">▾</span><select class="pick" data-pick="type" aria-label="Pick a saved AHU by type"></select></span></div></div>
         <div class="field full"><label for="block">Block – floor</label><div class="inp"><input id="block" data-save type="text" value="F1 – Ground floor" autocomplete="off"></div></div>
         <div class="field"><label for="clean">Clean class</label><div class="inp"><select id="clean" data-save>
           <option>CNC</option><option>GRADE D</option><option selected>GRADE C</option><option>GRADE B</option><option>ISO 8</option><option>ISO 7</option><option>ISO 5</option><option>Comfort</option></select></div></div>
@@ -254,6 +258,7 @@ table.sched th{text-align:center;vertical-align:middle}
         <div class="field"><label for="oaWb" id="oaWbLbl">Outdoor air WB</label><div class="inp"><input id="oaWb" data-save type="number" step="0.1" value="28"><span class="u">°C</span></div></div>
         <div class="field"><label for="roomT">Room DB</label><div class="inp"><input id="roomT" data-save type="number" step="0.1" value="23"><span class="u">°C</span></div></div>
         <div class="field"><label for="roomRH">Room RH</label><div class="inp"><input id="roomRH" data-save type="number" step="1" value="55"><span class="u">%</span></div></div>
+        <div class="field full"><label for="rhCtl">Room RH control</label><div class="inp"><select id="rhCtl" data-save><option value="ctl">Controlled (RH shown in schedules)</option><option value="no">No control (calculate at the RH above, schedule shows “No control”)</option></select></div></div>
         <div class="field full"><label for="retRise">Return air temperature rise (ceiling, lights)</label><div class="inp"><input id="retRise" data-save type="number" step="0.1" value="0.5"><span class="u">K</span></div></div>
       </div>
       <dl class="props" id="sideProps"></dl>
@@ -275,25 +280,58 @@ table.sched th{text-align:center;vertical-align:middle}
             <div class="seg" role="group" aria-label="System type">
               <button type="button" data-sys="recirc" aria-pressed="true">Return air + outdoor air</button>
               <button type="button" data-sys="fa" aria-pressed="false">100% fresh air</button>
+              <button type="button" data-sys="mau" aria-pressed="false">MAU / PAU + AHU</button>
+              <button type="button" data-sys="ffu" aria-pressed="false">Evaporator + FFU</button>
             </div>
+            <button type="button" class="btn sys-more" id="sysMore">Change system…</button>
+            <div class="field full" data-ffuonly><label for="ffuSet">Units in this system</label><div class="inp"><select id="ffuSet" data-save>
+              <option value="both" selected>Evaporator + FFU</option><option value="evap">Evaporator only</option><option value="ffu">FFU only</option></select></div></div>
           </div>
           <input type="hidden" id="sys" data-save value="recirc">
+          <input type="hidden" id="sysCfg" data-save value=""><input type="hidden" id="sysCalc" value=""><input type="hidden" id="ctxKind" value=""><input type="hidden" id="upRefT" value="">
+          <input type="hidden" id="unitEdit" data-save value="ahu"><input type="hidden" id="ahuData" data-save value=""><input type="hidden" id="mauData" data-save value="">
+        </div>
+        <div data-mau class="hidden mau-box">
+          <div class="row"><div class="field" style="margin:0"><label>Configure</label>
+            <div class="seg" role="group" aria-label="Unit to configure">
+              <button type="button" data-unit="ahu" aria-pressed="true"><span class="dnN">AHU</span> (recirculation)</button>
+              <button type="button" data-unit="mau" aria-pressed="false"><span class="upN">MAU / PAU</span> (outdoor air)</button>
+            </div></div></div>
+          <div class="grid3">
+            <div class="field"><label for="mauId"><span class="upN">MAU / PAU</span> tag</label><div class="inp"><input id="mauId" data-save type="text" value="" placeholder="auto from AHU tag" autocomplete="off"></div></div>
+            <div class="field"><label for="mauType"><span class="upN">MAU / PAU</span> type</label><div class="inp"><input id="mauType" data-save type="text" value="M1" autocomplete="off"></div></div>
+            <div class="field"><label for="mauQty">Quantity</label><div class="inp"><input id="mauQty" data-save type="number" step="1" value="1"><span class="u">set</span></div></div>
+            <div class="field full"><label for="upDest"><span class="upN">MAU / PAU</span> supplies</label><div class="inp"><select id="upDest" data-save>
+              <option value="dn" selected>The AHU / FFU outdoor-air inlet</option><option value="room">The room directly (AHU / FFU takes outdoor air from outside)</option></select></div></div>
+            <div class="field" data-uproom><label for="upFlow"><span class="upN">MAU / PAU</span> supply airflow</label><div class="inp"><input id="upFlow" data-save type="number" step="any" value=""><span class="u">m³/h</span></div></div>
+            <div class="field"><label for="upOa">Outdoor air in the <span class="upN">MAU / PAU</span></label><div class="inp"><input id="upOa" data-save type="number" step="any" value="100"><span class="u">%</span></div></div>
+            <div class="field full"><label for="mauMode">Supply condition vs. return air</label><div class="inp"><select id="mauMode" data-save>
+              <option value="neutral" selected>Equal to return air (neutral) – preferred</option><option value="lower">Lower than return air – extra dehumidification, no desiccant in the AHU / FFU</option><option value="higher">Higher than return air – pre-treatment, rest of the load in the AHU / FFU</option></select></div></div>
+            <div class="field full"><label for="mauCfg">Configuration (schedule text)</label><div class="inp"><input id="mauCfg" data-save type="text" value="1 × 100 %" autocomplete="off"></div></div>
+          </div>
+          <p class="note" id="mauFlowNote"></p>
         </div>
         <div class="grid3">
-          <div class="field"><label for="qSa">Supply airflow</label><div class="inp"><input id="qSa" data-save type="number" step="10" value="12000"><span class="u">m³/h</span></div></div>
-          <div class="field" data-recirc><label for="oaMode">Outdoor air given as</label><div class="inp"><select id="oaMode" data-save><option value="pct">% of supply</option><option value="flow">Airflow</option></select></div></div>
-          <div class="field" data-recirc><label for="oaVal" id="oaValLbl">Outdoor air</label><div class="inp"><input id="oaVal" data-save type="number" step="1" value="20"><span class="u" id="oaValU">%</span></div></div>
-          <div class="field"><label for="leak">Room pressurisation / leakage</label><div class="inp"><input id="leak" data-save type="number" step="10" value="600"><span class="u">m³/h</span></div></div>
+          <div class="field" data-ahuonly><label for="qSa">Supply airflow</label><div class="inp"><input id="qSa" data-save type="number" step="10" value="12000"><span class="u">m³/h</span></div></div>
+          <div class="field" data-recirc data-ahuonly><label for="oaMode">Outdoor air given as</label><div class="inp"><select id="oaMode" data-save><option value="pct">% of supply</option><option value="flow">Airflow</option></select></div></div>
+          <div class="field" data-recirc data-ahuonly><label for="oaVal" id="oaValLbl">Outdoor air</label><div class="inp"><input id="oaVal" data-save type="number" step="1" value="20"><span class="u" id="oaValU">%</span></div></div>
+          <div class="field" data-ahuonly><label for="leak">Room pressurisation / leakage</label><div class="inp"><input id="leak" data-save type="number" step="10" value="600"><span class="u">m³/h</span></div></div>
         </div>
         <h3 style="margin-bottom:0">Air targets</h3>
         <div class="grid3">
           <div class="field"><label for="ccT">Cooling coil leaving DB</label><div class="inp"><input id="ccT" data-save type="number" step="0.1" value="13"><span class="u">°C</span></div></div>
           <div class="field"><label for="ccTd">Cooling coil leaving dew point</label><div class="inp"><input id="ccTd" data-save type="number" step="0.1" value="12.5"><span class="u">°C</span></div></div>
-          <div class="field"><label for="ts">Supply air DB (at AHU outlet)</label><div class="inp"><input id="ts" data-save type="number" step="0.1" value="16"><span class="u">°C</span></div></div>
+          <div class="field"><label for="ts" id="tsLbl">Supply air DB (at AHU outlet)</label><div class="inp"><input id="ts" data-save type="number" step="0.1" value="16"><span class="u">°C</span></div></div>
         </div>
 
+        <div data-mau class="hidden">
+          <div class="row" style="margin-top:4px"><h2><span class="upN">MAU / PAU</span> diagram</h2></div>
+          <div class="diag-wrap"><svg id="diagramMau" class="diagram" role="img" aria-label="Outdoor-air unit airflow diagram"></svg></div>
+          <p class="note" id="diagNoteMau"></p>
+          <p class="note"><strong>↓ <span class="upN">MAU / PAU</span> supply air → <span class="dnN">AHU</span> outdoor-air inlet</strong></p>
+        </div>
         <div class="row" style="margin-top:4px">
-          <h2>AHU diagram</h2>
+          <h2 id="diagTitle">AHU diagram</h2>
           <div class="legend">
             <span><i style="background:#2b7bb9"></i>Cooling</span>
             <span><i style="background:#c0392b"></i>Heating</span>
@@ -304,7 +342,7 @@ table.sched th{text-align:center;vertical-align:middle}
         <div class="diag-wrap"><svg id="diagram" class="diagram" role="img" aria-label="AHU airflow diagram"></svg></div>
         <p class="note" id="diagNote"></p>
 
-        <h2>Components</h2>
+        <h2 id="compTitle">Components</h2>
         <p class="note">Tick the sections the AHU has. Choices for position (wrap-around or outdoor-air side, blow- or draw-through fan, desiccant before or after mixing, final filter before the coils or after the fan) change the diagram and the calculation. Enter a section length or weight to replace the estimate (blank = auto), and tick “Access section after” where a maintenance section is needed.</p>
         <div id="compGrid" class="comp-grid"></div>
       </section>
@@ -313,10 +351,12 @@ table.sched th{text-align:center;vertical-align:middle}
       <section class="view" id="view-calc" role="tabpanel" aria-labelledby="tab-calc">
         <div id="calcErr" class="err hidden"></div>
         <div id="calcOut" style="display:grid;gap:16px">
+          <h2 data-mau class="hidden" style="margin:0"><span class="dnN">AHU</span> results</h2>
           <div class="tiles" id="tiles"></div>
           <div>
             <div class="row"><h3 style="margin:0">Process schematic</h3><div class="btns"><button class="btn" type="button" id="procPdfBtn">Export process report (PDF)</button></div></div>
             <div class="proc-wrap" id="procSvg"></div>
+            <div class="hidden" id="procWrapMau"><h3 style="margin:10px 0 4px"><span class="upN">MAU / PAU</span> → room (separate supply)</h3><div class="proc-wrap" id="procSvgMau"></div></div>
             <p class="note">State points along the supply path with dry bulb, wet bulb, RH, humidity ratio, enthalpy, specific volume, dew point and air flow; component duties above the line (+ heating, − cooling). The PDF report lists every state point and process.</p>
           </div>
           <div>
@@ -337,6 +377,20 @@ table.sched th{text-align:center;vertical-align:middle}
           </div>
           <div class="row"><h2>Checks</h2><div class="btns"><button class="btn" type="button" id="copyBtn">Copy results</button><button class="btn primary" type="button" id="addSumBtn">+ Add to summary</button></div></div>
           <div class="checks" id="checks"></div>
+          <div data-mau class="hidden mau-out">
+            <h2 style="margin:0"><span class="upN">MAU / PAU</span> results · <span id="mauHdr"></span></h2>
+            <div class="tiles" id="m_tiles"></div>
+            <div><h3 style="margin-bottom:6px">Air states through the <span class="upN">MAU / PAU</span></h3>
+              <div class="tbl-wrap"><table><thead><tr><th>Point</th><th>Location</th><th class="r">DB °C</th><th class="r">WB °C</th><th class="r">RH %</th><th class="r">W g/kg</th><th class="r">Dew point °C</th><th class="r">h kJ/kg</th></tr></thead><tbody id="m_ptsBody"></tbody></table></div></div>
+            <div><h3 style="margin-bottom:6px">Component duties</h3>
+              <div class="tbl-wrap"><table><thead><tr><th>Component</th><th class="r">Duty</th><th>Details</th><th class="r">Air PD Pa</th></tr></thead><tbody id="m_dutyBody"></tbody></table></div></div>
+            <div><h3 style="margin-bottom:6px">Fans</h3>
+              <div class="tbl-wrap"><table><thead><tr><th>Fan</th><th class="r">Airflow m³/h</th><th class="r">ESP Pa</th><th class="r">Internal PD Pa</th><th class="r">Total SP Pa</th><th class="r">Absorbed kW</th><th>Array</th><th class="r">Installed kW</th><th>Drive</th></tr></thead><tbody id="m_fanBody"></tbody></table></div></div>
+            <div><h3 style="margin-bottom:6px">Size, weight &amp; electrical load <small class="note">(estimate)</small></h3>
+              <div class="tbl-wrap"><table><tbody id="m_sizeBody"></tbody></table></div></div>
+            <h3 style="margin:0"><span class="upN">MAU / PAU</span> checks</h3>
+            <div class="checks" id="m_checks"></div>
+          </div>
         </div>
       </section>
 
@@ -391,6 +445,16 @@ table.sched th{text-align:center;vertical-align:middle}
             <li><strong>Discharge order:</strong> supply fan → UV-C lamp → final filter (when after the fan) → sound attenuator → discharge plenum.</li>
             <li><strong>Height &amp; decks:</strong> leave the casing height blank for an automatic size (width ≈ 1.5 × height), or set it: the width then follows from the face velocity. The height is split between the supply deck, the return / exhaust deck (return fan, energy recovery) and the desiccant reactivation deck in proportion to their face areas (supply at the set face velocity, return at 3 m/s, reactivation at 2.5 m/s).</li>
             <li><strong>Process report:</strong> the Calculation tab shows a process schematic with every state point; The return line runs from the room through the return fan to the mixing box and, for the exhaust part, through the exhaust side of the heat recovery to outside. Airflows are the design airflow of each stream in m³/h (the dry-air mass flow is constant along a stream; the actual volume changes slightly with density). “Export process report (PDF)” prints the state point data (air flow, DB, WB, RH, W, v, h, dew point, density, vapour pressure, absolute humidity) and each process (mixing, coils, fan heat, recovery) with total, sensible and latent energy, moisture change, SHR and Δh/ΔW.</li>
+            <li><strong>Reheat sizing:</strong> the reheat coil is checked for two cases — design room sensible load (supply at the design temperature) and the minimum room sensible load (night / equipment off: T<sub>s</sub> = T<sub>room</sub> − q<sub>min</sub> / (ṁ·c<sub>p</sub>)). The scheduled capacity is the larger of the two.</li>
+            <li><strong>Room RH “No control”:</strong> the coil is still sized for the RH you enter (e.g. 50 %), but the schedule shows the room RH as “No control” when that option is chosen.</li>
+            <li><strong>Coil circuit pumps:</strong> one pump per coil circuit when selected. Head = coil water pressure drop + allowance for 3-way valve, strainer and piping (default 25 + 10 + 25 = 60 kPa). P1 ≈ Q·H / η with η = 0.3–0.5 (estimate); confirm with the pump selection.</li>
+            <li><strong>MAU / PAU + AHU:</strong> outdoor air is treated in a separate MAU / PAU with its own components (wheel, desiccant, coils, heaters, humidifier, filters) and supplied to the AHU outdoor-air inlet; the AHU then mixes it with return air. MAU airflow = AHU outdoor air; MAU exhaust for heat recovery = AHU relief air. Each unit is computed with ASHRAE Fundamentals 2021 Ch. 1 psychrometrics, and the MAU gets its own schedule.</li>
+            <li><strong>Evaporator + FFU:</strong> works like MAU / PAU + AHU: the evaporator unit (DX by default) treats the outdoor air and supplies the FFU outdoor-air inlet; the FFU recirculates the room air. In both two-unit systems each unit can have or omit its cooling coil, preheat and reheat; with no coil the supply follows the entering air plus fan heat.</li>
+            <li><strong>Outdoor-air unit supply condition:</strong> neutral (supply DB = return air DB, preferred) sets the unit's supply target automatically; “lower” delivers air below the return air for extra cooling / dehumidification so no desiccant is needed in the AHU / FFU; “higher” pre-treats only and leaves the rest of the load to the AHU / FFU coil. The check compares the unit's supply with the return air.</li>
+            <li><strong>Desiccant positions:</strong> on outdoor air, after mixing, between the pre-cooling and main cooling coils (the main coil then cools the dry, warm air), or after the main coil followed by a post-cooling coil (chilled water or DX, sensible only; DX checked against SST ≤ leaving air − approach).</li>
+            <li><strong>System tabs:</strong> each system keeps its own component configuration; only the chosen system is shown (use “Change system…”). A saved unit (AHU / FFU tag, rooms) reloads its system and both units from the pickers in the left panel.</li>
+            <li><strong>Evaporative cooler (evaporator), ASHRAE HVAC Systems and Equipment 2020, Ch. 41:</strong> direct media t<sub>2</sub> = t<sub>1</sub> − ε (t<sub>1</sub> − t′<sub>s</sub>) along the entering wet bulb (Eq. 1; ε 70–95 % rigid media, ≈ 80 % random media; face velocity 2–3 m/s rigid, 0.5–1.3 m/s random). Indirect stage t<sub>2</sub> = t<sub>1</sub> − WBDE (t<sub>1</sub> − t<sub>s,secondary</sub>), no moisture added (Eq. 2; WBDE 60–80 %). Water: evaporation = ṁ (W<sub>2</sub> − W<sub>1</sub>) for the media and q / h<sub>fg</sub> for the IEC wet side; bleed-off 5–100 % of evaporation; make-up = evaporation + bleed. Checks: entering WB above ≈ 21 °C (not for indoor comfort), recirculating indoor air through a direct cooler, media face velocity.</li>
+            <li><strong>Evaporator + FFU:</strong> choose evaporator only, FFU only, or both. With both, the evaporator supplies either the FFU outdoor-air inlet or the room directly (the FFU then takes outdoor air from outside). Each unit at 100 % outdoor air has no return; below 100 % it gets a mixing box with OA / RA dampers. The same supply choice and outdoor-air % apply to the MAU / PAU (e.g. the MAU keeps the air change with a mixing box while the AHU circulation controls the temperature).</li>
             <li><strong>Size and weight (estimate):</strong> face area = supply airflow / coil face velocity, width ≈ 1.5 × height, plus panels; length is the sum of the section lengths (inlet and discharge plenums, mixing box, every component and each access / maintenance section). A length or weight entered in a component card replaces the estimate. Operating weight sums 50 mm double-skin panels, base frame, and typical weights per m² of face area for each section (wet coils included). Use the manufacturer's selection for the final figures.</li>
           </ul>
           <h2>Linking with the other tools</h2>
@@ -448,7 +512,7 @@ const COMPS=[
     f:[{id:"mixDamp",l:"OA / RA dampers",sel:[["yes","Yes"],["no","No"]],v:"yes"},{id:"mixPd",l:"Air PD",u:"Pa",v:50}]},
   {grp:"Casing & access", id:"cAcc", name:"Access / maintenance section", fixed:true, noLen:true, noWt:true, noAcc:true, desc:"Empty section with access door and light. Tick “Access section after” on any component to add one behind it.",
     f:[{id:"accLen",l:"Length per section",u:"mm",v:600},{id:"accWt",l:"Weight per section",u:"kg",v:20}]},
-  {grp:"Filters", id:"cPre", name:"Pre-filter", def:true, desc:"One or two stages on the mixed air, just before the final filter.",
+  {grp:"Filters", id:"cPre", name:"Pre-filter", def:true, desc:"One or two stages at the outdoor-air inlet, ahead of every other component (energy recovery, desiccant, mixing box).",
     f:[{id:"preCls",l:"Stage 1 class",sel:["G3","G4","M5","M6"],v:"G4"},{id:"prePd",l:"Stage 1 air PD",u:"Pa",v:100},
        {id:"pre2Cls",l:"Stage 2 class",sel:["—","M6","F7","F8","F9"],v:"F7"},{id:"pre2Pd",l:"Stage 2 air PD",u:"Pa",v:150}]},
   {grp:"Filters", id:"cFin", name:"Final filter", def:true, desc:"Bag or rigid filter before the coils, or on the discharge after the supply fan.",
@@ -466,30 +530,54 @@ const COMPS=[
   {grp:"Energy recovery", id:"cHp", name:"Heat pipe", desc:"Passive heat pipe; wrap-around saves cooling and reheat.",
     f:[{id:"hpPos",l:"Position",sel:[["wrap","Wrap-around cooling coil"],["oa","Outdoor air ↔ exhaust"]],v:"wrap"},{id:"hpE",l:"Effectiveness",u:"%",v:45},{id:"hpPd",l:"Air PD per section",u:"Pa",v:100}]},
   {grp:"Dehumidification", id:"cDes", name:"Desiccant wheel", desc:"Dries the air below what the cooling coil can reach. Reactivation uses outdoor air in its own deck below the supply deck: fan → filter (1–2 stages) → heater → wheel → exhaust.",
-    f:[{id:"desPos",l:"Position",sel:[["oa","On outdoor air (before mixing)"],["mix","After mixing"]],v:"oa"},{id:"desTd",l:"Leaving dew point",u:"°C",v:8},{id:"desReact",l:"Reactivation heat",sel:["Electric","Hot water","Steam","Gas"],v:"Electric"},{id:"desFac",l:"Reactivation factor",u:"×",v:1.4},
+    f:[{id:"desPos",l:"Position",sel:[["oa","On outdoor air (before mixing)"],["mix","After mixing, before the coils"],["pc","Between pre-cooling and main cooling coil"],["cc","After main cooling coil (+ post-cooling coil)"]],v:"oa"},
+       {id:"dpc",l:"Post-cooling coil after wheel",sel:[["yes","Yes"],["no","No"]],v:"yes",when:["desPos","cc"]},
+       {id:"dpcType",l:"Post-cool coil type",sel:[["chw","Chilled water"],["dx","DX"]],v:"chw",when:[["desPos","cc"],["dpc","yes"]]},
+       {id:"dpcT",l:"Post-cool leaving DB",u:"°C",v:14,when:[["desPos","cc"],["dpc","yes"]]},{id:"dpcPd",l:"Post-cool air PD",u:"Pa",v:120,when:[["desPos","cc"],["dpc","yes"]]},
+       {id:"dpcEwt",l:"Post-cool CHW EWT",u:"°C",v:7,when:[["desPos","cc"],["dpc","yes"],["dpcType","chw"]]},{id:"dpcLwt",l:"Post-cool CHW LWT",u:"°C",v:12,when:[["desPos","cc"],["dpc","yes"],["dpcType","chw"]]},
+       {id:"dpcWpd",l:"Post-cool water PD (max.)",u:"kPa",v:60,when:[["desPos","cc"],["dpc","yes"],["dpcType","chw"]]},
+       {id:"dpcPump",l:"Post-cool coil circuit pump",sel:[["no","No"],["yes","Yes"]],v:"no",when:[["desPos","cc"],["dpc","yes"],["dpcType","chw"]]},
+       {id:"dpcRef",l:"Post-cool refrigerant",sel:["R410A","R32","R454B","R407C","R134a"],v:"R410A",when:[["desPos","cc"],["dpc","yes"],["dpcType","dx"]]},
+       {id:"dpcSst",l:"Post-cool evaporating temp. (SST)",u:"°C",v:8,when:[["desPos","cc"],["dpc","yes"],["dpcType","dx"]]},
+       {id:"dpcApp",l:"Post-cool min. leaving air − SST",u:"K",v:5,when:[["desPos","cc"],["dpc","yes"],["dpcType","dx"]]},
+       {id:"dpcEer",l:"Post-cool condensing unit EER (est.)",u:"kW/kW",v:3.5,when:[["desPos","cc"],["dpc","yes"],["dpcType","dx"]]},
+       {id:"dpcCu",l:"Post-cool condensing unit tag",t:"text",v:"",ph:"auto",when:[["desPos","cc"],["dpc","yes"],["dpcType","dx"]]},
+       {id:"desTd",l:"Leaving dew point",u:"°C",v:8},{id:"desReact",l:"Reactivation heat",sel:["Electric","Hot water","Steam","Gas"],v:"Electric"},{id:"desFac",l:"Reactivation factor",u:"×",v:1.4},
        {id:"desRegT",l:"Reactivation air temp.",u:"°C",v:120},{id:"desRatio",l:"Process : reactivation airflow",u:": 1",v:3},{id:"desPd",l:"Process air PD",u:"Pa",v:200},{id:"desKw",l:"Drive motor",u:"kW",v:0.37},
        {id:"desHeat",l:"Reactivation heater in AHU",sel:[["yes","Yes"],["no","No – by others"]],v:"yes"},
        {id:"desRf1",l:"Reactivation filter stage 1",sel:["—","G4","M5"],v:"G4"},{id:"desRf2",l:"Reactivation filter stage 2",sel:["—","F7","M6","F8"],v:"F7"},
        {id:"desFanP",l:"Reactivation fan total pressure",u:"Pa",v:600},{id:"desFanEff",l:"Reactivation fan efficiency",u:"%",v:55}]},
   {grp:"Coils", id:"cPh", name:"Preheat coil", desc:"Heats before the cooling coil (winter, or before a desiccant).",
-    f:[{id:"phT",l:"Leaving DB (minimum)",u:"°C",v:18},{id:"phType",l:"Type",sel:["Hot water","Electric"],v:"Hot water"},{id:"phPd",l:"Air PD",u:"Pa",v:60}]},
+    f:[{id:"phT",l:"Leaving DB (minimum)",u:"°C",v:18},{id:"phType",l:"Type",sel:["Hot water","Electric"],v:"Hot water"},{id:"phPd",l:"Air PD",u:"Pa",v:60},{id:"phPump",l:"Coil circuit pump",sel:[["no","No"],["yes","Yes"]],v:"no",when:["phType","Hot water"]}]},
   {grp:"Coils", id:"cPc", name:"Pre-cooling coil", desc:"First cooling coil in series ahead of the main coil, e.g. 11/17 °C chilled water (main coil 7/12 °C), or DX.",
     f:[{id:"pcType",l:"Coil type",sel:[["chw","Chilled water"],["dx","DX"]],v:"chw"},{id:"pcT",l:"Leaving DB",u:"°C",v:18},
        {id:"pcEwt",l:"CHW EWT",u:"°C",v:11,when:["pcType","chw"]},{id:"pcLwt",l:"CHW LWT",u:"°C",v:17,when:["pcType","chw"]},{id:"pcWpd",l:"Water PD (max.)",u:"kPa",v:60,when:["pcType","chw"]},
        {id:"pcRef",l:"Refrigerant",sel:["R410A","R32","R454B","R407C","R134a"],v:"R410A",when:["pcType","dx"]},{id:"pcSst",l:"Evaporating temp. (SST)",u:"°C",v:10,when:["pcType","dx"]},
        {id:"pcApp",l:"Min. ADP − SST",u:"K",v:3,when:["pcType","dx"]},{id:"pcCirc",l:"Refrigerant circuits",u:"no.",v:1,when:["pcType","dx"]},
        {id:"pcEer",l:"Condensing unit EER (est.)",u:"kW/kW",v:3.5,when:["pcType","dx"]},{id:"pcCu",l:"Condensing unit tag",t:"text",v:"",ph:"auto",when:["pcType","dx"]},
-       {id:"pcPd",l:"Air PD (wet)",u:"Pa",v:200}]},
+       {id:"pcPd",l:"Air PD (wet)",u:"Pa",v:200},{id:"pcPump",l:"Coil circuit pump",sel:[["no","No"],["yes","Yes"]],v:"no",when:["pcType","chw"]}]},
   {grp:"Coils", id:"cCc", name:"Cooling coil", fixed:true, acc:true, desc:"Chilled water or DX; cools and dehumidifies to the coil leaving target.",
-    f:[{id:"ccType",l:"Coil type",sel:[["chw","Chilled water"],["dx","DX"]],v:"chw"},
+    f:[{id:"ccOn",two:true,l:"Cooling coil in this unit",sel:[["yes","Yes"],["no","No – none"]],v:"yes"},{id:"ccType",l:"Coil type",sel:[["chw","Chilled water"],["dx","DX"]],v:"chw"},
        {id:"ewt",l:"CHW EWT (design)",u:"°C",v:7.5,when:["ccType","chw"]},{id:"lwt",l:"CHW LWT",u:"°C",v:15,when:["ccType","chw"]},{id:"ccWpd",l:"Water PD (max.)",u:"kPa",v:60,when:["ccType","chw"]},
        {id:"dxRef",l:"Refrigerant",sel:["R410A","R32","R454B","R407C","R134a"],v:"R410A",when:["ccType","dx"]},{id:"dxSst",l:"Evaporating temp. (SST)",u:"°C",v:5,when:["ccType","dx"]},
        {id:"dxApp",l:"Min. ADP − SST",u:"K",v:3,when:["ccType","dx"]},{id:"dxCirc",l:"Refrigerant circuits",u:"no.",v:2,when:["ccType","dx"]},
        {id:"dxCtl",l:"Capacity control",sel:["Inverter","Digital scroll","On/off stages"],v:"Inverter",when:["ccType","dx"]},{id:"dxEer",l:"Condensing unit EER (est.)",u:"kW/kW",v:3,when:["ccType","dx"]},
        {id:"dxCu",l:"Condensing unit tag",t:"text",v:"",ph:"auto",when:["ccType","dx"]},
-       {id:"ccPd",l:"Air PD (wet)",u:"Pa",v:250},{id:"vface",l:"Face velocity",u:"m/s",v:2.5},{id:"addPcBtn",btn:"+ Add cooling coil (pre-cool)"}]},
-  {grp:"Coils", id:"cRh", name:"Reheat coil", def:true, desc:"Reheats to the supply air temperature.",
-    f:[{id:"rhType",l:"Type",sel:["Hot water","Electric"],v:"Hot water"},{id:"hwEwt",l:"HW EWT",u:"°C",v:30},{id:"hwLwt",l:"HW LWT",u:"°C",v:26},{id:"hwWpd",l:"Water PD (max.)",u:"kPa",v:60},{id:"rhPd",l:"Air PD",u:"Pa",v:60}]},
+       {id:"ccPd",l:"Air PD (wet)",u:"Pa",v:250},{id:"vface",l:"Face velocity",u:"m/s",v:2.5},{id:"ccPump",l:"Coil circuit pump",sel:[["no","No"],["yes","Yes"]],v:"no",when:["ccType","chw"]},
+       {id:"pumpAllow",l:"Pump head allowance (3-way valve + strainer + piping)",u:"kPa",v:60},{id:"addPcBtn",btn:"+ Add cooling coil (pre-cool)"}]},
+  {grp:"Coils", id:"cRh", name:"Reheat coil", def:true, desc:"Reheats to the supply air temperature. Sized for the larger of the design case and the minimum room sensible load (night / equipment off).",
+    f:[{id:"rhType",l:"Type",sel:["Hot water","Electric"],v:"Hot water"},{id:"hwEwt",l:"HW EWT",u:"°C",v:30,when:["rhType","Hot water"]},{id:"hwLwt",l:"HW LWT",u:"°C",v:26,when:["rhType","Hot water"]},{id:"hwWpd",l:"Water PD (max.)",u:"kPa",v:60,when:["rhType","Hot water"]},{id:"rhPd",l:"Air PD",u:"Pa",v:60},
+       {id:"rhQmin",ahuOnly:true,l:"Min. room sensible load (night / equipment off)",u:"kW",v:0},{id:"rhPump",l:"Coil circuit pump",sel:[["no","No"],["yes","Yes"]],v:"no",when:["rhType","Hot water"]}]},
+  {grp:"Evaporative cooling", id:"cIec", name:"Indirect evaporative stage (IEC)", evap:true, desc:"Air-to-air heat exchanger with a wetted secondary side: cools the supply air sensibly, no moisture added. ASHRAE S&E 2020 Ch. 41 Eq. 2: WBDE 60–80 %, supply-side PD 60–185 Pa.",
+    f:[{id:"iecEff",l:"Wet-bulb depression efficiency (WBDE)",u:"%",v:70},{id:"iecSec",l:"Secondary (wet-side) air",sel:[["oa","Outdoor air"],["ra","Return / exhaust air"]],v:"oa"},
+       {id:"iecSecQ",l:"Secondary airflow",u:"% of supply",v:100},{id:"iecPd",l:"Supply-side air PD",u:"Pa",v:120},{id:"iecSecPd",l:"Secondary-side PD (secondary fan)",u:"Pa",v:250},
+       {id:"iecBleed",l:"Bleed-off",u:"% of evaporation",v:50}]},
+  {grp:"Evaporative cooling", id:"cEvap", name:"Direct evaporative cooler (wetted media)", evap:true, desc:"Wetted media pad with sump and recirculating pump. Adiabatic: the dry bulb falls towards the entering wet bulb, moisture is added (ASHRAE S&E 2020 Ch. 41 Eq. 1).",
+    f:[{id:"evMedia",l:"Media",sel:[["r100","Rigid cellulose 100 mm"],["r150","Rigid cellulose 150 mm"],["r200","Rigid cellulose 200 mm"],["r300","Rigid cellulose 300 mm"],["rand","Random media (aspen / fibre) 50 mm"]],v:"r150"},
+       {id:"evEff",l:"Saturation efficiency ε",u:"%",v:85},{id:"evPd",l:"Media air PD",u:"Pa",v:60},
+       {id:"evWater",l:"Water supply",sel:[["recirc","Recirculating (sump + pump)"],["once","Once-through (mains)"]],v:"recirc"},
+       {id:"evPump",l:"Recirculating pump power",u:"kW",v:0.37,when:["evWater","recirc"]},{id:"evBleed",l:"Bleed-off",u:"% of evaporation",v:50,when:["evWater","recirc"]},
+       {id:"evUv",l:"UV water steriliser",sel:[["yes","Yes"],["no","No"]],v:"yes",when:["evWater","recirc"]},{id:"evElim",l:"Mist eliminator after the media",sel:[["no","No"],["yes","Yes"]],v:"no"},{id:"evElimPd",l:"Eliminator PD",u:"Pa",v:30,when:["evElim","yes"]}]},
   {grp:"Humidification & other", id:"cHum", name:"Humidifier", desc:"Keeps a minimum supply dew point.",
     f:[{id:"humType",l:"Type",sel:["Steam (electric)","Steam (plant)","Adiabatic"],v:"Steam (electric)"},{id:"humTd",l:"Min. supply dew point",u:"°C",v:5},{id:"humPd",l:"Air PD",u:"Pa",v:40}]},
   {grp:"Humidification & other", id:"cUv", name:"UV-C lamp", desc:"Disinfection lamp just after the supply fan.",
@@ -504,7 +592,8 @@ const COMPS=[
 (function buildCards(){
   const grid=$("compGrid"); let html="", g="";
   const fld=f=>{
-    const w=f.when?` data-when="${f.when[0]}:${f.when[1]}"`:"";
+    const wh=f.when?(Array.isArray(f.when[0])?f.when:[f.when]):null;
+    const w=(wh?` data-when="${wh.map(x=>x.join(":")).join(",")}"`:"")+(f.ahuOnly?" data-ahuonly":"")+(f.two?" data-twoonly":"");
     if(f.info) return `<div class="field finfo" id="${f.id}"></div>`;
     if(f.btn) return `<div class="field fbtn"${w}><button class="btn ghost" type="button" id="${f.id}">${esc(f.btn)}</button></div>`;
     if(f.chk) return `<label class="field chkf"${w}><input type="checkbox" id="${f.id}" data-save ${f.v?"checked":""}><span>${esc(f.l)}</span></label>`;
@@ -520,7 +609,7 @@ const COMPS=[
     if(!c.noLen) fs.push({id:c.id+"Len",l:"Section length",u:"mm",v:"",ph:"auto"});
     if(!c.noWt) fs.push({id:c.id+"Wt",l:"Weight",u:"kg",v:"",ph:"auto"});
     if(!c.noAcc) fs.push({id:c.id+"Acc",l:"Access section after",chk:true,v:!!c.acc});
-    html+=`<div class="comp ${c.fixed?"fixed":""}" data-comp="${c.id}"${c.recirc?" data-recirc":""}>
+    html+=`<div class="comp ${c.fixed?"fixed":""}" data-comp="${c.id}"${c.recirc?" data-recirc":""}${c.evap?" data-evaponly":""}>
       <label class="comp-h">${c.fixed?`<span class="pill ok">Included</span>`:`<input type="checkbox" id="${c.id}" data-save ${c.def?"checked":""}>`}<span><strong>${esc(c.name)}</strong><small>${esc(c.desc)}</small></span></label>
       <div class="comp-f">${fs.map(fld).join("")}</div>
     </div>`;
@@ -535,7 +624,7 @@ const defaults={}; CTRLS().forEach(el=>defaults[el.id]=el.type==="checkbox"?el.c
 let view="config";
 const getInputs=()=>{ const o={}; CTRLS().forEach(el=>o[el.id]=el.type==="checkbox"?el.checked:el.value); return o; };
 const setInputs=o=>{ CTRLS().forEach(el=>{ if(o[el.id]==null) return; if(el.type==="checkbox") el.checked=!!o[el.id]; else el.value=o[el.id]; }); };
-function save(){ try{ localStorage.setItem(KEY,JSON.stringify({inputs:getInputs(),view})); }catch(e){} }
+function save(){ try{ syncUnits(); localStorage.setItem(KEY,JSON.stringify({inputs:getInputs(),view})); }catch(e){} }
 function load(){ try{ const o=JSON.parse(localStorage.getItem(KEY)||"null"); if(!o) return; if(o.inputs) setInputs(o.inputs); if(o.view) view=o.view; }catch(e){} }
 
 const VIEWS=["config","calc","chart","summary","method"];
@@ -543,19 +632,92 @@ function showView(v){ if(!VIEWS.includes(v)) v="config"; view=v;
   document.querySelectorAll(".tab").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===v?"true":"false"));
   VIEWS.forEach(x=>$("view-"+x).classList.toggle("on",x===v)); }
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{ showView(b.dataset.view); try{history.replaceState(null,"","#"+b.dataset.view);}catch(e){} save(); }));
-document.querySelectorAll("[data-sys]").forEach(b=>b.addEventListener("click",()=>{ $("sys").value=b.dataset.sys; update(); }));
+/* each system (and each Evaporator + FFU arrangement) keeps its own configuration: switching saves the one being left and loads the one chosen */
+const twoKey=k=>k==="mau"||k==="ffu_both";
+const sysKey=()=>$("sys").value==="ffu"?"ffu_"+$("ffuSet").value:$("sys").value;
+const keyDef=k=>({mau:AHU_IN_MAU_DEF,ffu_both:FFU_DEF,ffu_ffu:FFU_DEF,ffu_evap:EVAP_DEF})[k];
+const metaDef=k=>({mauId:"",mauType:k==="ffu_both"?"E1":"M1",mauQty:"1",mauCfg:"1 × 100 %",mauMode:k==="ffu_both"?"higher":"neutral",upDest:"dn",upFlow:"",upOa:"100"});
+function changeSys(apply){
+  const from=sysKey();
+  if($("unitEdit").value==="mau") switchUnit("ahu");
+  const cfg=parseU($("sysCfg").value)||{}; cfg[from]=unitSnap();
+  if(twoKey(from)){ cfg[from+"_up"]=parseU($("mauData").value); const m={}; UP_META.forEach(id=>m[id]=$(id).value); cfg[from+"_meta"]=m; }
+  apply();
+  const to=sysKey(), old=to==="ffu_both"?"ffu":null;
+  const snap=cfg[to]||(old&&cfg[old]); if(snap) unitLoad(snap); else if(keyDef(to)) unitLoad(keyDef(to));
+  if(twoKey(to)){ $("mauData").value=JSON.stringify(cfg[to+"_up"]||(old&&cfg[old+"_up"])||(to==="ffu_both"?EVAP_DEF:MAU_DEF));
+    const m=Object.assign(metaDef(to),cfg[to+"_meta"]||(old&&cfg[old+"_meta"])||{}); UP_META.forEach(id=>{ if(m[id]!=null) $(id).value=m[id]; }); }
+  $("sysCfg").value=JSON.stringify(cfg); sysOpen=false;
+  update();
+}
+document.querySelectorAll("[data-sys]").forEach(b=>b.addEventListener("click",()=>{ if(b.dataset.sys!==$("sys").value) changeSys(()=>{ $("sys").value=b.dataset.sys; }); }));
+let ffuSetPrev=$("ffuSet").value;
+$("ffuSet").addEventListener("change",()=>{ const v=$("ffuSet").value; $("ffuSet").value=ffuSetPrev; changeSys(()=>{ $("ffuSet").value=v; }); ffuSetPrev=v; });
+let sysOpen=false;
+$("sysMore").addEventListener("click",()=>{ sysOpen=!sysOpen; render(); });
+document.querySelectorAll("[data-unit]").forEach(b=>b.addEventListener("click",()=>{ switchUnit(b.dataset.unit); update(); }));
 
 const roomsList=()=>{ try{ const a=JSON.parse($("roomsData").value||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } };
 const pumpTagOf=tag=>$("pumpTag").value.trim()||(/AHU/i.test(tag)?tag.replace(/AHU/i,"PU/AHU"):("PU-"+tag));
 
+/* ---------- MAU / PAU + AHU: both units share the component cards; the unit not being edited is kept as a snapshot ---------- */
+const UNIT_IDS=()=>[...$("compGrid").querySelectorAll("[data-save]")].map(e=>e.id).concat(["ccT","ccTd","ts","oaMode","oaVal"]);
+const unitSnap=()=>{ const o={}; UNIT_IDS().forEach(id=>{ const e=$(id); o[id]=e.type==="checkbox"?e.checked:e.value; }); return o; };
+const unitLoad=o=>{ if(!o) return; UNIT_IDS().forEach(id=>{ if(o[id]==null) return; const e=$(id); if(e.type==="checkbox") e.checked=!!o[id]; else e.value=o[id]; }); };
+const UNIT_DEF=(()=>{ const o={}; UNIT_IDS().forEach(id=>o[id]=defaults[id]); return o; })();
+const MAU_DEF=Object.assign({},UNIT_DEF,{ccT:"12",ccTd:"11.5",ts:"14",cRh:true,cRf:false,cWheel:false,esp:"550",cCcAcc:true,cSfAcc:true});
+const AHU_IN_MAU_DEF=Object.assign({},UNIT_DEF,{ccT:"14",ccTd:"11.5",ts:"16",cPre:false,cRf:false,cWheel:false,cDes:false});
+const EVAP_DEF=Object.assign({},UNIT_DEF,{ccOn:"no",cEvap:true,cIec:false,cPre:true,cFin:false,cRh:false,cPh:false,cPc:false,cRf:false,cWheel:false,cDes:false,cUv:false,cHum:false,cAtt:false,esp:"200",ts:"28",cCcAcc:false,cSfAcc:false,oaMode:"pct",oaVal:"100"});
+const FFU_DEF=Object.assign({},AHU_IN_MAU_DEF,{ccOn:"no",cRh:false,finPos:"fan",finCls:"H14",esp:"150"});
+const UP_META=["mauId","mauType","mauQty","mauCfg","mauMode","upDest","upFlow","upOa"];
+const isMau=()=>$("sys").value==="mau"||($("sys").value==="ffu"&&$("ffuSet").value==="both");
+const isFfu=()=>$("sys").value==="ffu";
+const calcSys=()=>{ if($("sysCalc").value) return $("sysCalc").value; const s=$("sys").value; if(s!=="ffu") return s;
+  const Q=n("qSa",0); return Q>0&&ahuQoa()>=Q-1e-6?"fa":"recirc"; };
+const evapMain=()=>isFfu()&&$("ffuSet").value==="evap";
+const UPN=()=>isFfu()?"Evaporator":"MAU / PAU", UPS=()=>isFfu()?"EVAP":"MAU", DNN=()=>evapMain()?"Evaporator":isFfu()?"FFU":"AHU";
+const toRoom=()=>isMau()&&$("upDest").value==="room";
+/* the evaporative cards apply to the evaporator only: the outdoor-air unit of Evaporator + FFU, or the single unit of "Evaporator only" */
+const evapCtx=()=>isFfu()&&($("ctxKind").value==="up"||($("ctxKind").value===""&&evapMain()));
+const parseU=v=>{ try{ const o=JSON.parse(v||"null"); return o&&typeof o==="object"?o:null; }catch(e){ return null; } };
+const unitDef=u=>u==="mau"?(isFfu()?EVAP_DEF:MAU_DEF):(keyDef(sysKey())||UNIT_DEF);
+const unitIn=u=>$("unitEdit").value===u?unitSnap():(parseU($(u+"Data").value)||unitDef(u));
+function switchUnit(u){ const cur=$("unitEdit").value; if(u===cur) return;
+  $(cur+"Data").value=JSON.stringify(unitSnap()); unitLoad(parseU($(u+"Data").value)||unitDef(u)); $("unitEdit").value=u; }
+const syncUnits=()=>{ if(isMau()) $($("unitEdit").value+"Data").value=JSON.stringify(unitSnap()); };
+function withInputs(map,fn){ const saved=[];
+  for(const id in map){ const e=$(id); if(!e) continue; saved.push([e,e.type==="checkbox"?e.checked:e.value]); if(e.type==="checkbox") e.checked=!!map[id]; else e.value=map[id]; }
+  try{ return fn(); } finally{ for(let i=saved.length-1;i>=0;i--){ const [e,v]=saved[i]; if(e.type==="checkbox") e.checked=v; else e.value=v; } } }
+const mauTag=()=>{ const id=$("ahuId").value.trim(), up=isFfu()?"EVAP":"MAU"; return $("mauId").value.trim()||(/AHU|FFU/i.test(id)?id.replace(/AHU|FFU/i,up):up+"-"+id); };
+const retRef=()=>n("roomT",0)+n("retRise",0);
+const ahuQoa=()=>{ const Q=n("qSa",0), u=isMau()&&$("unitEdit").value==="mau"?unitIn("ahu"):null, md=u?u.oaMode:$("oaMode").value, v=parseFloat(u?u.oaVal:$("oaVal").value)||0; return md==="pct"?Q*v/100:v; };
+let lastMauOv=null, lastPMu=null;
+const upQ=()=>$("upDest").value==="room"?n("upFlow",0):ahuQoa(), upOaPct=()=>Math.min(100,Math.max(0,n("upOa",100)));
+const mauOv=()=>({rhQmin:"-1",sysCalc:upOaPct()>=100?"fa":"recirc",oaMode:"pct",oaVal:String(upOaPct()),ctxKind:"up",upRefT:String(retRef()),...($("mauMode").value==="neutral"?{ts:String(Math.round(retRef()*10)/10)}:{}), qSa:String(upQ()), oaSrc:"outdoor", ahuId:mauTag(), ahuType:$("mauType").value, qty:$("mauQty").value, pumpTag:""});
+const ahuOv=()=>{ const Q=n("qSa",0), fa=Q>0&&ahuQoa()>=Q-1e-6; return Object.assign({sysCalc:fa?"fa":"recirc",ctxKind:"down"}, toRoom()?{oaSrc:"outdoor"}:(lastMauOv||{})); };
+const ctxAhu=fn=>isMau()?withInputs(Object.assign({},unitIn("ahu"),ahuOv()),fn):fn();
+const ctxMau=fn=>withInputs(Object.assign({},unitIn("mau"),mauOv()),fn);
+function calcAll(){
+  if(!isMau()){ lastMauOv=null; return {R:calc(),RM:null}; }
+  if(!toRoom()&&!(ahuQoa()>0)) return {R:{err:`Enter the ${DNN()} outdoor airflow: the ${UPN()} supplies it.`},RM:null};
+  if(toRoom()&&!(n("upFlow",0)>0)) return {R:{err:`Enter the ${UPN()} supply airflow (it supplies the room directly).`},RM:null};
+  lastMauOv=null;
+  const RM=ctxMau(calc);
+  if(RM.err) return {R:{err:UPN()+": "+RM.err},RM};
+  lastMauOv=toRoom()?null:{oaSrc:"mau", oaDb:String(RM.S.t), oaWb:String(wetbulb(RM.S.t,RM.S.W,RM.p))};
+  const R=ctxAhu(calc); if(!R.err) R.mau=RM;
+  return {R,RM};
+}
+
 /* ---------- Configuration flags and section layout (shared by the calculation, the diagram and the schedules) ---------- */
 function flags(){
-  const fa=$("sys").value==="fa";
+  const fa=calcSys()==="fa";
   const c={pre:chk("cPre"),fin:chk("cFin"),wheel:chk("cWheel"),plate:chk("cPlate"),ra:chk("cRa"),hp:chk("cHp"),des:chk("cDes"),ph:chk("cPh"),pc:chk("cPc"),rh:chk("cRh"),hum:chk("cHum"),uv:chk("cUv"),att:chk("cAtt"),rf:chk("cRf")};
-  const raOa=c.ra&&$("raPos").value==="oa", hpOa=c.hp&&$("hpPos").value==="oa", desOa=c.des&&$("desPos").value==="oa";
-  return {fa,c,raOa,raWrap:c.ra&&!raOa,hpOa,hpWrap:c.hp&&!hpOa,desOa,desMix:c.des&&!desOa,
+  const raOa=c.ra&&$("raPos").value==="oa", hpOa=c.hp&&$("hpPos").value==="oa", desOa=c.des&&$("desPos").value==="oa", desCc=c.des&&$("desPos").value==="cc", desPc=c.des&&$("desPos").value==="pc", noCc=$("ccOn").value==="no"&&($("ctxKind").value!==""||isFfu());
+  const ev=evapCtx(); c.dec=ev&&chk("cEvap"); c.iec=ev&&chk("cIec");
+  return {fa,c,raOa,raWrap:c.ra&&!raOa,hpOa,hpWrap:c.hp&&!hpOa,desOa,desMix:c.des&&$("desPos").value==="mix",desCc,desPc,noCc,dpc:desCc&&$("dpc").value==="yes",dpcDx:$("dpcType").value==="dx",
     blow:$("sfPos").value==="blow", finFan:c.fin&&$("finPos").value==="fan", pre2:c.pre&&$("pre2Cls").value!=="—",
-    mixD:!fa&&$("mixDamp").value==="yes", dx:$("ccType").value==="dx", wOaF:c.wheel&&$("wOaF").value!=="—",
+    mixD:!fa&&$("mixDamp").value==="yes", dx:!noCc&&$("ccType").value==="dx", wOaF:c.wheel&&$("wOaF").value!=="—",
     dHeat:c.des&&$("desHeat").value==="yes", dRf:c.des?[$("desRf1").value,$("desRf2").value].filter(v=>v!=="—"):[],
     wRf:c.wheel?[$("wRf1").value,$("wRf2").value].filter(v=>v!=="—"):[],
     ...deckOf(fa,c,raOa,hpOa)};
@@ -563,7 +725,7 @@ function flags(){
 /* a return / exhaust deck above the supply deck is needed for a return fan and energy recovery; a desiccant wheel adds its own reactivation deck below */
 function deckOf(fa,c,raOa,hpOa){
   const need=c.rf||c.wheel||c.plate||raOa||hpOa, mode=$("decks").value;
-  const top=mode==="double"?true:mode==="single"?need:(!fa||need);
+  const top=mode==="double"?true:need;
   return {top, react:c.des, deckForced:mode==="single"&&need};
 }
 const preLabel=F=>`${$("preCls").value}${F.pre2?"+"+$("pre2Cls").value:""}`;
@@ -573,6 +735,7 @@ function buildLayout(F,d){
   const add=(k,lbl,cid,len,o)=>{ L.push(Object.assign({k,lbl,cid,len,name:lbl},o||{})); };
   const acc=cid=>{ if(chk(cid+"Acc")) add("acc","Access",null,n("accLen",600)/1000,{name:"Access section"}); };
   add("oa","",null,n("inLen",600)/1000,{name:"Inlet plenum"});
+  if(c.pre){ add(F.pre2?"filter2":"filter",preLabel(F),"cPre",F.pre2?0.9:0.3,{name:"Pre-filter (outdoor-air inlet)"}); acc("cPre"); }
   if(F.wOaF) add($("wOaF").value.includes("F7")?"filter2":"filter",$("wOaF").value.replace(/\s/g,""),null,$("wOaF").value.includes("F7")?0.9:0.3,{name:"OA filter (wheel)"});
   if(c.wheel){ add("wheel","HR wheel","cWheel",0.7,{span:1});
     if(F.wRf.length) add("rfilt",F.wRf.join("+"),null,F.wRf.length>1?0.9:0.3,{name:"Exhaust filters (return deck)",stages:F.wRf.length});
@@ -587,7 +750,6 @@ function buildLayout(F,d){
   add("pt","OA'",null,0);
   if(!F.fa){ add("mix","Mixing box","cMix",0.9,{span:1}); acc("cMix"); }
   if(F.desMix){ add("des","Desiccant","cDes",1.0,{span:1}); desTop(); acc("cDes"); }
-  if(c.pre){ add(F.pre2?"filter2":"filter",preLabel(F),"cPre",F.pre2?0.9:0.3,{name:"Pre-filter"}); acc("cPre"); }
   const fin=()=>{ add("filter",$("finCls").value,"cFin",0.6,{name:"Final filter"}); acc("cFin"); };
   const fanUv=()=>{ add("fan","Supply fan","cSf",d.fanLen); acc("cSf"); if(c.uv){ add("uv","UV-C","cUv",0.3,{name:"UV-C lamp"}); acc("cUv"); } };
   if(c.fin&&!F.finFan) fin();
@@ -595,10 +757,17 @@ function buildLayout(F,d){
   if(c.ph){ add("hcoil","Preheat","cPh",0.4,{name:"Preheat coil"}); acc("cPh"); }
   if(F.hpWrap) add("wrapA","Heat pipe","cHp",0.4,{name:"Heat pipe pre-cool"});
   if(F.raWrap) add("wrapA","Run-around","cRa",0.4,{name:"Run-around pre-cool"});
-  add("pt","CI",null,0);
+  if(c.iec){ add("iec","IEC","cIec",1.2,{name:"Indirect evaporative stage"}); add("pt","I",null,0); acc("cIec"); }
+  if(c.dec){ const dm=$("evMedia").value, dl=dm==="rand"?0.05:parseInt(dm.slice(1))/1000;
+    add("evap","Evap. media","cEvap",0.5+dl,{name:"Direct evaporative media + sump"}); if($("evElim").value==="yes") add("filter","Eliminator",null,0.25,{name:"Mist eliminator"});
+    add("pt","E",null,0); acc("cEvap"); }
+  if(!c.iec&&!c.dec) add("pt","CI",null,0);
   if(c.pc){ add("ccoil","Pre-cool coil","cPc",0.9,{name:"Pre-cooling coil + drain"}); add("pt","C1",null,0); acc("cPc"); }
-  add("ccoil",F.dx?"DX coil":"Cooling coil","cCc",1.1,{name:(F.dx?"DX":"Cooling")+" coil + drain"});
-  add("pt","C",null,0); acc("cCc");
+  if(F.desPc){ add("des","Desiccant","cDes",1.0,{span:1}); desTop(); add("pt","D",null,0); acc("cDes"); }
+  if(!F.noCc){ add("ccoil",F.dx?"DX coil":"Cooling coil","cCc",1.1,{name:(F.dx?"DX":"Cooling")+" coil + drain"});
+    add("pt","C",null,0); acc("cCc"); }
+  if(F.desCc){ add("des","Desiccant","cDes",1.0,{span:1}); desTop(); add("pt","D",null,0); acc("cDes"); }
+  if(F.dpc){ add("ccoil",F.dpcDx?"Post-cool DX":"Post-cool",null,0.7,{name:"Post-cooling coil"+(F.dpcDx?" (DX)":"")}); add("pt","C2",null,0); }
   if(F.raWrap) add("wrapB","Run-around","cRa",0.4,{name:"Run-around reheat"});
   if(F.hpWrap) add("wrapB","Heat pipe","cHp",0.4,{name:"Heat pipe reheat"});
   if(F.raWrap) acc("cRa"); if(F.hpWrap) acc("cHp");
@@ -614,7 +783,7 @@ function buildLayout(F,d){
 
 /* ---------- Calculation ---------- */
 function calc(){
-  const p=pressure(n("alt",0)), F=flags(), c=F.c, fa=F.fa, sys=$("sys").value;
+  const p=pressure(n("alt",0)), F=flags(), c=F.c, fa=F.fa, sys=calcSys();
   const Q=n("qSa",0); if(!(Q>0)) return {err:"Enter a supply airflow greater than 0."};
   const qOa=fa?Q:($("oaMode").value==="pct"?Q*n("oaVal",0)/100:n("oaVal",0));
   if(qOa<0||qOa>Q+1e-9) return {err:"Outdoor airflow must be between 0 and the supply airflow."};
@@ -643,10 +812,13 @@ function calc(){
   if(c.pre){ addPd(`Pre-filter ${$("preCls").value}`,n("prePd",0)); if(F.pre2) addPd(`Pre-filter ${$("pre2Cls").value}`,n("pre2Pd",0)); }
   if(c.fin) addPd(`Final filter ${$("finCls").value}${F.finFan?" (after fan)":""}`,n("finPd",0));
   if(c.ph) addPd("Preheat coil",n("phPd",0));
+  if(c.iec) addPd("Indirect evaporative stage (supply side)",n("iecPd",0));
+  if(c.dec){ addPd("Direct evaporative media",n("evPd",0)); if($("evElim").value==="yes") addPd("Mist eliminator",n("evElimPd",0)); }
+  if(F.dpc) addPd("Post-cooling coil",n("dpcPd",0));
   if(raWrap) addPd("Run-around coils (2)",2*n("raPd",0));
   if(hpWrap) addPd("Heat pipe sections (2)",2*n("hpPd",0));
   if(c.pc) addPd(`Pre-cooling coil ${$("pcType").value==="dx"?"DX ":""}(wet)`,n("pcPd",0));
-  addPd(dx?"DX coil (wet)":"Cooling coil (wet)",n("ccPd",0));
+  if(!F.noCc) addPd(dx?"DX coil (wet)":"Cooling coil (wet)",n("ccPd",0));
   if(c.rh) addPd("Reheat coil",n("rhPd",0));
   if(c.hum) addPd("Humidifier",n("humPd",0));
   if(c.att) addPd("Sound attenuator",n("attPd",0));
@@ -667,7 +839,7 @@ function calc(){
     rf={q:qRet,esp:n("rfEsp",0),internal:rInt,tsp:rTsp,P,N,motor,inst:N*motor,drive:$("rfDrive").value};
     if(mRet>0) R.t+=P/(mRet*cpm(R.W));
   }
-  st("OA",$("oaSrc").value==="mau"?"Outdoor air (MAU leaving)":"Outdoor air",OA,"var(--c-plenum)");
+  st("OA",$("oaSrc").value==="mau"?`Outdoor air (${UPS()} leaving)`:"Outdoor air",OA,"var(--c-plenum)");
   st("R","Return air"+(c.rf?" (after return fan)":""),R,"var(--c-room)");
 
   /* outdoor-air stream: energy recovery and desiccant */
@@ -694,7 +866,7 @@ function calc(){
     duties.push([nm,q,`OA ${fmt(o.t)} → ${fmt(o2.t)} °C${dW>0?`, W −${fmt(dW*1000,2)} g/kg`:""}; exhaust leaves at ${fmt(e.t)} °C`,0]);
     o=o2;
   });
-  if(c.wheel&&!F.wOaF) notes.push(["warn","Outdoor air enters the wheel unfiltered","The pre-filter is downstream of the wheel. Select an outdoor-air filter before the wheel (wheel card) to keep the wheel media clean."]);
+  if(c.wheel&&!F.wOaF&&!c.pre) notes.push(["warn","Outdoor air enters the wheel unfiltered","Tick the pre-filter (it sits at the outdoor-air inlet) or select an outdoor-air filter before the wheel to keep the wheel media clean."]);
   let des=null;
   const desiccant=(s,m,where,flow)=>{
     const Wd=WfromTd(n("desTd",8),p), type=$("desReact").value;
@@ -740,6 +912,33 @@ function calc(){
     x.t=tNew;
   });
   if(wrapQ>0) st("PC","After wrap-around pre-cool",x,"#2e8b57");
+  /* evaporative cooling, ASHRAE HVAC S&E 2020 Ch. 41.
+     IEC (Eq. 2): t2 = t1 − WBDE·(t1 − t's,secondary), humidity unchanged; the secondary side evaporates q / h_fg.
+     Direct media (Eq. 1): t2 = t1 − ε·(t1 − t's), along the entering wet bulb (adiabatic), W from the wet bulb (Fundamentals Ch. 1 Eq. 33). */
+  let iec=null, evap=null;
+  if(c.iec){
+    const t1=x.t, eff=Math.min(95,Math.max(0,n("iecEff",70)))/100, sec=$("iecSec").value;
+    const sT=sec==="ra"?roomT+n("retRise",0):OA.t, sW=sec==="ra"?Wroom:OA.W, tsSec=wetbulb(sT,sW,p);
+    const t2=t1>tsSec?t1-eff*(t1-tsSec):t1, q=m*cpm(x.W)*(t1-t2), ev=q/2450*3600, bl=ev*Math.max(0,n("iecBleed",50))/100;
+    const qSec=Q*Math.max(0,n("iecSecQ",100))/100, secFan=qSec/3600*Math.max(0,n("iecSecPd",250))/1000/0.55;
+    iec={t1,t2,tsSec,eff,q,ev,bl,make:ev+bl,qSec,secFan,sec};
+    x={t:t2,W:x.W}; st("I","After indirect evaporative stage",x,"var(--c-coil)");
+    duties.push(["Indirect evaporative stage (IEC)",q,`Sensible ${fmt(t1)} → ${fmt(t2)} °C · WBDE ${fmt(eff*100,0)} % on the ${sec==="ra"?"return":"outdoor"} air wet bulb ${fmt(tsSec)} °C · secondary ${fmt(qSec,0)} m³/h · water ${fmt(ev+bl,1)} L/h`,n("iecPd",0)]);
+    if(t1<=tsSec+0.05) notes.push(["warn","IEC gives no cooling",`The secondary air wet bulb ${fmt(tsSec)} °C is not below the primary air ${fmt(t1)} °C.`]);
+    if(eff<0.6||eff>0.8) notes.push(["warn","IEC efficiency outside the usual range",`WBDE ${fmt(eff*100,0)} %; ASHRAE S&E 2020 Ch. 41 gives 60–80 % for packaged IEC heat exchangers.`]);
+  }
+  if(c.dec){
+    const t1=x.t, W1=x.W, tw=wetbulb(t1,W1,p), eff=Math.min(100,Math.max(0,n("evEff",85)))/100, t2=t1-eff*(t1-tw), W2=WfromWB(t2,tw,p);
+    const ev=Math.max(0,m*(W2-W1)*3600), rec=$("evWater").value==="recirc", bl=rec?ev*Math.max(0,n("evBleed",50))/100:0, qs=m*cpm(W1)*(t1-t2), media=$("evMedia").value;
+    evap={t1,W1,tw,t2,W2,eff,ev,bl,make:ev+bl,qs,media,rec,rh2:RHfromW(t2,W2,p)};
+    x={t:t2,W:W2}; st("E","After direct evaporative media",x,"var(--c-coil)");
+    duties.push(["Direct evaporative media",qs,`Adiabatic ${fmt(t1)} → ${fmt(t2)} °C along WB ${fmt(tw)} °C (ε ${fmt(eff*100,0)} %), leaving ${fmt(evap.rh2,0)} %RH · evaporation ${fmt(ev,1)} L/h${rec?`, bleed ${fmt(bl,1)} L/h, make-up ${fmt(ev+bl,1)} L/h`:" (once-through)"}`,n("evPd",0)]);
+    const r=media==="rand";
+    if(r?(eff>0.85):(eff<0.7||eff>0.95)) notes.push(["warn","Media saturation efficiency outside the usual range",`ε ${fmt(eff*100,0)} %; ASHRAE S&E 2020 Ch. 41: rigid media 70–95 % depending on depth and velocity, random media about 80 %.`]);
+    if(tw>21) notes.push(["warn","Entering wet bulb above about 21 °C",`WB ${fmt(tw)} °C: ASHRAE S&E 2020 Ch. 41 notes that direct evaporative cooling is not applicable for indoor comfort above about 21 °C WB; it suits relief cooling (industrial, greenhouses). Supply ${fmt(t2)} °C at ${fmt(evap.rh2,0)} %RH.`]);
+    else notes.push(["ok","Direct evaporative cooling",`${fmt(t1)} → ${fmt(t2)} °C (wet-bulb depression ${fmt(t1-tw)} K × ε ${fmt(eff*100,0)} %).`]);
+    if(!fa) notes.push(["warn","Direct evaporative cooler recirculating indoor air","ASHRAE S&E 2020 Ch. 41: direct evaporative coolers should not recirculate indoor air; exhaust should equal the incoming conditioned air."]);
+  }
   /* pre-cooling coil (chilled water, in series ahead of the main coil) */
   let pc=null;
   if(c.pc){
@@ -774,35 +973,64 @@ function calc(){
       x={...PO};
     }
   }
+  /* desiccant between the pre-cooling and the main coil: the main coil then cools the dry, warm air */
+  if(F.desPc){ x=desiccant(x,m,c.pc?"pre-cooling coil leaving air":"air entering the cooling coil",Q); st("D","After desiccant wheel",x,"var(--c-plenum)");
+    if(!c.pc) notes.push(["warn","No pre-cooling coil ahead of the desiccant","The wheel is set between the pre-cooling and main coils but there is no pre-cooling coil; it sits directly before the main coil."]); }
   /* cooling coil */
   const CI={...x};
-  if(CI.t<=ccT+1e-9) notes.push(["warn","Cooling coil entering air is already at or below the coil target",`Coil entering ${fmt(CI.t)} °C vs target ${fmt(ccT)} °C. Check the targets.`]);
-  const CO={t:ccT, W:Math.min(CI.W,Wt)};
+  if(!F.noCc&&CI.t<=ccT+1e-9) notes.push(["warn","Cooling coil entering air is already at or below the coil target",`Coil entering ${fmt(CI.t)} °C vs target ${fmt(ccT)} °C. Check the targets.`]);
+  const CO=F.noCc?{...CI}:{t:ccT, W:Math.min(CI.W,Wt)};
   const qTot=m*((enth(CI.t,CI.W)-enth(CO.t,CO.W))-(CI.W-CO.W)*4.186*CO.t), qSens=m*cpm(CI.W)*(CI.t-CO.t), cond=m*(CI.W-CO.W)*3600;
   if(!c.pc&&!pts.some(q=>q.code==="M"&&Math.abs(q.t-CI.t)<1e-6&&Math.abs(q.W-CI.W)<1e-9)) st("CI","Cooling coil entering",CI,"var(--c-coil)");
-  st("C","Cooling coil leaving",CO,"var(--c-coil)");
+  if(!F.noCc) st("C","Cooling coil leaving",CO,"var(--c-coil)");
   let adp=NaN, bf=NaN, twReq=NaN;
   if(CI.W-CO.W>1e-6&&CI.t>CO.t){
     const sl=(CI.W-CO.W)/(CI.t-CO.t), f=t=>(CO.W+sl*(t-CO.t))-Wsat(t,p);
     if(f(CO.t)<0){ let hi=CO.t; for(let t=CO.t;t>=-30;t-=0.1){ if(f(t)>=0){ adp=bisect(f,t,hi); break; } hi=t; } }
     if(isFinite(adp)){ bf=(CO.t-adp)/(CI.t-adp); twReq=2*adp-wetbulb(CO.t,CO.W,p); }
   }
-  const ewt=n("ewt",7.5), lwt=n("lwt",15), chwFlow=!dx&&lwt>ewt?qTot/(4.186*(lwt-ewt)):NaN;
+  const ewt=n("ewt",7.5), lwt=n("lwt",15), chwFlow=!dx&&!F.noCc&&lwt>ewt?qTot/(4.186*(lwt-ewt)):NaN;
   const sst=n("dxSst",5), dxApp=n("dxApp",3), sstReq=isFinite(adp)?adp-dxApp:NaN, cuKw=dx?qTot/Math.max(0.5,n("dxEer",3)):NaN;
   const adpTxt=isFinite(adp)?` · ADP ${fmt(adp)} °C, BF ${fmt(bf,2)}`:"";
-  duties.push(dx?["Cooling coil (DX)",qTot,`Sensible ${fmt(qSens)} kW · condensate ${fmt(cond,1)} kg/h · ${$("dxRef").value}, SST ${fmt(sst)} °C, ${Math.round(n("dxCirc",2))} circuit(s) · condensing unit input ≈ ${fmt(cuKw,1)} kW${adpTxt}`,n("ccPd",0)]
+  if(!F.noCc) duties.push(dx?["Cooling coil (DX)",qTot,`Sensible ${fmt(qSens)} kW · condensate ${fmt(cond,1)} kg/h · ${$("dxRef").value}, SST ${fmt(sst)} °C, ${Math.round(n("dxCirc",2))} circuit(s) · condensing unit input ≈ ${fmt(cuKw,1)} kW${adpTxt}`,n("ccPd",0)]
                  :["Cooling coil (CHW)",qTot,`Sensible ${fmt(qSens)} kW · condensate ${fmt(cond,1)} kg/h · CHW ${fmt(ewt)}/${fmt(lwt)} °C, ${fmt(chwFlow,2)} L/s${adpTxt}`,n("ccPd",0)]);
   x={...CO};
+  /* desiccant after the cooling coil, then an optional post-cooling coil (sensible) to take out the wheel's heat */
+  let dpc=null;
+  if(F.desCc){ x=desiccant(x,m,"cooling coil leaving air",Q); st("D","After desiccant wheel",x,"var(--c-plenum)"); }
+  if(F.dpc){
+    const tT=n("dpcT",14), pdx=F.dpcDx, e1=n("dpcEwt",7), l1=n("dpcLwt",12), tin=x.t, td=tdewFromW(x.W,p);
+    let q=0;
+    if(x.t>tT+1e-9){ q=m*cpm(x.W)*(x.t-tT); x={t:tT,W:x.W}; }
+    else notes.push(["warn","Post-cooling coil does no work",`Air leaves the desiccant at ${fmt(tin)} °C, not above the post-cool leaving ${fmt(tT)} °C.`]);
+    const flow=!pdx&&l1>e1?q/(4.186*(l1-e1)):NaN, sst=n("dpcSst",8), app=n("dpcApp",5), sstReq=tT-app, ref=$("dpcRef").value, cuKw=pdx?q/Math.max(0.5,n("dpcEer",3.5)):NaN;
+    const cu=pdx?($("dpcCu").value.trim()||(/AHU|FFU/i.test($("ahuId").value)?$("ahuId").value.trim().replace(/AHU|FFU/i,"ACCU")+"-3":"ACCU-"+$("ahuId").value.trim()+"-3")):"";
+    dpc={q,tin,tout:x.t,ewt:e1,lwt:l1,flow,dx:pdx,sst,sstReq,ref,cuKw,cu};
+    st("C2","Post-cooling coil leaving",x,"var(--c-coil)");
+    duties.push(pdx?[`Post-cooling coil (DX)`,q,`Sensible (dry) ${fmt(tin)} → ${fmt(x.t)} °C · ${ref}, SST ${fmt(sst)} °C · condensing unit input ≈ ${fmt(cuKw,1)} kW`,n("dpcPd",0)]
+      :["Post-cooling coil (CHW)",q,`Sensible (dry) ${fmt(tin)} → ${fmt(x.t)} °C · CHW ${fmt(e1)}/${fmt(l1)} °C, ${fmt(flow,2)} L/s`,n("dpcPd",0)]);
+    if(tT<td+0.3) notes.push(["warn","Post-cooling coil near the air dew point",`Leaving ${fmt(tT)} °C vs dew point ${fmt(td)} °C after the wheel; the coil may condense.`]);
+    if(pdx){ if(sst>sstReq+0.05) notes.push(["bad","Post-cooling SST too high",`The post-cooling DX coil needs SST ≤ leaving ${fmt(tT)} °C − ${fmt(app)} K = ${fmt(sstReq)} °C; design SST ${fmt(sst)} °C.`]); }
+    else if(e1>tT-2) notes.push(["bad","Post-cooling water too warm",`EWT ${fmt(e1)} °C is not at least 2 K below the post-cool leaving ${fmt(tT)} °C.`]);
+  }
   if(wrapQ>0){ x.t+=wrapQ/(m*cpm(x.W)); st("RW","After wrap-around reheat",x,"#2e8b57"); duties.push([wrapNames.join(" + ")+" (wrap-around)",wrapQ,`Pre-cool ${fmt(CI.t+0)} °C side and free reheat to ${fmt(x.t)} °C`,0]); }
   /* reheat */
   const tgt=Ts-(blow?0:dTfan);
-  let qRh=0, hwFlow=NaN;
+  let qRh=0, qRhDes=0, qRhMin=0, hwFlow=NaN, rhIn=x.t, rhOut=x.t;
+  /* minimum-load case: with the room sensible load reduced to the minimum (night / equipment off) the supply air
+     must be warmer: Ts,min = t_room − Q_min / (m·cp); the reheat coil is sized for the larger case */
+  const noMin=n("rhQmin",0)<0, qMinRoom=Math.max(0,n("rhQmin",0)), TsMin=noMin?Ts:roomT-qMinRoom/(m*cpm(x.W)), tgtMin=noMin?-1e9:TsMin-(blow?0:dTfan);
+  const qRoomDes=m*cpm(x.W)*(roomT-Ts);
   if(c.rh){
-    if(x.t<tgt-1e-9){ qRh=m*cpm(x.W)*(tgt-x.t); x.t=tgt; st("RH","After reheat coil",x,"#c0392b"); } else st("RH","After reheat coil (no load)",x,"#c0392b");
+    rhIn=x.t;
+    if(x.t<tgt-1e-9){ qRhDes=m*cpm(x.W)*(tgt-x.t); x.t=tgt; st("RH","After reheat coil",x,"#c0392b"); } else st("RH","After reheat coil (no load)",x,"#c0392b");
+    rhOut=x.t; qRhMin=Math.max(0,m*cpm(x.W)*(tgtMin-rhIn)); qRh=Math.max(qRhDes,qRhMin);
     const elec=$("rhType").value==="Electric", he=n("hwEwt",30), hl=n("hwLwt",26);
     if(!elec&&he>hl) hwFlow=qRh/(4.186*(he-hl));
-    duties.push(["Reheat coil",qRh,elec?"Electric":`HW ${fmt(he)}/${fmt(hl)} °C, ${fmt(hwFlow,2)} L/s`,n("rhPd",0)]);
-  }
+    if(noMin) duties.push(["Reheat coil",qRh,`${fmt(rhIn)} → ${fmt(rhOut)} °C (to ${fmt(Ts)} °C supply) · ${elec?"Electric":`HW ${fmt(he)}/${fmt(hl)} °C, ${fmt(hwFlow,2)} L/s`}`,n("rhPd",0)]); else
+    duties.push(["Reheat coil",qRh,`${qRhMin>qRhDes?"Sized by the minimum-load case":"Sized by the design case"}: design ${fmt(qRhDes,1)} kW (to ${fmt(Ts)} °C supply, room sensible ${fmt(qRoomDes,1)} kW) · minimum load ${fmt(qMinRoom,1)} kW → supply ${fmt(TsMin)} °C, ${fmt(qRhMin,1)} kW · ${elec?"Electric":`HW ${fmt(he)}/${fmt(hl)} °C, ${fmt(hwFlow,2)} L/s`}`,n("rhPd",0)]);
+    if(qRhMin>qRhDes+0.05) notes.push(["warn","Reheat sized by the minimum-load case",`With the room sensible load at ${fmt(qMinRoom,1)} kW (night / equipment off) the supply air must be ${fmt(TsMin)} °C, so the reheat coil needs ${fmt(qRhMin,1)} kW instead of ${fmt(qRhDes,1)} kW at design.`]);
+  } else if(!(F.noCc&&!c.ph)&&tgtMin>x.t+0.3) notes.push(["warn","No reheat for the minimum-load case",`At a room sensible load of ${fmt(qMinRoom,1)} kW the supply air must be about ${fmt(TsMin)} °C; without a reheat coil the room will overcool (supply ${fmt(x.t+(blow?0:dTfan))} °C).`]);
   /* humidifier */
   let hum=null;
   if(c.hum){
@@ -822,6 +1050,7 @@ function calc(){
   if(rf) duties.push(["Return fan",rf.P,`${rf.N} × ${fmt(rf.motor,rf.motor<1?2:1)} kW ${rf.drive}`,0]);
 
   /* checks */
+  if(!F.noCc){
   if(dx){
     if(isFinite(sstReq)){
       if(sst>sstReq+0.05) notes.unshift(["bad","Evaporating temperature too high for this coil",`ADP ${fmt(adp)} °C needs SST ≤ ADP − ${fmt(dxApp)} K = ${fmt(sstReq)} °C; design SST ${fmt(sst)} °C. Lower the SST, add rows, or pre-dry the air (desiccant / wrap-around).`]);
@@ -835,9 +1064,18 @@ function calc(){
       if(twReq<2) notes.push(["bad","Below practical chilled water limit","Required chilled water is below about 2 °C; consider desiccant dehumidification."]);
     } else if(CI.W<=Wt) notes.push(["ok","Dry cooling coil","The air entering the coil is already drier than the target; the coil only cools sensibly."]);
   }
-  if(ccTd>=tdRoom-0.05) notes.push(["warn","Coil leaving dew point is not below the room dew point",`Coil leaving dew point ${fmt(ccTd)} °C vs room ${fmt(tdRoom)} °C: the supply air cannot remove the room's moisture load.`]);
-  if(Math.abs(S.t-Ts)>0.3) notes.push(["warn",`Supply air ${fmt(S.t)} °C differs from the target ${fmt(Ts)} °C`,S.t>Ts?"Fan heat or wrap-around reheat already exceeds the target; lower the coil leaving temperature or reduce the wrap-around effectiveness.":"Add or enable a reheat coil, or raise the coil leaving temperature."]);
+  }
+  const tdOut=F.noCc?tdewFromW(CO.W,p):F.desCc&&des&&des.dW>0?n("desTd",8):ccTd;
+  if(tdOut>=tdRoom-0.05) notes.push(["warn",F.noCc?"Supply dew point is not below the room dew point":"Coil leaving dew point is not below the room dew point",`Leaving dew point ${fmt(tdOut)} °C vs room ${fmt(tdRoom)} °C: the supply air cannot remove the room's moisture load.`]);
+  if(F.noCc&&!c.rh&&!c.ph) notes.push(["ok",c.dec||c.iec?"Supply follows the evaporative cooler":"No cooling or heating coil",`The supply temperature is the ${c.dec||c.iec?"evaporative cooler leaving air":"air entering the unit"} plus fan heat: ${fmt(S.t)} °C, ${fmt(RHfromW(S.t,S.W,p),0)} %RH.`]);
+  else if(Math.abs(S.t-Ts)>0.3) notes.push(["warn",`Supply air ${fmt(S.t)} °C differs from the target ${fmt(Ts)} °C`,S.t>Ts?"Fan heat or wrap-around reheat already exceeds the target; lower the coil leaving temperature or reduce the wrap-around effectiveness.":"Add or enable a reheat coil, or raise the coil leaving temperature."]);
   else notes.push(["ok","Supply air reaches the target",`${fmt(S.t)} °C at the AHU outlet (target ${fmt(Ts)} °C).`]);
+  if($("ctxKind").value==="up"&&!toRoom()){ const rt=n("upRefT",24), md=$("mauMode").value, un=UPN();
+    if(md==="lower") notes.push(S.t<rt-0.3?["ok",`${un} supply below the return air`,`${fmt(S.t)} °C vs return ${fmt(rt)} °C: the ${un} air adds cooling${S.W<Wroom?" and dehumidification":""} for the ${DNN()} (no desiccant needed in the ${DNN()}).`]:["warn",`${un} supply not below the return air`,`${fmt(S.t)} °C vs return ${fmt(rt)} °C; lower the ${un} supply DB or choose another supply condition.`]);
+    else if(md==="higher") notes.push(S.t>rt+0.3?["ok",`${un} pre-treats only`,`${fmt(S.t)} °C is above the return ${fmt(rt)} °C: the ${DNN()} coil takes the remaining load.`]:["warn",`${un} supply not above the return air`,`${fmt(S.t)} °C vs return ${fmt(rt)} °C; with pre-treatment the ${un} normally leaves warmer than the return air.`]);
+    else notes.push(Math.abs(S.t-rt)<=0.5?["ok",`Neutral ${un} supply`,`${fmt(S.t)} °C ≈ return ${fmt(rt)} °C (preferred): the ${DNN()} handles the room sensible load.`]:["warn",`${un} supply not neutral`,`${fmt(S.t)} °C vs return ${fmt(rt)} °C; add or enlarge the reheat coil, or reduce fan heat.`]);
+    if(md!=="higher"&&S.W>Wroom+1e-5) notes.push(["warn",`${un} air wetter than the room`,`${fmt(S.W*1000,2)} vs ${fmt(Wroom*1000,2)} g/kg: the ${DNN()} must also take the outdoor-air latent load.`]);
+  }
   const vface=Math.max(0.5,n("vface",2.5));
   if(vface>2.8) notes.push(["warn","High coil face velocity",`${fmt(vface,2)} m/s; keep wet coils at or below about 2.5–2.8 m/s to avoid condensate carry-over.`]);
   if(qOa>0&&!fa&&qOa/Q<0.05) notes.push(["warn","Very low outdoor air ratio",`${fmt(qOa/Q*100,1)} % of supply; check ventilation and pressurisation needs.`]);
@@ -845,6 +1083,8 @@ function calc(){
 
   /* size, length, weight, electrical */
   const A=Q/3600/vface, topDeck=F.top;
+  if(evap){ const vlim=evap.media==="rand"?1.3:3.0; evap.vf=Q/3600/A;
+    if(evap.vf>vlim+1e-6) notes.push(["warn","Media face velocity too high",`${fmt(evap.vf,2)} m/s through ${evap.media==="rand"?"random":"rigid"} media; ASHRAE S&E 2020 Ch. 41: ${evap.media==="rand"?"0.5–1.3":"2–3"} m/s. Enlarge the media face area (or lower the face velocity) to avoid water carry-over.`]); }
   if(F.deckForced) notes.push(["warn","Return deck needed","The return fan or energy recovery needs an upper return / exhaust deck, so the AHU is taken as stacked."]);
   const rd=F.react, desFlow=F.desOa?qOa:Q, qReact=rd?desFlow/Math.max(0.5,n("desRatio",3)):0;
   const Ar=topDeck?Math.max(qRet,1)/3600/3.0:0, Ad=rd?Math.max(qReact,1)/3600/2.5:0, Hset=n("ahuH",0)/1000;
@@ -879,90 +1119,142 @@ function calc(){
   if(c.plate) W_("cPlate","Plate HX",Atot*120); if(c.ra) W_("cRa","Run-around coils",2*A*60); if(c.hp) W_("cHp","Heat pipe",Atot*90);
   if(c.des){ W_("cDes","Desiccant wheel",Ades*200); if(F.dHeat) addW("Reactivation heater",40+Wi*Hd*20); if(rfan) addW("Reactivation fan",25+9*rfan.motor); if(F.dRf.length) addW("Reactivation filters",Wi*Hd*10*F.dRf.length); }
   if(c.ph) W_("cPh","Preheat coil",A*45); if(c.pc) W_("cPc","Pre-cooling coil (wet)",A*120);
-  W_("cCc",dx?"DX coil (wet)":"Cooling coil (wet)",A*(dx?120:160)); if(c.rh) W_("cRh","Reheat coil",A*45);
+  if(!F.noCc) W_("cCc",dx?"DX coil (wet)":"Cooling coil (wet)",A*(dx?120:160)); if(F.dpc) addW("Post-cooling coil",A*(F.dpcDx?80:90)); if(c.rh) W_("cRh","Reheat coil",A*45);
+  if(c.iec) W_("cIec","Indirect evaporative stage (wet)",A*160);
+  if(evap){ const dl=evap.media==="rand"?0.05:parseInt(evap.media.slice(1))/1000; W_("cEvap","Evaporative media (wet) + sump water",A*(40+dl*250)+A*0.15*1000*0.3); }
   if(c.hum) W_("cHum","Humidifier",A*40+30); if(c.att) W_("cAtt","Attenuator",A*55); if(c.uv) W_("cUv","UV-C",A*5);
   W_("cSf","Supply fans",sfN*(25+9*sfMotor)); if(rf) W_("cRf","Return fans",rf.N*(25+9*rf.motor));
   const nAcc=lay.filter(s=>s.k==="acc").length; if(nAcc) addW(`Access sections (${nAcc})`,nAcc*n("accWt",20));
-  const weight=Math.ceil(wt.reduce((a,b)=>a+b[1],0)/10)*10, floorLoad=weight/(Wo*Lo);
   const el=[]; const addE=(k,v,cat)=>{ if(v>0) el.push([k,v,cat]); };
   addE("Supply fans (installed)",sfInst,"fan"); if(rf) addE("Return fans (installed)",rf.inst,"fan");
   if(c.wheel) addE("HR wheel motor",n("wheelKw",0),"other"); if(c.ra) addE("Run-around pump",n("raPump",0),"other");
   if(c.des){ addE("Desiccant wheel motor",n("desKw",0),"other"); if(rfan) addE("Reactivation fan",rfan.motor,"fan"); if(des&&des.type==="Electric"&&F.dHeat) addE("Desiccant reactivation heater",des.react,"heat"); }
   if(c.ph&&$("phType").value==="Electric") addE("Electric preheat",ph?ph.q:0,"heat");
   if(c.rh&&$("rhType").value==="Electric") addE("Electric reheat",qRh,"heat");
-  if(hum&&hum.kw>0) addE("Electric steam humidifier",hum.kw,"heat"); if(c.uv) addE("UV-C lamps",n("uvKw",0),"other");
+  if(hum&&hum.kw>0) addE("Electric steam humidifier",hum.kw,"heat");
+  if(evap&&evap.rec){ addE("Evaporative media recirculating pump",n("evPump",0),"pump"); if($("evUv").value==="yes") addE("UV water steriliser",0.05,"other"); }
+  if(iec) addE("IEC secondary fan",iec.secFan,"fan"); if(c.uv) addE("UV-C lamps",n("uvKw",0),"other");
+  /* coil circuit pumps: flow = coil water flow, head = coil water PD + allowance (3-way valve, strainer, piping); P1 = Q·H / η */
+  const pumps=[]; const allow=n("pumpAllow",60), hwE=n("hwEwt",30), hwL=n("hwLwt",26);
+  const addPump=(key,nm,on,flow,ewt,lwt,coilPd)=>{ if(!on||!(flow>0)) return; const head=coilPd+allow, eta=Math.min(0.5,0.3+0.1*flow), P1=flow*head/1000/eta;
+    pumps.push({key,nm,flow,ewt,lwt,coilPd,head,P1}); addE(`${nm} pump`,P1,"pump"); addW(`${nm} pump`,15+10*P1); };
+  if(c.pc&&pc&&!pc.dx) addPump("PC","Pre-cooling coil",$("pcPump").value==="yes",pc.flow,pc.ewt,pc.lwt,n("pcWpd",60));
+  if(dpc&&!dpc.dx) addPump("PO","Post-cooling coil",$("dpcPump").value==="yes",dpc.flow,dpc.ewt,dpc.lwt,n("dpcWpd",60));
+  if(!dx) addPump("CC","Cooling coil",$("ccPump").value==="yes",chwFlow,ewt,lwt,n("ccWpd",60));
+  if(c.ph&&$("phType").value==="Hot water"&&ph&&ph.q>0) addPump("PH","Preheat coil",$("phPump").value==="yes",ph.q/(4.186*Math.max(0.5,hwE-hwL)),hwE,hwL,n("hwWpd",60));
+  if(c.rh&&$("rhType").value==="Hot water") addPump("HC","Reheat coil",$("rhPump").value==="yes",hwFlow,hwE,hwL,n("hwWpd",60));
+  const weight=Math.ceil(wt.reduce((a,b)=>a+b[1],0)/10)*10, floorLoad=weight/(Wo*Lo);
   const sumCat=k=>el.filter(e=>e[2]===k).reduce((a,b)=>a+b[1],0);
-  const elec=el.reduce((a,b)=>a+b[1],0), elFan=sumCat("fan"), elHeat=sumCat("heat"), elOther=sumCat("other");
+  const elec=el.reduce((a,b)=>a+b[1],0), elFan=sumCat("fan"), elHeat=sumCat("heat"), elOther=sumCat("other"), elPump=sumCat("pump");
 
   const tag=$("ahuId").value.trim();
   return {p,F,fa,Q,qOa,qRet,qRel,leak,m,mOa,OA,R,M,CI,CO,S,Wroom,tdRoom,roomT,roomRH,ccT,ccTd,Ts,qTot,qSens,cond,adp,bf,twReq,ewt,lwt,chwFlow,
     dx,sst,dxApp,sstReq,cuKw,ph,
-    pc,vAct,Hset,Hd,rd,qReact,rfan,qRh,hwFlow,hrKw,hrNames,hrDetail:[...hrDetail,...wrapDet],des,hum,dTfan,internal,pd,esp,tsp,sfP,sfN,sfMotor,sfInst,rf,c,blow,raOa,raWrap,hpOa,hpWrap,desOa,desMix,topDeck,
-    EX:e,Wo,Ho,Lo,Wi,Hi,Hr,A,lay,sec,nAcc,wt,weight,floorLoad,el,elec,elFan,elHeat,elOther,duties,notes,pts,lines,tag,phQ:ph?ph.q:0};
+    pc,vAct,Hset,Hd,rd,qReact,rfan,qRh,hwFlow,hrKw,hrNames,hrDetail:[...hrDetail,...wrapDet],des,hum,dTfan,internal,pd,esp,tsp,sfP,sfN,sfMotor,sfInst,rf,c,blow,raOa,raWrap,hpOa,hpWrap,desOa,desMix,desCc:F.desCc,noCc:F.noCc,dpc,iec,evap,topDeck,
+    EX:e,Wo,Ho,Lo,Wi,Hi,Hr,A,lay,sec,nAcc,wt,weight,floorLoad,el,elec,elFan,elHeat,elOther,elPump,pumps,qRhDes,qRhMin,TsMin,qMinRoom,qRoomDes,rhIn,rhOut,duties,notes,pts,lines,tag,phQ:ph?ph.q:0};
 }
 
 /* ---------- Render ---------- */
-let last=null, summaryTxt="";
-function render(){
-  const fa=$("sys").value==="fa";
-  document.querySelectorAll("[data-sys]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sys===$("sys").value?"true":"false"));
-  document.querySelectorAll("[data-recirc]").forEach(e=>e.classList.toggle("hidden",fa));
-  $("addPcBtn").closest(".field").classList.toggle("hidden",chk("cPc"));
-  document.querySelectorAll("[data-when]").forEach(e=>{ const [id,v]=e.dataset.when.split(":"); e.classList.toggle("hidden",$(id).value!==v); });
-  const flowMode=$("oaMode").value==="flow"; $("oaValU").textContent=flowMode?"m³/h":"%";
-  const mau=$("oaSrc").value==="mau"; $("oaDbLbl").textContent=mau?"MAU leaving air DB":"Outdoor air DB"; $("oaWbLbl").textContent=mau?"MAU leaving air WB":"Outdoor air WB";
-  document.querySelectorAll(".comp").forEach(card=>{ const cb=card.querySelector(".comp-h input[type=checkbox]"); const on=!cb||cb.checked; card.classList.toggle("off",!on); card.querySelectorAll(".comp-f input,.comp-f select").forEach(i=>i.disabled=!on); });
-  const rl=roomsList(); $("linkedNote").classList.toggle("hidden",!rl.length);
-  if(rl.length) $("linkedNote").textContent=`Linked: ${rl.map(r=>`${r.id} (${fmt(r.flow,0)} m³/h)`).join(", ")}`;
-  const R=calc(); last=R;
-  if(R.err){
-    $("calcErr").textContent=R.err; $("calcErr").classList.remove("hidden"); $("calcOut").classList.add("hidden");
-    $("sideProps").innerHTML=""; $("procSvg").innerHTML=""; drawDiagram(null); drawChart(null); return;
-  }
-  $("calcErr").classList.add("hidden"); $("calcOut").classList.remove("hidden");
-  $("wheelInfo").innerHTML=`<strong>Airflow through the wheel</strong><span>Outdoor air (supply side) <b>${fmt(R.qOa,0)} m³/h</b></span><span>Return air to AHU ${fmt(R.qRet,0)} m³/h${R.fa?"":` − recirculated ${fmt(R.Q-R.qOa,0)} m³/h`}</span><span>Exhaust air (exhaust side) <b>${fmt(R.qRel,0)} m³/h</b></span><small>From supply ${fmt(R.Q,0)} m³/h, outdoor air and room leakage ${fmt(R.leak,0)} m³/h.</small>`;
-  const p=R.p, prop=s=>({twb:wetbulb(s.t,s.W,p),rh:RHfromW(s.t,s.W,p),td:tdewFromW(s.W,p),h:enth(s.t,s.W)});
-  $("sideProps").innerHTML=`
-    <dt>Room dew point</dt><dd class="num big">${fmt(R.tdRoom)} °C</dd>
-    <dt>Room W</dt><dd class="num">${fmt(R.Wroom*1000,2)} g/kg</dd>
-    <dt>Outdoor air W / h</dt><dd class="num">${fmt(R.OA.W*1000,2)} g/kg · ${fmt(enth(R.OA.t,R.OA.W))} kJ/kg</dd>
-    <dt>Outdoor air</dt><dd class="num">${fmt(R.qOa,0)} m³/h (${fmt(R.qOa/R.Q*100,0)} %)</dd>
-    <dt>Relief / exhaust</dt><dd class="num">${fmt(R.qRel,0)} m³/h</dd>`;
-  const adpS=isFinite(R.adp)?` · ADP ${fmt(R.adp)}`:"";
-  $("tiles").innerHTML=`
-    <div class="tile key"><div class="k">${R.dx?"DX":"Cooling"} coil total</div><div class="v">${fmt(R.qTot)}<small>kW</small></div></div>
-    <div class="tile"><div class="k">Cooling coil sensible</div><div class="v">${fmt(R.qSens)}<small>kW</small></div></div>
+let last=null, lastMau=null, lastPM=null, summaryTxt="";
+const propOf=(s,p)=>({twb:wetbulb(s.t,s.W,p),rh:RHfromW(s.t,s.W,p),td:tdewFromW(s.W,p),h:enth(s.t,s.W)});
+/* writes one unit's results; P = id prefix ("" = AHU, "m_" = MAU / PAU); runs inside that unit's input context */
+function fillResults(R,P){
+  const E=id=>$(P+id), p=R.p, unit=P?UPN():DNN();
+  const adpS=isFinite(R.adp)?` · ADP ${fmt(R.adp)}`:" · dry coil (no ADP)";
+  const pc=R.pc, two=!!pc;
+  const pcTiles=two?`<div class="tile"><div class="k">Pre-cooling coil (${pc.dx?"DX":"CHW"})</div><div class="v">${fmt(pc.q)}<small>kW · sensible ${fmt(pc.qs)}</small></div></div>
+    <div class="tile"><div class="k">${pc.dx?"Pre-cool SST required (max.)":"Pre-cool CHW flow · required t<sub>w</sub>"}</div><div class="v">${pc.dx?fmt(pc.sstReq):fmt(pc.flow,2)}<small>${pc.dx?`°C · design ${fmt(pc.sst)}`:`L/s · ${pc.ewt}/${pc.lwt} °C · t<sub>w</sub> ${isFinite(pc.twReq)?fmt(pc.twReq)+" °C":"dry coil"}`}</small></div></div>`:"";
+  E("tiles").innerHTML=pcTiles+`
+    <div class="tile key"><div class="k">${two?"Main cooling":R.dx?"DX":"Cooling"} coil total</div><div class="v">${fmt(R.qTot)}<small>kW</small></div></div>
+    <div class="tile"><div class="k">${two?"Main coil":"Cooling coil"} sensible</div><div class="v">${fmt(R.qSens)}<small>kW</small></div></div>
     ${R.dx?`<div class="tile key"><div class="k">Required SST (max.)</div><div class="v">${fmt(R.sstReq)}<small>°C${adpS} · design ${fmt(R.sst)}</small></div></div>
     <div class="tile"><div class="k">Condensing unit input (est.)</div><div class="v">${fmt(R.cuKw,1)}<small>kW · EER ${fmt(n("dxEer",3),1)}</small></div></div>`
-    :`<div class="tile key"><div class="k">Required CHW supply t<sub>w</sub></div><div class="v">${fmt(R.twReq)}<small>°C${adpS}</small></div></div>
-    <div class="tile"><div class="k">CHW flow</div><div class="v">${fmt(R.chwFlow,2)}<small>L/s</small></div></div>`}
-    <div class="tile"><div class="k">Reheat</div><div class="v">${fmt(R.qRh)}<small>kW</small></div></div>
+    :`<div class="tile key"><div class="k">Required CHW supply t<sub>w</sub></div><div class="v">${isFinite(R.twReq)?fmt(R.twReq):"—"}<small>°C${adpS}</small></div></div>
+    <div class="tile"><div class="k">CHW flow</div><div class="v">${fmt(R.chwFlow,2)}<small>L/s · ${fmt(R.ewt)}/${fmt(R.lwt)} °C</small></div></div>`}
+    ${R.c.rh?`<div class="tile"><div class="k">Reheat (sizing)</div><div class="v">${fmt(R.qRh)}<small>kW · design ${fmt(R.qRhDes,1)} · min. load ${fmt(R.qRhMin,1)}</small></div></div>`:""}
     <div class="tile"><div class="k">Supply fans</div><div class="v">${R.sfN} × ${fmt(R.sfMotor,R.sfMotor<1?2:1)}<small>kW · TSP ${fmt(R.tsp,0)} Pa</small></div></div>
-    <div class="tile"><div class="k">AHU size W × H × L</div><div class="v" style="font-size:1.05rem">${fmt(R.Wo*1000,0)} × ${fmt(R.Ho*1000,0)} × ${fmt(R.Lo*1000,0)}<small>mm</small></div></div>
+    <div class="tile"><div class="k">${unit} size W × H × L</div><div class="v" style="font-size:1.05rem">${fmt(R.Wo*1000,0)} × ${fmt(R.Ho*1000,0)} × ${fmt(R.Lo*1000,0)}<small>mm</small></div></div>
     <div class="tile"><div class="k">Operating weight · electrical</div><div class="v" style="font-size:1.05rem">${fmt(R.weight,0)}<small>kg · ${fmt(R.elec,1)} kW</small></div></div>`;
-  $("ptsBody").innerHTML=R.pts.map(s=>{ const q=prop(s); return `<tr><td><strong>${esc(s.code)}</strong></td><td>${esc(s.desc)}</td><td class="r num">${fmt(s.t)}</td><td class="r num">${fmt(q.twb)}</td><td class="r num">${fmt(q.rh,0)}</td><td class="r num">${fmt(s.W*1000,2)}</td><td class="r num">${fmt(q.td)}</td><td class="r num">${fmt(q.h)}</td></tr>`; }).join("")+
-    (isFinite(R.adp)?`<tr><td><strong>ADP</strong></td><td>Apparatus dew point (cooling coil)</td><td class="r num">${fmt(R.adp)}</td><td class="r num">${fmt(R.adp)}</td><td class="r num">100</td><td class="r num">${fmt(Wsat(R.adp,p)*1000,2)}</td><td class="r num">${fmt(R.adp)}</td><td class="r num">${fmt(enth(R.adp,Wsat(R.adp,p)))}</td></tr>`:"");
-  $("dutyBody").innerHTML=R.duties.map(d=>`<tr><td>${esc(d[0])}</td><td class="r num">${fmt(d[1],d[1]<10?2:1)} kW</td><td>${esc(d[2])}</td><td class="r num">${d[3]?fmt(d[3],0):""}</td></tr>`).join("");
-  $("fanBody").innerHTML=`<tr><td>Supply</td><td class="r num">${fmt(R.Q,0)}</td><td class="r num">${fmt(R.esp,0)}</td><td class="r num">${fmt(R.internal,0)}</td><td class="r num">${fmt(R.tsp,0)}</td><td class="r num">${fmt(R.sfP,2)}</td><td>${R.sfN} × ${fmt(R.sfMotor,R.sfMotor<1?2:1)} kW</td><td class="r num">${fmt(R.sfInst,1)}</td><td>${esc($("sfDrive").value)}</td></tr>`+
+  const adpRow=(a,nm)=>isFinite(a)?`<tr><td><strong>ADP</strong></td><td>Apparatus dew point (${nm})</td><td class="r num">${fmt(a)}</td><td class="r num">${fmt(a)}</td><td class="r num">100</td><td class="r num">${fmt(Wsat(a,p)*1000,2)}</td><td class="r num">${fmt(a)}</td><td class="r num">${fmt(enth(a,Wsat(a,p)))}</td></tr>`:"";
+  E("ptsBody").innerHTML=R.pts.map(s=>{ const q=propOf(s,p); return `<tr><td><strong>${esc(s.code)}</strong></td><td>${esc(s.desc)}</td><td class="r num">${fmt(s.t)}</td><td class="r num">${fmt(q.twb)}</td><td class="r num">${fmt(q.rh,0)}</td><td class="r num">${fmt(s.W*1000,2)}</td><td class="r num">${fmt(q.td)}</td><td class="r num">${fmt(q.h)}</td></tr>`; }).join("")
+    +(pc?adpRow(pc.adp,"pre-cooling coil"):"")+adpRow(R.adp,two?"main cooling coil":"cooling coil");
+  E("dutyBody").innerHTML=R.duties.map(d=>`<tr><td>${esc(d[0])}</td><td class="r num">${fmt(d[1],d[1]<10?2:1)} kW</td><td>${esc(d[2])}</td><td class="r num">${d[3]?fmt(d[3],0):""}</td></tr>`).join("")
+    +(R.pumps||[]).map(u=>`<tr><td>${esc(u.nm)} pump</td><td class="r num">${fmt(u.P1,2)} kW</td><td>${fmt(u.flow,2)} L/s · head ${fmt(u.head,0)} kPa (coil ${fmt(u.coilPd,0)} + ${fmt(u.head-u.coilPd,0)}) · P1 estimate</td><td></td></tr>`).join("");
+  E("fanBody").innerHTML=`<tr><td>Supply</td><td class="r num">${fmt(R.Q,0)}</td><td class="r num">${fmt(R.esp,0)}</td><td class="r num">${fmt(R.internal,0)}</td><td class="r num">${fmt(R.tsp,0)}</td><td class="r num">${fmt(R.sfP,2)}</td><td>${R.sfN} × ${fmt(R.sfMotor,R.sfMotor<1?2:1)} kW</td><td class="r num">${fmt(R.sfInst,1)}</td><td>${esc($("sfDrive").value)}</td></tr>`+
     (R.rf?`<tr><td>Return</td><td class="r num">${fmt(R.rf.q,0)}</td><td class="r num">${fmt(R.rf.esp,0)}</td><td class="r num">${fmt(R.rf.internal,0)}</td><td class="r num">${fmt(R.rf.tsp,0)}</td><td class="r num">${fmt(R.rf.P,2)}</td><td>${R.rf.N} × ${fmt(R.rf.motor,R.rf.motor<1?2:1)} kW</td><td class="r num">${fmt(R.rf.inst,1)}</td><td>${esc(R.rf.drive)}</td></tr>`:"")+
     `<tr><td colspan="9" class="note">Supply internal PD: ${R.pd.map(x=>`${esc(x[0])} ${fmt(x[1],0)}`).join(" · ")} Pa</td></tr>`;
   const mark=u=>u?"*":"";
-  $("sizeBody").innerHTML=`
+  E("sizeBody").innerHTML=`
     <tr><th>Casing W × H × L</th><td class="num">${fmt(R.Wo*1000,0)} × ${fmt(R.Ho*1000,0)} × ${fmt(R.Lo*1000,0)} mm</td><td class="note">${(1+(R.topDeck?1:0)+(R.rd?1:0))} deck${R.topDeck||R.rd?"s":""}${R.Hset>0?" · height set":""} · coil face ${fmt(R.Wi*1000,0)} × ${fmt(R.Hi*1000,0)} mm (${fmt(R.Wi*R.Hi,2)} m², ${fmt(R.vAct,2)} m/s)${R.topDeck?` · return / exhaust deck ${fmt(R.Hr*1000,0)} mm`:""}${R.rd?` · reactivation deck ${fmt(R.Hd*1000,0)} mm (${fmt(R.qReact,0)} m³/h outdoor air)`:""}</td></tr>
     <tr><th>Sections (length)</th><td class="num">${fmt(R.Lo*1000,0)} mm</td><td class="note">${R.sec.map(s=>`${esc(s[0])} ${fmt(s[1]*1000,0)}${mark(s[2])}`).join(" · ")}</td></tr>
     <tr><th>Operating weight</th><td class="num">${fmt(R.weight,0)} kg</td><td class="note">${R.wt.map(w=>`${esc(w[0])} ${fmt(w[1],0)}${mark(w[2])}`).join(" · ")}</td></tr>
     <tr><th>Floor load</th><td class="num">${fmt(R.floorLoad,0)} kg/m²</td><td class="note">Operating weight over the casing footprint ${fmt(R.Wo,2)} × ${fmt(R.Lo,2)} m</td></tr>
-    <tr><th>Electrical load</th><td class="num">${fmt(R.elec,1)} kW · 380/3/50</td><td class="note">Fans ${fmt(R.elFan,1)} · heaters ${fmt(R.elHeat,1)} · others ${fmt(R.elOther,2)} kW — ${R.el.map(e=>`${esc(e[0])} ${fmt(e[1],2)}`).join(" · ")}${R.dx?` · DX condensing unit (outdoor, not included) ≈ ${fmt(R.cuKw,1)} kW`:""}</td></tr>
+    <tr><th>Electrical load</th><td class="num">${fmt(R.elec,1)} kW · 380/3/50</td><td class="note">Fans ${fmt(R.elFan,1)} · heaters ${fmt(R.elHeat,1)} · pumps ${fmt(R.elPump,2)} · others ${fmt(R.elOther,2)} kW — ${R.el.map(e=>`${esc(e[0])} ${fmt(e[1],2)}`).join(" · ")}${R.dx?` · DX condensing unit (outdoor, not included) ≈ ${fmt(R.cuKw,1)} kW`:""}</td></tr>
     <tr><td colspan="3" class="note">* = value entered in the component card; other lengths and weights are estimates.</td></tr>`;
-  $("checks").innerHTML=R.notes.map(([k,t,d])=>`<div class="check ${k}"><span class="pill ${k}">${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}</span><div><strong>${esc(t)}</strong><p>${esc(d)}</p></div></div>`).join("");
-  summaryTxt=[`AHU ${R.tag} · ${$("block").value} · ${$("clean").value}`,
+  E("checks").innerHTML=R.notes.map(([k,t,d])=>`<div class="check ${k}"><span class="pill ${k}">${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}</span><div><strong>${esc(t)}</strong><p>${esc(d)}</p></div></div>`).join("");
+  return [`${unit} ${R.tag} · ${$("block").value} · ${$("clean").value}`,
     `Supply ${fmt(R.Q,0)} m³/h · OA ${fmt(R.qOa,0)} m³/h · ESP ${fmt(R.esp,0)} Pa`,
     ...R.pts.map(s=>`${s.code}: ${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg`),
+    ...(pc?[`Pre-cooling coil ${fmt(pc.q)} kW (sensible ${fmt(pc.qs)})${pc.dx?`, DX SST ${fmt(pc.sst)} °C`:`, CHW ${pc.ewt}/${pc.lwt} °C ${fmt(pc.flow,2)} L/s`}`]:[]),
     R.dx?`DX coil ${fmt(R.qTot)} kW (sensible ${fmt(R.qSens)}), ${$("dxRef").value}, SST ${fmt(R.sst)} °C (required ≤ ${fmt(R.sstReq)} °C), condensing unit ≈ ${fmt(R.cuKw,1)} kW`
         :`Cooling ${fmt(R.qTot)} kW (sensible ${fmt(R.qSens)}), CHW ${fmt(R.ewt)}/${fmt(R.lwt)} °C ${fmt(R.chwFlow,2)} L/s, required t_w ${fmt(R.twReq)} °C`,
-    `Reheat ${fmt(R.qRh)} kW · Fans ${R.sfN} × ${fmt(R.sfMotor,1)} kW · Size ${fmt(R.Wo*1000,0)}×${fmt(R.Ho*1000,0)}×${fmt(R.Lo*1000,0)} mm · ${fmt(R.weight,0)} kg · ${fmt(R.elec,1)} kW`,
+    `Reheat ${fmt(R.qRh)} kW (design ${fmt(R.qRhDes,1)}, min. load ${fmt(R.qRhMin,1)}) · Fans ${R.sfN} × ${fmt(R.sfMotor,1)} kW · Size ${fmt(R.Wo*1000,0)}×${fmt(R.Ho*1000,0)}×${fmt(R.Lo*1000,0)} mm · ${fmt(R.weight,0)} kg · ${fmt(R.elec,1)} kW`,
     ...R.notes.map(([k,t])=>`- [${k==="ok"?"Pass":k==="warn"?"Note":"Fail"}] ${t}`)].join("\n");
-  drawDiagram(R); drawChart(R); drawProcess(R);
+}
+function render(){
+  const sysV=$("sys").value, mau=isMau();
+  if(!mau&&$("unitEdit").value==="mau") switchUnit("ahu");
+  const editMau=mau&&$("unitEdit").value==="mau", fa=editMau?upOaPct()>=100:sysV==="fa";
+  document.querySelectorAll("[data-sys]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.sys===sysV?"true":"false"));
+  document.querySelectorAll("[data-unit]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.unit===$("unitEdit").value?"true":"false"));
+  document.querySelectorAll("[data-recirc]").forEach(e=>e.classList.toggle("hidden",fa));
+  document.querySelectorAll("[data-mau]").forEach(e=>e.classList.toggle("hidden",!mau));
+  document.querySelectorAll("[data-ahuonly]").forEach(e=>e.classList.toggle("hidden",editMau));
+  document.querySelectorAll("[data-mauonly]").forEach(e=>e.classList.toggle("hidden",!editMau));
+  const up=UPN(), dn=DNN();
+  document.querySelectorAll(".upN").forEach(e=>e.textContent=up); document.querySelectorAll(".dnN").forEach(e=>e.textContent=dn);
+  document.querySelectorAll("[data-sys]").forEach(b=>b.classList.toggle("hidden",!sysOpen&&b.dataset.sys!==sysV));
+  $("sysMore").textContent=sysOpen?"Close":"Change system…";
+  document.querySelectorAll("[data-twoonly]").forEach(e=>e.classList.toggle("hidden",!(mau||isFfu())));
+  const editEvap=isFfu()&&(editMau||evapMain());
+  document.querySelectorAll("[data-evaponly]").forEach(e=>e.classList.toggle("hidden",!editEvap));
+  document.querySelectorAll("[data-ffuonly]").forEach(e=>e.classList.toggle("hidden",!isFfu()));
+  const dest=$("upDest").value; document.querySelectorAll("[data-uproom]").forEach(e=>e.classList.toggle("hidden",!editMau||dest!=="room"));
+  $("procWrapMau").classList.toggle("hidden",!toRoom());
+  $("diagTitle").textContent=mau?`${dn} circulation diagram`:isFfu()?`${dn} diagram`:"AHU diagram";
+  $("compTitle").textContent=mau?(editMau?`Components — ${up} ${mauTag()}`:`Components — ${dn} ${$("ahuId").value.trim()}`):"Components";
+  const neutral=editMau&&$("mauMode").value==="neutral";
+  $("ts").readOnly=neutral; $("ts").closest(".inp").style.opacity=neutral?".5":"";
+  $("tsLbl").textContent=editMau?(neutral?`Supply air DB — neutral: return air ${fmt(retRef())} °C is used`:`Supply air DB (at ${up} outlet)`):`Supply air DB (at ${dn} outlet)`;
+  $("mauFlowNote").textContent=dest==="room"?`${up} supplies the room directly at ${fmt(n("upFlow",0),0)} m³/h (${fmt(upOaPct(),0)} % outdoor air${upOaPct()<100?", mixing box with return air":""}). The ${dn} takes its outdoor air from outside.`
+    :`${up} airflow = ${dn} outdoor air = ${fmt(ahuQoa(),0)} m³/h (set on the ${dn}), ${fmt(upOaPct(),0)} % outdoor air${upOaPct()<100?" with a mixing box (keeps the air change; the "+dn+" controls the temperature)":""}. Its supply goes to the ${dn} outdoor-air inlet; its exhaust (for a heat recovery wheel) is the ${dn} relief air.`;
+  $("addPcBtn").closest(".field").classList.toggle("hidden",chk("cPc"));
+  document.querySelectorAll("[data-when]").forEach(e=>e.classList.toggle("hidden",!e.dataset.when.split(",").every(c=>{ const [id,v]=c.split(":"); return $(id).value===v; })));
+  const flowMode=$("oaMode").value==="flow"; $("oaValU").textContent=flowMode?"m³/h":"%";
+  const mauSrc=mau||(!isFfu()&&$("oaSrc").value==="mau"); $("oaDbLbl").textContent=mauSrc&&!mau?"MAU leaving air DB":"Outdoor air DB"; $("oaWbLbl").textContent=mauSrc&&!mau?"MAU leaving air WB":"Outdoor air WB";
+  $("oaSrc").closest(".field").classList.toggle("hidden",mau||isFfu());
+  document.querySelectorAll(".comp").forEach(card=>{ const cb=card.querySelector(".comp-h input[type=checkbox]"); const on=!cb||cb.checked; card.classList.toggle("off",!on); card.querySelectorAll(".comp-f input,.comp-f select").forEach(i=>i.disabled=!on); });
+  const rl=roomsList(); $("linkedNote").classList.toggle("hidden",!rl.length);
+  if(rl.length) $("linkedNote").textContent=`Linked: ${rl.map(r=>`${r.id} (${fmt(r.flow,0)} m³/h)`).join(", ")}`;
+  const A=calcAll(), R=A.R; last=R; lastMau=A.RM&&!A.RM.err?A.RM:null;
+  if(R.err){
+    $("calcErr").textContent=R.err; $("calcErr").classList.remove("hidden"); $("calcOut").classList.add("hidden");
+    $("sideProps").innerHTML=""; $("procSvg").innerHTML=""; lastPM=null; drawDiagram(null); if(mau) drawDiagram(null,"diagramMau","diagNoteMau"); drawChart(null); return;
+  }
+  $("calcErr").classList.add("hidden"); $("calcOut").classList.remove("hidden");
+  const RW=editMau?lastMau:R;
+  $("wheelInfo").innerHTML=`<strong>Airflow through the wheel</strong><span>Outdoor air (supply side) <b>${fmt(RW.qOa,0)} m³/h</b></span><span>Return air to ${editMau?"the AHU (relief to the MAU)":"AHU"} ${fmt(RW.qRet,0)} m³/h${RW.fa?"":` − recirculated ${fmt(RW.Q-RW.qOa,0)} m³/h`}</span><span>Exhaust air (exhaust side) <b>${fmt(RW.qRel,0)} m³/h</b></span><small>From supply ${fmt(RW.Q,0)} m³/h, outdoor air and room leakage ${fmt(RW.leak,0)} m³/h.</small>`;
+  $("sideProps").innerHTML=`
+    <dt>Room dew point</dt><dd class="num big">${fmt(R.tdRoom)} °C</dd>
+    <dt>Room W</dt><dd class="num">${fmt(R.Wroom*1000,2)} g/kg</dd>
+    <dt>${mau?up+" supply":"Outdoor air"} W / h</dt><dd class="num">${fmt(R.OA.W*1000,2)} g/kg · ${fmt(enth(R.OA.t,R.OA.W))} kJ/kg</dd>
+    <dt>Outdoor air</dt><dd class="num">${fmt(R.qOa,0)} m³/h (${fmt(R.qOa/R.Q*100,0)} %)</dd>
+    <dt>Relief / exhaust</dt><dd class="num">${fmt(R.qRel,0)} m³/h</dd>`;
+  let txt=ctxAhu(()=>{ const t=fillResults(R,""); drawDiagram(R); return t; });
+  if(mau&&lastMau){ txt=ctxMau(()=>{ const t=fillResults(lastMau,"m_"); drawDiagram(lastMau,"diagramMau","diagNoteMau"); return t; })+"\n\n"+txt; $("mauHdr").textContent=lastMau.tag; }
+  summaryTxt=txt;
+  drawChart(R); lastPM=buildPM(); $("procSvg").innerHTML=processSVG(R,lastPM);
+  lastPMu=toRoom()&&lastMau?buildPMu():null; $("procSvgMau").innerHTML=lastPMu?ctxMau(()=>processSVG(lastMau,lastPMu)):"";
 }
 $("copyBtn").addEventListener("click",async()=>{ const b=$("copyBtn");
   try{ await navigator.clipboard.writeText(summaryTxt); b.textContent="Copied"; }catch(e){ b.textContent="Browser blocked copying"; }
@@ -970,14 +1262,14 @@ $("copyBtn").addEventListener("click",async()=>{ const b=$("copyBtn");
 
 $("addPcBtn").addEventListener("click",()=>{ $("cPc").checked=true; update(); const el=$("cPc").closest(".comp"); el.scrollIntoView({behavior:"smooth",block:"center"}); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1200); });
 /* ---------- Diagram ---------- */
-function drawDiagram(R){
-  const svg=$("diagram"), F=flags(), c=F.c, fa=F.fa;
+function drawDiagram(R,svgId,noteId){
+  const svg=$(svgId||"diagram"), F=flags(), c=F.c, fa=F.fa;
   const top=F.top;
   const WD={dheat:64,rfan:64,oa:34,filter:64,filter2:76,wheel:70,plate:74,racoil:64,hpipe:64,des:76,rfilt:76,pt:14,mix:70,fan:80,hcoil:64,wrapA:64,wrapB:64,ccoil:70,uv:40,hum:70,att:64,acc:46,sa:40};
   const S=(R&&!R.err&&R.lay?R.lay:buildLayout(F,null)).map(s=>Object.assign({},s,{w:WD[s.k]||64}));
   const x0=30, gap=6; let x=x0; S.forEach(s=>{ s.x=x; x+=s.w+gap; });
   const react=F.react, dhR=62;
-  const W=x+30, yTop=40, dh=82, yBot=top?yTop+dh+34:40, yRe=yBot+dh+46, H=react?yRe+dhR+56:yBot+dh+70;
+  const W=x+30, yTop=40, dh=82, yBot=top?yTop+dh+34:(fa?40:62), yRe=yBot+dh+46, H=react?yRe+dhR+56:yBot+dh+70;
   svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
   const CL={cool:"#2b7bb9",heat:"#c0392b",rec:"#2e8b57",des:"#b5651d",ink:"var(--ink)",mute:"var(--muted)",line:"var(--grid-strong)"};
   let g=`<defs><marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="${CL.ink}"/></marker></defs>`;
@@ -1003,7 +1295,7 @@ function drawDiagram(R){
   S.forEach(s=>{
     const xx=s.x, w=s.w, y=yBot, h=dh;
     switch(s.k){
-      case "oa": { const p0=pt("OA"); g+=`<text x="${xx+w/2}" y="${ym-10}" text-anchor="middle" class="dl">OA</text>`; if(p0) g+=`<text x="${xx+w/2}" y="${ym+20}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text>`;
+      case "oa": { const p0=pt("OA"); g+=`<text x="${xx+w/2}" y="${ym-10}" text-anchor="middle" class="dl">${$("oaSrc").value==="mau"?(isFfu()?"EVAP":"MAU/PAU"):"OA"}</text>`; if(p0) g+=`<text x="${xx+w/2}" y="${ym+20}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text>`;
         if(top) g+=`<text x="${xx+w/2}" y="${yt-10}" text-anchor="middle" class="dl">EA</text>`; break; }
       case "sa": { const p0=pt("S"); g+=`<text x="${xx+w/2+4}" y="${ym-10}" text-anchor="middle" class="dl">SA</text>`; if(p0) g+=`<text x="${xx+w/2+4}" y="${ym+20}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text>`;
         if(top) g+=`<text x="${xx+w/2+4}" y="${yt-10}" text-anchor="middle" class="dl">RA</text>`; break; }
@@ -1030,12 +1322,23 @@ function drawDiagram(R){
         for(let i=0;i<5;i++){ const a=i*2*Math.PI/5; g+=`<path d="M${cx},${cy} Q${cx+r*0.9*Math.cos(a+0.6)},${cy+r*0.9*Math.sin(a+0.6)} ${cx+r*0.8*Math.cos(a+1.1)},${cy+r*0.8*Math.sin(a+1.1)}" fill="none" stroke="${CL.ink}" stroke-width="1.2"/>`; }
         g+=label(cx,y+h+16,s.lbl)+(R&&!R.err?`<text x="${cx}" y="${y+h+29}" text-anchor="middle" class="ds">${R.sfN}×${fmt(R.sfMotor,R.sfMotor<1?2:1)} kW</text>`:""); break; }
       case "uv": g+=box(xx+w/2-9,y,18,h,"#7d3cbf"); g+=`<line x1="${xx+w/2}" y1="${y+8}" x2="${xx+w/2}" y2="${y+h-8}" stroke="#7d3cbf" stroke-width="3" stroke-linecap="round"/>`+label(xx+w/2,y+h+16,s.lbl,"#7d3cbf"); break;
+      case "iec": { g+=box(xx+6,y,w-12,h,CL.cool); const cx=xx+w/2;
+        g+=`<path d="M${xx+6},${y} L${xx+w-6},${y+h} M${xx+w-6},${y} L${xx+6},${y+h}" stroke="${CL.cool}" stroke-width="1.2"/>`;
+        for(let j=0;j<4;j++) g+=`<circle cx="${xx+16+j*(w-32)/3}" cy="${y+8}" r="1.6" fill="${CL.cool}"/>`;
+        g+=`<line x1="${cx}" y1="${y+h+30}" x2="${cx}" y2="${y+h+2}" stroke="${CL.mute}" stroke-dasharray="3 3" marker-end="url(#arr)"/><text x="${cx+6}" y="${y+h+40}" class="ds">secondary air (wet side)</text>`;
+        g+=label(cx,y-8,"IEC",CL.cool); break; }
+      case "evap": { const cx=xx+w/2, pw=Math.max(18,w-28);
+        g+=box(cx-pw/2,y,pw,h-16,CL.cool); for(let i=0;i<7;i++){ const yy=y+6+i*(h-28)/6; g+=`<path d="M${cx-pw/2+3},${yy} L${cx},${yy+6} L${cx+pw/2-3},${yy}" fill="none" stroke="${CL.cool}" stroke-width="1"/>`; }
+        for(let j=0;j<4;j++) g+=`<path d="M${cx-pw/2+5+j*(pw-10)/3},${y-9} q-2,4 0,5 q2,-1 0,-5" fill="${CL.cool}"/>`;
+        g+=`<rect x="${cx-pw/2-4}" y="${y+h-14}" width="${pw+8}" height="12" fill="${CL.cool}" opacity=".25" stroke="${CL.cool}"/><text x="${cx}" y="${y+h-5}" text-anchor="middle" class="ds">sump · pump</text>`;
+        g+=label(cx,y+h+16,s.lbl,CL.cool); break; }
       case "hum": g+=box(xx+w/2-20,y,40,h,CL.cool); for(let i=0;i<4;i++){ const yy=y+14+i*(h-28)/3; g+=`<line x1="${xx+w/2-12}" y1="${yy}" x2="${xx+w/2+12}" y2="${yy}" stroke="${CL.cool}" stroke-width="1.4"/>`; for(let j=0;j<3;j++) g+=`<circle cx="${xx+w/2-8+j*8}" cy="${yy+5}" r="1.4" fill="${CL.cool}"/>`; }
         g+=label(xx+w/2,y+h+16,s.lbl,CL.cool); break;
       case "att": g+=box(xx+6,y,w-12,h,CL.mute); for(let i=1;i<4;i++) g+=`<rect x="${xx+6+i*(w-12)/4-3}" y="${y+6}" width="6" height="${h-12}" fill="${CL.mute}" opacity=".35"/>`; g+=label(xx+w/2,y+h+16,s.lbl); break;
       case "mix": { if(F.mixD){ g+=`<line x1="${xx+8}" y1="${yBot-6}" x2="${xx+w-8}" y2="${yBot-6}" stroke="var(--surface)" stroke-width="5"/>`;
         for(let i=0;i<3;i++) g+=`<line x1="${xx+14+i*16}" y1="${yBot-14}" x2="${xx+24+i*16}" y2="${yBot+2}" stroke="${CL.ink}" stroke-width="1.6"/>`;
-        g+=`<path d="M${xx+w/2},${yt+12} C${xx+w/2},${yBot-20} ${xx+w/2},${yBot} ${xx+w/2},${ym-12}" fill="none" stroke="${CL.ink}" stroke-width="1.3" marker-end="url(#arr)"/>`; }
+        g+=`<path d="M${xx+w/2},${top?yt+12:yBot-34} C${xx+w/2},${yBot-20} ${xx+w/2},${yBot} ${xx+w/2},${ym-12}" fill="none" stroke="${CL.ink}" stroke-width="1.3" marker-end="url(#arr)"/>`; }
+        if(!top&&F.mixD){ const pr=pt("R"); g+=`<text x="${xx+w/2+8}" y="${yBot-26}" class="dl">RA</text>`+(pr?`<text x="${xx+w/2+30}" y="${yBot-26}" class="ds">${fmt(pr.t)}°</text>`:""); }
         g+=label(xx+w/2,y+h+16,"Mixing box")+(F.mixD?"":`<text x="${xx+w/2}" y="${y+h+29}" text-anchor="middle" class="ds">no dampers</text>`);
         const pm=pt("M"); if(pm) g+=`<circle cx="${xx+w-8}" cy="${ym}" r="9" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.2"/><text x="${xx+w-8}" y="${ym+3.5}" text-anchor="middle" class="dp">M</text><text x="${xx+w-8}" y="${ym-15}" text-anchor="middle" class="ds">${fmt(pm.t)}°</text><text x="${xx+w-8}" y="${ym+24}" text-anchor="middle" class="ds">${fmt(tdewFromW(pm.W,R.p))}°dp</text>`;
         break; }
@@ -1060,17 +1363,17 @@ function drawDiagram(R){
     g+=`<text x="${cx}" y="${yTop-12}" text-anchor="middle" class="dl">Return fan</text>`; }
   if(top){ const pr=pt("R"); if(pr) g+=`<text x="${W-24}" y="${yt+20}" text-anchor="end" class="ds">${fmt(pr.t)}°</text>`; }
   svg.innerHTML=g;
-  $("diagNote").textContent=R&&!R.err?`Airflow: supply ${fmt(R.Q,0)} m³/h${R.fa?" (100% outdoor air)":` · outdoor air ${fmt(R.qOa,0)} m³/h · return ${fmt(R.qRet,0)} m³/h`} · relief/exhaust ${fmt(R.qRel,0)} m³/h. Numbers under the circles are dry bulb / dew point at that point.`:"";
+  $(noteId||"diagNote").textContent=R&&!R.err?`Airflow: supply ${fmt(R.Q,0)} m³/h${R.fa?" (100% outdoor air)":` · outdoor air ${fmt(R.qOa,0)} m³/h · return ${fmt(R.qRet,0)} m³/h`} · relief/exhaust ${fmt(R.qRel,0)} m³/h. Numbers under the circles are dry bulb / dew point at that point.`:"";
 }
 
 /* ---------- Process schematic & state point / process report ---------- */
-const PROC={F:"Supply fan heat",S:"Supply fan heat",P:"Preheat coil",PC:"Wrap-around pre-cool",C1:"Pre-cooling coil",C:"Cooling coil",RW:"Wrap-around reheat",RH:"Reheat coil",H:"Humidifier",D:"Desiccant wheel","OA'":"Energy recovery"};
+const PROC={I:"Indirect evaporative cooling (sensible)",E:"Direct evaporative cooling (adiabatic)",C2:"Post-cooling coil",F:"Supply fan heat",S:"Supply fan heat",P:"Preheat coil",PC:"Wrap-around pre-cool",C1:"Pre-cooling coil",C:"Cooling coil",RW:"Wrap-around reheat",RH:"Reheat coil",H:"Humidifier",D:"Desiccant wheel","OA'":"Energy recovery"};
 function processModel(R){
   const p=R.p;
   /* design (nominal) airflow of each stream, constant along the stream; the mass flow is what the energy balance uses */
   const flowOf=code=>code==="OA"||code==="OA'"||code==="OH"?R.qOa:code==="R"?R.qRet:R.Q;
   const same=(a,b)=>Math.abs(a.t-b.t)<1e-6&&Math.abs(a.W-b.W)<1e-9;
-  const keep=["P","RH","H","C1","C"];
+  const keep=["P","RH","H","C1","C","C2","I","E"];
   const main=[]; R.pts.forEach(q=>{ if(q.code==="R") return; const prev=main[main.length-1]; if(prev&&same(prev,q)&&!keep.includes(q.code)) return; main.push(q); });
   const ret=R.pts.find(q=>q.code==="R");
   const node=q=>{ const v=vol(q.t,q.W,p), pw=PwfromW(q.W,p);
@@ -1080,28 +1383,47 @@ function processModel(R){
   for(let i=1;i<nodes.length;i++){
     const a=nodes[i-1], b=nodes[i];
     if(b.code==="M"){ procs.push({at:i,type:"mix",name:"Air mixing",s1:a,s2:retNode,q1:R.qOa,q2:R.Q-R.qOa}); continue; }
-    const m=b.code==="OA'"||b.code==="OH"?R.mOa:R.m, cool=["C1","C"].includes(b.code);
+    const m=b.code==="OA'"||b.code==="OH"?R.mOa:R.m, cool=["C1","C","C2","I"].includes(b.code);
     const qT=cool?-m*((a.h-b.h)-(a.W-b.W)*4.186*b.t):m*(b.h-a.h), qS=m*cpm(a.W)*(b.t-a.t), dW=m*(b.W-a.W)*3600;
     let name=PROC[b.code]||b.desc;
     if(b.code==="C") name=R.dx?"Cooling coil (DX)":"Cooling coil (chilled water)";
+    if(b.code==="C2") name=R.dpc&&R.dpc.dx?"Post-cooling coil (DX)":"Post-cooling coil (chilled water)";
     if(b.code==="C1") name=R.pc&&R.pc.dx?"Pre-cooling coil (DX)":"Pre-cooling coil (chilled water)";
     if(b.code==="OH") name=R.hrNames.length?R.hrNames.join(" + "):"Energy recovery (bypassed)";
     if(b.code==="OA'") name=R.desOa?"Desiccant wheel":(R.hrNames.length?R.hrNames.join(" + "):"Energy recovery (bypassed)");
     if(b.code==="CI") name="Air handling before the cooling coil";
     const pc=R.pc;
-    const extra=b.code==="C"&&isFinite(R.adp)?`ADP ${fmt(R.adp)} °C · BF ${fmt(R.bf,2)}${R.dx?` · ${$("dxRef").value}, SST ${fmt(R.sst)} °C (required ≤ ${fmt(R.sstReq)} °C)`:` · CHW ${fmt(R.ewt)}/${fmt(R.lwt)} °C, ${fmt(R.chwFlow,2)} L/s · required t_w ${fmt(R.twReq)} °C`}`
+    const extra=b.code==="E"&&R.evap?`ε ${fmt(R.evap.eff*100,0)} % · entering WB ${fmt(R.evap.tw)} °C · evaporation ${fmt(R.evap.ev,1)} L/h${R.evap.rec?`, bleed ${fmt(R.evap.bl,1)} L/h, make-up ${fmt(R.evap.make,1)} L/h`:""}`
+      :b.code==="I"&&R.iec?`WBDE ${fmt(R.iec.eff*100,0)} % · secondary ${R.iec.sec==="ra"?"return":"outdoor"} air WB ${fmt(R.iec.tsSec)} °C, ${fmt(R.iec.qSec,0)} m³/h · water ${fmt(R.iec.make,1)} L/h`
+      :b.code==="C2"&&R.dpc?(R.dpc.dx?`DX ${R.dpc.ref}, SST ${fmt(R.dpc.sst)} °C (required ≤ ${fmt(R.dpc.sstReq)} °C) · sensible only`:`CHW ${fmt(R.dpc.ewt)}/${fmt(R.dpc.lwt)} °C, ${fmt(R.dpc.flow,2)} L/s · sensible only`):b.code==="C"&&isFinite(R.adp)?`ADP ${fmt(R.adp)} °C · BF ${fmt(R.bf,2)}${R.dx?` · ${$("dxRef").value}, SST ${fmt(R.sst)} °C (required ≤ ${fmt(R.sstReq)} °C)`:` · CHW ${fmt(R.ewt)}/${fmt(R.lwt)} °C, ${fmt(R.chwFlow,2)} L/s · required t_w ${fmt(R.twReq)} °C`}`
       :b.code==="C1"&&pc?(pc.dx?`DX ${pc.ref}, SST ${fmt(pc.sst)} °C${isFinite(pc.adp)?` · ADP ${fmt(pc.adp)} °C (SST required ≤ ${fmt(pc.sstReq)} °C)`:""}`
         :`CHW ${fmt(pc.ewt)}/${fmt(pc.lwt)} °C, ${fmt(pc.flow,2)} L/s${isFinite(pc.adp)?` · ADP ${fmt(pc.adp)} °C · required t_w ${fmt(pc.twReq)} °C`:""}`)
       :(b.code==="OH"||(b.code==="OA'"&&!R.desOa))&&R.EX&&R.hrNames.length?`Exhaust side: ${fmt(R.R.t)} → ${fmt(R.EX.t)} °C, ${fmt(R.qRel,0)} m³/h`:"";
-    procs.push({at:i,type:"energy",name,code:b.code,from:a,to:b,qT,qS,qL:qT-qS,dW,shr:Math.abs(qT)>1e-6&&qS/qT>=-1e-6&&qS/qT<=1.001?qS/qT:NaN,ratio:Math.abs(b.W-a.W)>1e-9?(b.h-a.h)/((b.W-a.W)*1000):NaN,extra});
+    procs.push({at:i,type:"energy",name,code:b.code,desOa:R.desOa,from:a,to:b,qT,qS,qL:qT-qS,dW,shr:Math.abs(qT)>1e-6&&qS/qT>=-1e-6&&qS/qT<=1.001?qS/qT:NaN,ratio:Math.abs(b.W-a.W)>1e-9?(b.h-a.h)/((b.W-a.W)*1000):NaN,extra});
   }
-  return {nodes,retNode,procs};
+  const hp=procs.find(pr=>pr.code==="OH")||(R.desOa?null:procs.find(pr=>pr.code==="OA'"));
+  return {nodes,retNode,procs,hr:hp&&R.hrNames.length?{at:hp.at,EX:R.EX}:null,groups:null};
 }
+/* MAU / PAU + AHU: one schematic — outdoor air → MAU / PAU → AHU mixing → AHU → room */
+function buildPM(){
+  const PA=ctxAhu(()=>processModel(last));
+  if(!isMau()||!lastMau||toRoom()) return PA;
+  const PMm=ctxMau(()=>processModel(lastMau)), nm=PMm.nodes.length, shift=nm;
+  PMm.nodes.forEach(q=>{ q.code="m"+q.code; q.desc=UPN()+": "+q.desc; });
+  PA.nodes[0].desc=`${DNN()} inlet: treated outdoor air from the ${UPN()}`;
+  PA.procs.forEach(pr=>{ pr.at+=shift; });
+  const nodes=[...PMm.nodes,...PA.nodes];
+  return {nodes,retNode:PA.retNode,procs:[...PMm.procs,...PA.procs],gapAt:nm,
+    hr:PMm.hr||(PA.hr?{at:PA.hr.at+shift,EX:PA.hr.EX}:null),
+    groups:[{a:0,b:nm-1,label:`${UPN()} ${lastMau.tag}`},{a:nm,b:nodes.length-1,label:`${DNN()} ${last.tag}`}]};
+}
+/* outdoor-air unit supplying the room directly: its own schematic */
+function buildPMu(){ const P=ctxMau(()=>processModel(lastMau)); P.groups=[{a:0,b:P.nodes.length-1,label:`${UPN()} ${lastMau.tag} → room`}]; return P; }
 /* schematic: fixed colours so it prints the same inside the PDF report */
 function processSVG(R,PM){
-  const N=PM.nodes, step=150, x0=110, yL=170, ink="#13212c", mute="#5a6a77", blue="#1f5fbf", red="#c0392b", green="#2e8b57", brown="#b5651d", teal="#16879a";
-  const roomX=x0+N.length*step+10, W=roomX+300, H=350, yR=52, xL=12;
-  const xs=N.map((_,i)=>x0+20+i*step);
+  const N=PM.nodes, step=150, x0=110, yL=170, GAP=PM.gapAt?90:0, ink="#13212c", mute="#5a6a77", blue="#1f5fbf", red="#c0392b", green="#2e8b57", brown="#b5651d", teal="#16879a";
+  const roomX=x0+N.length*step+10+GAP, W=roomX+300, H=350, yR=52, xL=12;
+  const xs=N.map((_,i)=>x0+20+i*step+(PM.gapAt&&i>=PM.gapAt?GAP:0));
   let g=`<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/><defs><marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${blue}"/></marker></defs>`;
   const T=(x,y,t,o)=>`<text x="${x}" y="${y}" style="font:${(o&&o.b)?"700 ":""}${(o&&o.s)||10}px Arial,sans-serif;fill:${(o&&o.c)||ink}" text-anchor="${(o&&o.a)||"start"}">${esc(t)}</text>`;
   const q3=v=>`${fmt(v,0)} m³/h`;
@@ -1113,25 +1435,30 @@ function processSVG(R,PM){
   g+=T(roomX+8,yL+14,`Supply ${q3(R.Q)}`,{c:mute,s:9});
   if(R.leak>0) g+=`<line x1="${roomX+150}" y1="${yL+40}" x2="${roomX+190}" y2="${yL+40}" stroke="${blue}" stroke-width="1.2" marker-end="url(#pa)"/>`+T(roomX+156,yL+56,`Exfiltration ${q3(R.leak)}`,{c:mute,s:9});
   // return / exhaust line: room → return fan → (recirculation to M) → exhaust side of the heat recovery → out
-  const mi=N.findIndex(q=>q.code==="M"), hrP=PM.procs.find(pr=>pr.code==="OH")||(R.desOa?null:PM.procs.find(pr=>pr.code==="OA'")), hrX=hrP&&R.hrNames.length?(xs[hrP.at-1]+xs[hrP.at])/2:null;
+  const mi=N.findIndex(q=>q.code==="M"), mui=N.findIndex(q=>q.code==="mM"), hrX=PM.hr?(xs[PM.hr.at-1]+xs[PM.hr.at])/2:null, EXs=PM.hr?PM.hr.EX:null;
   if(PM.retNode){
-    const xM=mi>=0?xs[mi]:null, exh=R.qRel>0, xEnd=exh?xL:xM;
+    const xM=mi>=0?xs[mi]:null, exh=R.qRel>0, xEnd=exh?xL:(mui>=0?xs[mui]:xM);
     g+=`<path d="M${roomX+75},${yL-70} V${yR} H${xEnd}" fill="none" stroke="${blue}" stroke-width="1.5"${exh?` marker-end="url(#pa)"`:""}/>`;
     if(xM!=null&&R.Q-R.qOa>0){ g+=`<path d="M${xM},${yR} V${yL-11}" fill="none" stroke="${blue}" stroke-width="1.5" marker-end="url(#pa)"/>`+T(xM+6,yR+30,`Recirculated ${q3(R.Q-R.qOa)}`,{c:mute,s:9}); }
+    if(mui>=0&&R.mau&&R.mau.Q-R.mau.qOa>0){ const xm=xs[mui]; g+=`<path d="M${xm},${yR} V${yL-11}" fill="none" stroke="${blue}" stroke-width="1.5" marker-end="url(#pa)"/>`+T(xm+6,yR+30,`Recirculated ${q3(R.mau.Q-R.mau.qOa)} (${UPS()})`,{c:mute,s:9}); }
     if(R.c.rf){ const fx=roomX-30; g+=`<circle cx="${fx}" cy="${yR}" r="12" fill="#fff" stroke="${ink}" stroke-width="1.2"/>`+T(fx,yR+3.5,"RF",{a:"middle",s:8,b:1}); }
     const rn=PM.retNode; g+=T(roomX-50,yR-10,`Return ${q3(R.qRet)} · ${fmt(rn.t)} °C · ${fmt(rn.W*1000,2)} g/kg`,{c:mute,s:9,a:"end"});
     if(exh){
       if(hrX!=null){ g+=`<rect x="${hrX-12}" y="${yR-18}" width="24" height="36" fill="#fff" stroke="${green}" stroke-width="1.4"/><path d="M${hrX-12},${yR-18} L${hrX+12},${yR+18} M${hrX+12},${yR-18} L${hrX-12},${yR+18}" stroke="${green}"/>`;
         g+=`<line x1="${hrX}" y1="${yR+18}" x2="${hrX}" y2="${yL-24}" stroke="${green}" stroke-width="1" stroke-dasharray="3 3"/>`;
-        if(R.EX) g+=T(hrX-18,yR-24,`${fmt(R.EX.t)} °C · ${fmt(R.EX.W*1000,2)} g/kg`,{c:green,s:9,a:"end"}); }
+        if(EXs) g+=T(hrX-18,yR-24,`${fmt(EXs.t)} °C · ${fmt(EXs.W*1000,2)} g/kg`,{c:green,s:9,a:"end"}); }
       g+=T(xL,yR-8,`Exhaust ${q3(R.qRel)}`,{c:blue,s:9,b:1});
     }
   }
+  // unit boxes (MAU / PAU and AHU), with the duct between them
+  if(PM.gapAt){ const xa=xs[PM.gapAt-1], xb=xs[PM.gapAt]; g+=T((xa+xb)/2,yL-8,`${UPS()} supply → ${DNN()} OA inlet`,{a:"middle",s:9,c:mute}); }
+  (PM.groups||[]).forEach((gr,i)=>{ const x1=xs[gr.a]-34, x2=xs[gr.b]+(i?34:56);
+    g+=`<rect x="${x1}" y="${yL-62}" width="${x2-x1}" height="${H-yL+30}" rx="8" fill="none" stroke="${i?blue:green}" stroke-dasharray="5 4"/>`+T(x1+6,yL-50,gr.label,{c:i?blue:green,b:1,s:10}); });
   // components between nodes
   PM.procs.forEach(pr=>{
     if(pr.type==="mix") return;
     const xa=xs[pr.at-1], xb=xs[pr.at], cx=(xa+xb)/2, c=pr.code;
-    const col=["C","C1","PC"].includes(c)?blue:["P","RH"].includes(c)?red:c==="H"?teal:c==="D"?brown:c==="OH"?green:c==="OA'"?(R.desOa?brown:green):c==="RW"?green:ink;
+    const col=["C","C1","C2","PC","I","E"].includes(c)?blue:["P","RH"].includes(c)?red:c==="H"?teal:c==="D"?brown:c==="OH"?green:c==="OA'"?(pr.desOa?brown:green):c==="RW"?green:ink;
     if(c==="F"||c==="S") g+=`<circle cx="${cx}" cy="${yL}" r="13" fill="#fff" stroke="${ink}" stroke-width="1.3"/><path d="M${cx-7},${yL+5} L${cx},${yL-7} L${cx+7},${yL+5}" fill="none" stroke="${ink}"/>`;
     else if(c==="H") g+=`<circle cx="${cx}" cy="${yL}" r="11" fill="#fff" stroke="${col}" stroke-width="1.4"/>`+T(cx,yL+4,"H",{a:"middle",b:1,c:col});
     else if(c==="OA'"||c==="D"||c==="OH") g+=`<rect x="${cx-12}" y="${yL-20}" width="24" height="40" fill="#fff" stroke="${col}" stroke-width="1.4"/><path d="M${cx-12},${yL-20} L${cx+12},${yL+20} M${cx+12},${yL-20} L${cx-12},${yL+20}" stroke="${col}"/>`;
@@ -1147,10 +1474,10 @@ function processSVG(R,PM){
   g+=T(xL,H-8,`${R.tag} · altitude ${fmt(n("alt",0),0)} m · ${fmt(R.p,3)} kPa · airflows are design values of each stream (m³/h)`,{c:mute,s:9});
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Process schematic">${g}</svg>`;
 }
-function drawProcess(R){ const PM=processModel(R); $("procSvg").innerHTML=processSVG(R,PM); return PM; }
+
 function processReport(){
   const R=last; if(!R||R.err){ toast("Fix the inputs first",true); return; }
-  const PM=processModel(R), p=R.p, d=new Date();
+  const PM=lastPM||processModel(R), p=R.p, d=new Date();
   const xe=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const th=(h,u)=>`<th>${h}${u?`<br><span>(${u})</span>`:""}</th>`;
   const stateTbl=q=>`<table><tr>${th("Air flow","m³/h")}${th("Dry bulb","°C")}${th("Wet bulb","°C")}${th("Relative humidity","%")}${th("Humidity ratio","g/kg")}${th("Specific volume","m³/kg")}${th("Enthalpy","kJ/kg")}${th("Dew point","°C")}${th("Density","kg/m³")}${th("Vapour pressure","kPa")}${th("Vapour pressure","mm Hg")}${th("Absolute humidity","g/m³")}</tr>
@@ -1161,13 +1488,14 @@ function processReport(){
     return `<p class="pt">Process: ${xe(pr.name)}</p><table><tr><th>Start point</th>${th(pr.qT<0?"Total cooling":"Total energy","kW")}${th("Sensible energy","kW")}${th("Latent energy","kW")}${th(pr.dW<0?"Dehumidification":"Moisture change","kg/h")}${th("Sensible heat ratio")}${th("Enthalpy / humidity ratio","kJ/kg per g/kg")}</tr>
       <tr><td>${xe(pr.from.code)} – ${xe(pr.from.desc)}</td><td>${fmt(pr.qT,2)}</td><td>${fmt(pr.qS,2)}</td><td>${fmt(pr.qL,2)}</td><td>${fmt(pr.dW,2)}</td><td>${isFinite(pr.shr)?fmt(pr.shr,3):"—"}</td><td>${isFinite(pr.ratio)?fmt(pr.ratio,3):"N/A"}</td></tr></table>${pr.extra?`<p class="ex">${xe(pr.extra)}</p>`:""}`;
   };
-  const pts=[...(PM.retNode?[PM.retNode]:[]),...PM.nodes];
-  let body="";
-  PM.nodes.forEach((q,i)=>{
-    if(i===0&&PM.retNode) body+=`<div class="blk"><h2>R. Return air</h2><p class="pt">State point data</p>${stateTbl(PM.retNode)}</div>`;
-    const pr=PM.procs.find(x=>x.at===i);
-    body+=`<div class="blk"><h2>${i+1}. ${xe(q.code)} – ${xe(q.desc)}</h2><p class="pt">State point data</p>${stateTbl(q)}${pr?procTbl(pr):""}</div>`;
-  });
+  const sect=(P,pre)=>{ let b="";
+    P.nodes.forEach((q,i)=>{
+      if(i===0&&P.retNode) b+=`<div class="blk"><h2>${pre}R. Return air</h2><p class="pt">State point data</p>${stateTbl(P.retNode)}</div>`;
+      const pr=P.procs.find(x=>x.at===i);
+      b+=`<div class="blk"><h2>${pre}${i+1}. ${xe(q.code)} – ${xe(q.desc)}</h2><p class="pt">State point data</p>${stateTbl(q)}${pr?procTbl(pr):""}</div>`;
+    }); return b; };
+  let body=sect(PM,"");
+  if(lastPMu&&lastMau){ body+=`<h2 style="margin-top:12pt">${xe(UPN())} ${xe(lastMau.tag)} — supplies the room directly</h2><div class="sch">${ctxMau(()=>processSVG(lastMau,lastPMu))}</div>`+sect(lastPMu,UPS()+" "); }
   const rooms=roomsList().map(r=>r.id).join(", ")||$("rooms").value;
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${xe(R.tag)} state point & process report</title><style>
 @page{size:A4 landscape;margin:9mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -1180,11 +1508,11 @@ td:first-child{white-space:nowrap}.blk{break-inside:avoid}.sch{border:1px solid 
 .ft{margin-top:8pt;font-size:7.5pt;color:#5a6a77}
 </style></head><body>
 <h1>STATE POINT &amp; PROCESS REPORT</h1>
-<div class="hd"><div>Report date: ${xe(d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"}))}<br>AHU: ${xe(R.tag)} · ${xe($("ahuType").value)} · ${xe($("block").value)}<br>Rooms served: ${xe(rooms)} · ${xe($("clean").value)}<br>Supply ${fmt(R.Q,0)} m³/h · outdoor air ${fmt(R.qOa,0)} m³/h${R.fa?" (100 %)":""}</div>
+<div class="hd"><div>Report date: ${xe(d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long",year:"numeric"}))}<br>${DNN()}: ${xe(R.tag)} · ${xe($("ahuType").value)} · ${xe($("block").value)}${R.mau?`<br>${UPN()}: ${xe(R.mau.tag)} · ${fmt(R.mau.Q,0)} m³/h${toRoom()?" to the room":" to the "+DNN()} (${fmt(R.mau.qOa/R.mau.Q*100,0)} % outdoor air)`:""}<br>Rooms served: ${xe(rooms)} · ${xe($("clean").value)}<br>Supply ${fmt(R.Q,0)} m³/h · outdoor air ${fmt(R.qOa,0)} m³/h${R.fa?" (100 %)":""}</div>
 <div>Altitude: ${fmt(n("alt",0),0)} m<br>Barometric pressure: ${fmt(p*7.50062,3)} mm Hg<br>Atmospheric pressure: ${fmt(p,3)} kPa<br>Room: ${fmt(R.roomT)} °C · ${fmt(R.roomRH,0)} %RH</div></div>
 <div class="sch">${processSVG(R,PM)}</div>
 ${body}
-<p class="ft">Psychrometrics per ASHRAE Handbook – Fundamentals 2021, Ch. 1 (Eq. 3, 5/6, 20, 26, 30, 33/35); coil energy per Eq. 43. Air flow is the design airflow of each stream (m³/h); the energy balance uses the dry-air mass flow, which is constant along a stream. Sign: + heating / adding, − cooling / removing. hochvacsbs.wordpress.com</p>
+<p class="ft">Psychrometrics per ASHRAE Handbook – Fundamentals 2021, Ch. 1 (Eq. 3, 5/6, 20, 26, 30, 33/35); coil energy per Eq. 43; evaporative cooling per ASHRAE HVAC Systems and Equipment 2020, Ch. 41 (Eq. 1, 2). Air flow is the design airflow of each stream (m³/h); the energy balance uses the dry-air mass flow, which is constant along a stream. Sign: + heating / adding, − cooling / removing. hochvacsbs.wordpress.com</p>
 </body></html>`;
   const f=document.createElement("iframe"); f.setAttribute("aria-hidden","true"); f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
   document.body.appendChild(f); const doc=f.contentWindow.document; doc.open(); doc.write(html); doc.close();
@@ -1220,12 +1548,15 @@ function drawChart(R){
     if(!R.fa){ const oa=by("OA"), oa2=by("OA'")||oa, m=by("M"), r=by("R");
       if(by("OA'")) g+=`<line x1="${pos(oa)[0]}" y1="${pos(oa)[1]}" x2="${pos(oa2)[0]}" y2="${pos(oa2)[1]}" stroke="var(--c-plenum)" stroke-width="2"/>`;
       if(m){ g+=`<line x1="${pos(oa2)[0]}" y1="${pos(oa2)[1]}" x2="${pos(r)[0]}" y2="${pos(r)[1]}" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="5 4"/>`; } }
+    if(R.mau){ const MP=R.mau.pts.filter(q=>q.code!=="R");
+      g+=`<polyline points="${MP.map(q=>pos(q).map(v=>v.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--c-plenum)" stroke-width="2" stroke-dasharray="7 3"/>`; }
     if(isFinite(R.adp)){ const c=by("C"), ci=R.CI, a=[X(R.adp),Y(Wsat(R.adp,p)*1000)];
       g+=`<line x1="${X(ci.t)}" y1="${Y(ci.W*1000)}" x2="${a[0]}" y2="${a[1]}" stroke="var(--c-coil)" stroke-width="1.3" stroke-dasharray="6 4"/><circle cx="${a[0]}" cy="${a[1]}" r="4.5" fill="var(--surface)" stroke="var(--c-coil)" stroke-width="2"/><text x="${a[0]-8}" y="${a[1]-8}" text-anchor="end" class="lbl" style="fill:var(--c-coil)">ADP ${fmt(R.adp)}</text>`; }
     g+=`</g>`;
     const placed=[];
     P.forEach(s=>{ const [x,y]=pos(s); let dy=-9; placed.forEach(q=>{ if(Math.abs(q[0]-x)<26&&Math.abs(q[1]-(y+dy))<12) dy-=13; }); placed.push([x,y+dy]);
       g+=`<circle cx="${x}" cy="${y}" r="5" fill="${s.col}" stroke="var(--surface)" stroke-width="1.6"/><text x="${x+7}" y="${y+dy}" class="lbl" style="fill:${s.col}">${esc(s.code)}</text>`; });
+    if(R.mau) R.mau.pts.filter(q=>q.code!=="R").forEach(q=>{ const [x,y]=pos(q); g+=`<circle cx="${x}" cy="${y}" r="4" fill="var(--surface)" stroke="var(--c-plenum)" stroke-width="2"/><text x="${x+6}" y="${y+12}" class="lbl" style="fill:var(--c-plenum)">m${esc(q.code)}</text>`; });
     note=`Points: ${P.map(s=>`${s.code} ${s.desc.toLowerCase()} (${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg)`).join("; ")}.${isFinite(R.adp)?` Dashed purple line: coil process extended to the apparatus dew point ${fmt(R.adp)} °C.`:""}`;
   } else g+=`</g>`;
   g+=`<rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}" fill="none" stroke="var(--grid-strong)"/>`;
@@ -1499,9 +1830,19 @@ function linkDialog(opts){ // opts:{title, note, rooms:[...], onApply(list, scop
 const NA="—";
 const YN=b=>b?"Yes":"No";
 const SUP="380/3/50";
-function collectRow(){
-  const R=last;
-  if(!R||R.err) return {err:"Fix the inputs before adding to the summary."};
+/* evaporative cooler schedule fields (ASHRAE S&E 2020 Ch. 41) */
+const MEDIA_TXT={r100:"Rigid 100 mm",r150:"Rigid 150 mm",r200:"Rigid 200 mm",r300:"Rigid 300 mm",rand:"Random 50 mm"};
+function evapFields(R,p){ const e=R.evap, i=R.iec, NAv="–";
+  return {oaPct:r2(R.qOa/R.Q*100,0), supRh:`${fmt(R.S.t)} / ${fmt(RHfromW(R.S.t,R.S.W,p),0)}`,
+    evMedia:e?MEDIA_TXT[e.media]:NAv, evEff:e?r2(e.eff*100,0):NAv, evVf:e&&isFinite(e.vf)?r2(e.vf,2):NAv, evPd:e?r2(n("evPd",0),0):NAv,
+    evIn:e?`${fmt(e.t1)} / ${fmt(e.tw)}`:NAv, evOut:e?`${fmt(e.t2)} / ${fmt(e.rh2,0)}`:NAv, evQs:e?r2(e.qs,1):NAv,
+    evW:e||i?r2((e?e.ev:0)+(i?i.ev:0),1):NAv, evBl:e||i?r2((e?e.bl:0)+(i?i.bl:0),1):NAv, evMk:e||i?r2((e?e.make:0)+(i?i.make:0),1):NAv,
+    evPump:e&&e.rec?r2(n("evPump",0),2):NAv, evUv:e&&e.rec?($("evUv").value==="yes"?"Yes":"No"):NAv,
+    iecEff:i?r2(i.eff*100,0):NAv, iecSec:i?(i.sec==="ra"?"Return air":"Outdoor air"):NAv, iecQs:i?r2(i.q,1):NAv, iecOut:i?r2(i.t2,1):NAv};
+}
+/* one unit's schedule data (runs inside that unit's input context) */
+function collectUnit(R,kind){
+  const unitNm=kind==="mau"?UPS():DNN();
   const p=R.p, wb=s=>wetbulb(s.t,s.W,p), F=R.F, c=R.c, tag=R.tag;
   const rl=roomsList();
   const roomIds=$("rooms").value.split(/[,;]+/).map(s=>s.trim()).filter(Boolean);
@@ -1521,7 +1862,10 @@ function collectRow(){
   const pcI=R.pc, pcDx=pcI&&pcI.dx?{tag:tg("PDX"), flow:r2(R.Q,0), qTot:r2(pcI.q,1), qSens:r2(pcI.qs,1), eat:`${fmt(pcI.tin)} / ${fmt(wetbulb(pcI.tin,pcI.win,p))}`, lat:`${fmt(pcI.tout)} / ${fmt(wetbulb(pcI.tout,pcI.wout,p))}`,
     adp:r2(pcI.adp,1), ref:pcI.ref, sst:r2(pcI.sst,1), sstReq:r2(pcI.sstReq,1), circ:Math.max(1,Math.round(n("pcCirc",1))), ctl:$("dxCtl").value, cu:pcI.cu, cuKw:r2(pcI.cuKw,1), supply:SUP,
     remark:"Pre-cooling coil (first coil in series). Input estimated from EER; confirm with the vendor."}:null;
-  sch.dx=[pcDx,dxMain].filter(Boolean);
+  const po=R.dpc, poDx=po&&po.dx?{tag:tg("ODX"), flow:r2(R.Q,0), qTot:r2(po.q,1), qSens:r2(po.q,1), eat:`${fmt(po.tin)} DB`, lat:`${fmt(po.tout)} DB`,
+    adp:NA, ref:po.ref, sst:r2(po.sst,1), sstReq:r2(po.sstReq,1), circ:1, ctl:$("dxCtl").value, cu:po.cu, cuKw:r2(po.cuKw,1), supply:SUP,
+    remark:"Post-cooling coil after the desiccant wheel (dry, sensible). Input estimated from EER; confirm with the vendor."}:null;
+  sch.dx=[pcDx,dxMain,poDx].filter(Boolean);
   sch.hr=(R.hrDetail||[]).map(h=>({tag:tg(h.code), type:h.nm+(h.pos==="wrap"?" (wrap-around)":""), qS:r2(h.qS,0), qE:isFinite(h.qE)?r2(h.qE,0):NA,
     es:r2(h.es*100,0), el:h.el>0?r2(h.el*100,0):NA, tin:r2(h.tin,1), tout:r2(h.tout,1), q:r2(h.q,1),
     pdS:r2(h.pos==="wrap"?2*h.pd:h.pd,0), pdE:h.pos==="wrap"?NA:r2(h.pd,0), kw:h.kw>0?r2(h.kw,2):NA, supply:h.kw>0?SUP:NA, remark:h.note||""}));
@@ -1538,44 +1882,108 @@ function collectRow(){
   sch.hum=c.hum&&R.hum?{tag:tg("HUM"), type:R.hum.type, flow:r2(R.Q,0), td:r2(n("humTd",5),1), kgh:r2(R.hum.kgh,1), power:R.hum.kw>0?r2(R.hum.kw,1):NA,
     supply:R.hum.type==="Steam (electric)"?SUP:NA, pd:r2(n("humPd",0),0), remark:R.hum.kgh>0?"":"Not needed in the cooling design case; size for the winter case."}:null;
   sch.uv=c.uv?{tag:tg("UV"), loc:"After supply fan", flow:r2(R.Q,0), power:r2(n("uvKw",0),2), supply:"230/1/50", remark:""}:null;
+  sch.pump=(R.pumps||[]).map(u=>({tag:pumpTagOf(tag)+(u.key==="CC"?"":"-"+u.key), coil:u.nm, type:u.P1>1.5?"IN-LINE CIRCULATOR, VFD":"WET-ROTOR CIRCULATOR, EC",
+    wt:`${fmt(u.ewt,1)} / ${fmt(u.lwt,1)}`, flow:r2(u.flow,2), m3h:r2(u.flow*3.6,1), head:`${fmt(u.head,0)} / ${fmt(u.head/9.807,1)}`, p1:r2(u.P1,2),
+    supply:u.P1>1.5?"380/3/50":"220/1/50", ctl:`Constant curve; on/off with the ${unitNm}`, ip:"IPX4D",
+    remark:`${u.nm} circuit. Head = coil ≤ ${fmt(u.coilPd,0)} kPa + ${fmt(u.head-u.coilPd,0)} kPa (3-way valve, strainer, piping).`}));
   sch.rf=R.rf?{tag:tg("RF"), flow:r2(R.rf.q,0), esp:r2(R.rf.esp,0), internal:r2(R.rf.internal,0), tsp:r2(R.rf.tsp,0), arr:`${R.rf.N} × ${fmt(R.rf.motor,R.rf.motor<1?2:1)}`,
     inst:r2(R.rf.inst,1), drive:R.rf.drive, supply:SUP, remark:""}:null;
-  return {id:tag, block:$("block").value.trim(), clean:$("clean").value, roomT:r2(R.roomT,1), roomRH:r2(R.roomRH,0), type:$("ahuType").value.trim(), qty,
-    coil:R.dx?"DX":"CHW", qTot:r2(R.qTot,1), qSens:r2(R.qSens,1), flow:r2(R.Q,0), esp:r2(R.esp,0), fanArr, fanPow:r2(R.sfInst,1), drive:$("sfDrive").value, supply:SUP,
-    oaFlow:r2(R.qOa,0), oaSrc:R.fa?($("oaSrc").value==="mau"?"MAU (100%)":"OUTDOOR (100%)"):($("oaSrc").value==="mau"?"MAU":"OUTDOOR"),
+  return {id:tag, block:$("block").value.trim(), clean:$("clean").value, roomT:r2(R.roomT,1), roomRH:$("rhCtl").value==="no"?"No control":r2(R.roomRH,0), type:$("ahuType").value.trim(), qty,
+    coil:R.noCc?NA:R.dx?"DX":"CHW", qTotAll:r2(R.qTot+(R.pc?R.pc.q:0)+(R.dpc?R.dpc.q:0),1), qSensAll:r2(R.qSens+(R.pc?R.pc.qs:0)+(R.dpc?R.dpc.q:0),1),
+    fanType:R.sfN>1?($("sfDrive").value==="EC"?"EC FAN ARRAY":"FAN ARRAY + VFD"):($("sfDrive").value==="EC"?"EC PLUG FAN":"PLUG FAN + VFD"),
+    supDbW:`${fmt(R.S.t)} / ${fmt(R.S.W*1000,2)}`, ccEat:R.noCc?NA:eat, ccLat:R.noCc?NA:lat, ccDp:R.noCc?NA:r2(tdewFromW(R.CO.W,p),1),
+    pcEat:R.pc?`${fmt(R.pc.tin)} / ${fmt(wetbulb(R.pc.tin,R.pc.win,p))}`:NA, pcLat:R.pc?`${fmt(R.pc.tout)} / ${fmt(wetbulb(R.pc.tout,R.pc.wout,p))}`:NA, pcQs:R.pc?r2(R.pc.qs,1):NA,
+    pcEwt:R.pc&&!R.pc.dx?r2(R.pc.ewt,1):NA, pcLwt:R.pc&&!R.pc.dx?r2(R.pc.lwt,1):NA, pcWpd:R.pc&&!R.pc.dx?`≤ ${fmt(n("pcWpd",60),0)}`:NA,
+    rhType:c.rh?$("rhType").value:NA, rhEat:c.rh?r2(R.rhIn,1):NA, rhLat:c.rh?r2(R.rhOut,1):NA, rhDes:c.rh?r2(R.qRhDes,1):NA, rhMin:c.rh?r2(R.qRhMin,1):NA,
+    ...evapFields(R,p),
+    poType:R.dpc?(R.dpc.dx?"DX":"CHW"):NA, poQ:R.dpc?r2(R.dpc.q,1):NA, poEat:R.dpc?r2(R.dpc.tin,1):NA, poLat:R.dpc?r2(R.dpc.tout,1):NA, poFlow:R.dpc&&isFinite(R.dpc.flow)?r2(R.dpc.flow,2):NA, poT:R.dpc&&!R.dpc.dx?`${fmt(R.dpc.ewt,0)} / ${fmt(R.dpc.lwt,0)}`:NA,
+    elPump:r2(R.elPump||0,2), qTot:R.noCc?NA:r2(R.qTot,1), qSens:R.noCc?NA:r2(R.qSens,1), flow:r2(R.Q,0), esp:r2(R.esp,0), fanArr, fanPow:r2(R.sfInst,1), drive:$("sfDrive").value, supply:SUP,
+    oaFlow:r2(R.qOa,0), oaSrc:R.fa?($("oaSrc").value==="mau"?UPS()+" (100%)":"OUTDOOR (100%)"):($("oaSrc").value==="mau"?UPS():"OUTDOOR"),
     eat, lat,
     pre:c.pre?preLabel(F):NA, fin:c.fin?`${$("finCls").value}${F.finFan?" (after fan)":""}`:NA, term:$("term").value, ret:$("retf").value,
-    chwFlow:R.dx?NA:r2(R.chwFlow,2), ewt:R.dx?NA:r2(R.ewt,1), lwt:R.dx?NA:r2(R.lwt,1), chwPd:R.dx?NA:`≤ ${fmt(n("ccWpd",60),0)}`,
+    chwFlow:R.dx||R.noCc?NA:r2(R.chwFlow,2), ewt:R.dx||R.noCc?NA:r2(R.ewt,1), lwt:R.dx||R.noCc?NA:r2(R.lwt,1), chwPd:R.dx||R.noCc?NA:`≤ ${fmt(n("ccWpd",60),0)}`,
     pcType:R.pc?(R.pc.dx?"DX":"CHW"):NA, pcQ:R.pc?r2(R.pc.q,1):NA, pcFlow:R.pc&&!R.pc.dx?r2(R.pc.flow,2):NA, pcT:R.pc?(R.pc.dx?`SST ${fmt(R.pc.sst,1)}`:`${fmt(R.pc.ewt,1)} / ${fmt(R.pc.lwt,1)}`):NA,
     hwCap:c.rh?r2(R.qRh,1):NA, hwFlow:c.rh&&!rhElec?r2(R.hwFlow,2):NA, hwT:c.rh?(rhElec?"Electric":`${fmt(n("hwEwt",30),0)} / ${fmt(n("hwLwt",26),0)}`):NA, hwPd:c.rh&&!rhElec?`≤ ${fmt(n("hwWpd",60),0)}`:NA,
     yMix:R.fa?NA:YN(F.mixD), yWheel:YN(c.wheel), yPlate:YN(c.plate), yRa:YN(c.ra), yHp:YN(c.hp), yDes:YN(c.des), yPh:YN(c.ph), yHum:YN(c.hum), yUv:YN(c.uv), yAtt:YN(c.att), yRf:YN(c.rf), nAcc:R.nAcc,
-    pump:R.dx?NA:pumpTagOf(tag), notes:R.notes.filter(x=>x[0]!=="ok").map(x=>x[1]).join("; "),
+    pump:(R.pumps||[]).length?R.pumps.map(u=>pumpTagOf(tag)+(u.key==="CC"?"":"-"+u.key)).join(", "):NA, notes:R.notes.filter(x=>x[0]!=="ok").map(x=>x[1]).join("; "),
     adp:r2(R.adp,1), twReq:r2(R.twReq,1),
     size, weight:r2(R.weight,0), floorLoad:r2(R.floorLoad,0), elec:r2(R.elec,1), elFan:r2(R.elFan,1), elHeat:r2(R.elHeat,1), elOther:r2(R.elOther,2),
-    sch, rooms, inputs:getInputs()};
+    sch, rooms:kind==="mau"?[]:rooms};
 }
+function collectRow(){
+  const R=last;
+  if(!R||R.err) return {err:"Fix the inputs before adding to the summary."};
+  syncUnits();
+  const row=ctxAhu(()=>collectUnit(R,"ahu"));
+  if(isMau()&&lastMau){
+    const M=ctxMau(()=>collectUnit(lastMau,"mau"));
+    for(const k in M.sch){ const v=M.sch[k]; if(!v) continue;
+      const add=(Array.isArray(v)?v:[v]).map(x=>Object.assign({serves:M.id,qty:M.qty},x)), cur=row.sch[k];
+      row.sch[k]=[...(Array.isArray(cur)?cur:cur?[cur]:[]),...add]; }
+    delete M.sch; delete M.rooms;
+    row.mau=Object.assign(M,{kind:isFfu()?"evap":"mau",type:$("mauType").value.trim(),cfg:$("mauCfg").value.trim(),serves:toRoom()?"Room (direct): "+((row.rooms||[]).map(x=>x.id).filter(Boolean).join(", ")||row.id):row.id,
+      notes:[toRoom()?"Supplies the room directly":"Supplies the "+DNN()+" outdoor-air inlet",upOaPct()<100?`${fmt(upOaPct(),0)} % outdoor air, mixing box`:"",toRoom()?"":{lower:"Supply below return air (extra dehumidification)",neutral:"Neutral supply (= return air)",higher:"Pre-treatment; remaining load in the "+DNN()}[$("mauMode").value],M.notes].filter(Boolean).join("; ")});
+  }
+  row.sys=$("sys").value; row.ffuSet=isFfu()?$("ffuSet").value:""; row.inputs=getInputs();
+  return row;
+}
+const POST_COLS=[{k:"poType",g:"POST-COOLING COIL",h:"TYPE",w:6,c:1,opt:1},{k:"poQ",g:"POST-COOLING COIL",h:"CAPACITY",u:"kW",w:8,opt:1},{k:"poEat",g:"POST-COOLING COIL",h:"EAT DB",u:"°C",w:6,opt:1},{k:"poLat",g:"POST-COOLING COIL",h:"LAT DB",u:"°C",w:6,opt:1},
+  {k:"poFlow",g:"POST-COOLING COIL",h:"CHW FLOW",u:"L/s",w:7,fmt:"0.00",opt:1},{k:"poT",g:"POST-COOLING COIL",h:"EWT / LWT",u:"°C",w:9,c:1,opt:1}];
 const SCHED_COLS=[
   {k:"no",h:"No.",w:5,fmt:"0"},{k:"id",h:"AHU TAG",w:18},{k:"block",h:"BLOCK - FLOOR",w:18},{k:"clean",h:"CLEAN CLASS",w:11,c:1},
-  {k:"roomT",g:"ROOM CONDITION",h:"TEMP.",u:"°C",w:7,fmt:"0"},{k:"roomRH",g:"ROOM CONDITION",h:"RH",u:"%",w:6,fmt:"0"},
+  {k:"roomT",g:"ROOM CONDITION",h:"TEMP.",u:"°C",w:7,fmt:"0"},{k:"roomRH",g:"ROOM CONDITION",h:"RH",u:"%",w:10,fmt:"0",c:1},
   {k:"type",h:"AHU TYPE",w:8,c:1},{k:"qty",h:"QTY",u:"set",w:5,fmt:"0"},
-  {k:"coil",g:"COOLING CAPACITY",h:"COIL",w:6,c:1},{k:"qTot",g:"COOLING CAPACITY",h:"TOTAL",u:"kW",w:8},{k:"qSens",g:"COOLING CAPACITY",h:"SENSIBLE",u:"kW",w:9},
   {k:"flow",g:"SUPPLY FAN",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},{k:"esp",g:"SUPPLY FAN",h:"EXT. SP",u:"Pa",w:7,fmt:"0"},{k:"fanArr",g:"SUPPLY FAN",h:"FAN ARRAY",u:"n × kW",w:10,c:1},{k:"fanPow",g:"SUPPLY FAN",h:"POWER",u:"kW",w:7},{k:"drive",g:"SUPPLY FAN",h:"DRIVE",w:6,c:1},{k:"supply",g:"SUPPLY FAN",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},
-  {k:"oaFlow",g:"AIR SIDE",h:"OUTSIDE AIR",u:"m³/h",w:9,fmt:"0"},{k:"oaSrc",g:"AIR SIDE",h:"OA SOURCE",w:11,c:1},{k:"eat",g:"AIR SIDE",h:"EAT DB/WB",u:"°C",w:11,c:1},{k:"lat",g:"AIR SIDE",h:"LAT DB/WB",u:"°C",w:11,c:1},
-  {k:"pre",g:"FILTERS",h:"PRE",u:"in AHU",w:8,c:1},{k:"fin",g:"FILTERS",h:"FINAL",u:"in AHU",w:13,c:1},{k:"term",g:"FILTERS",h:"TERMINAL",u:"supply",w:8,c:1},{k:"ret",g:"FILTERS",h:"RETURN",u:"return",w:12,c:1},
-  {k:"chwFlow",g:"CHILLED WATER COIL",h:"FLOW",u:"L/s",w:7,fmt:"0.00"},{k:"ewt",g:"CHILLED WATER COIL",h:"EWT",u:"°C",w:6},{k:"lwt",g:"CHILLED WATER COIL",h:"LWT",u:"°C",w:6},{k:"chwPd",g:"CHILLED WATER COIL",h:"PRESS. DROP",u:"kPa",w:7,c:1},
-  {k:"pcType",g:"PRE-COOLING COIL",h:"TYPE",w:6,c:1},{k:"pcQ",g:"PRE-COOLING COIL",h:"CAPACITY",u:"kW",w:8},{k:"pcFlow",g:"PRE-COOLING COIL",h:"CHW FLOW",u:"L/s",w:7,fmt:"0.00"},{k:"pcT",g:"PRE-COOLING COIL",h:"EWT / LWT",u:"°C",w:10,c:1},
-  {k:"hwCap",g:"HOT WATER REHEAT COIL",h:"CAPACITY",u:"kW",w:8},{k:"hwFlow",g:"HOT WATER REHEAT COIL",h:"FLOW",u:"L/s",w:7,fmt:"0.00"},{k:"hwT",g:"HOT WATER REHEAT COIL",h:"EWT / LWT",u:"°C",w:9,c:1},{k:"hwPd",g:"HOT WATER REHEAT COIL",h:"PRESS. DROP",u:"kPa",w:7,c:1},
-  {k:"yMix",g:"OTHER COMPONENTS",h:"MIXING DAMPERS",w:8,c:1},{k:"yWheel",g:"OTHER COMPONENTS",h:"HR WHEEL",w:7,c:1},{k:"yPlate",g:"OTHER COMPONENTS",h:"PLATE HX",w:7,c:1},{k:"yRa",g:"OTHER COMPONENTS",h:"RUN-AROUND",w:8,c:1},{k:"yHp",g:"OTHER COMPONENTS",h:"HEAT PIPE",w:7,c:1},
-  {k:"yDes",g:"OTHER COMPONENTS",h:"DESICCANT",w:8,c:1},{k:"yPh",g:"OTHER COMPONENTS",h:"PREHEAT",w:7,c:1},{k:"yHum",g:"OTHER COMPONENTS",h:"HUMIDIFIER",w:8,c:1},{k:"yUv",g:"OTHER COMPONENTS",h:"UV-C",w:6,c:1},{k:"yAtt",g:"OTHER COMPONENTS",h:"ATTENUATOR",w:8,c:1},{k:"yRf",g:"OTHER COMPONENTS",h:"RETURN FAN",w:8,c:1},
-  {k:"pump",h:"COIL PUMP TAG",w:20},{k:"notes",h:"NOTES",w:40}
+  {k:"oaFlow",g:"AIR SIDE",h:"OUTSIDE AIR",u:"m³/h",w:9,fmt:"0"},{k:"oaSrc",g:"AIR SIDE",h:"OA SOURCE",w:11,c:1},{k:"supDbW",g:"AIR SIDE",h:"SUPPLY DB / W",u:"°C / g/kg",w:12,c:1},
+  {k:"pre",g:"FILTERS",h:"PRE",u:"in AHU",w:8,c:1,opt:1},{k:"fin",g:"FILTERS",h:"FINAL",u:"in AHU",w:13,c:1,opt:1},{k:"term",g:"FILTERS",h:"TERMINAL",u:"supply",w:8,c:1,opt:1},{k:"ret",g:"FILTERS",h:"RETURN",u:"return",w:12,c:1,opt:1},
+  {k:"pcType",g:"PRE-COOLING COIL",h:"TYPE",w:6,c:1,opt:1},{k:"pcQ",g:"PRE-COOLING COIL",h:"TOTAL",u:"kW",w:7,opt:1},{k:"pcQs",g:"PRE-COOLING COIL",h:"SENSIBLE",u:"kW",w:8,opt:1},
+  {k:"pcEat",g:"PRE-COOLING COIL",h:"EAT DB/WB",u:"°C",w:11,c:1,opt:1},{k:"pcLat",g:"PRE-COOLING COIL",h:"LAT DB/WB",u:"°C",w:11,c:1,opt:1},
+  {k:"pcFlow",g:"PRE-COOLING COIL",h:"CHW FLOW",u:"L/s",w:7,fmt:"0.00",opt:1},{k:"pcEwt",g:"PRE-COOLING COIL",h:"EWT",u:"°C",w:6,opt:1},{k:"pcLwt",g:"PRE-COOLING COIL",h:"LWT",u:"°C",w:6,opt:1},{k:"pcWpd",g:"PRE-COOLING COIL",h:"PRESS. DROP",u:"kPa",w:7,c:1,opt:1},
+  {k:"coil",g:"COOLING COIL",h:"TYPE",w:6,c:1,opt:1},{k:"qTot",g:"COOLING COIL",h:"TOTAL",u:"kW",w:7,opt:1},{k:"qSens",g:"COOLING COIL",h:"SENSIBLE",u:"kW",w:8,opt:1},
+  {k:"ccEat",g:"COOLING COIL",h:"EAT DB/WB",u:"°C",w:11,c:1,opt:1},{k:"ccLat",g:"COOLING COIL",h:"OFF-COIL DB/WB",u:"°C",w:11,c:1,opt:1},{k:"ccDp",g:"COOLING COIL",h:"OFF-COIL DP",u:"°C",w:7,opt:1},
+  {k:"chwFlow",g:"COOLING COIL",h:"CHW FLOW",u:"L/s",w:7,fmt:"0.00",opt:1},{k:"ewt",g:"COOLING COIL",h:"EWT",u:"°C",w:6,opt:1},{k:"lwt",g:"COOLING COIL",h:"LWT",u:"°C",w:6,opt:1},{k:"chwPd",g:"COOLING COIL",h:"PRESS. DROP",u:"kPa",w:7,c:1,opt:1},
+  ...POST_COLS,
+  {k:"rhType",g:"REHEAT COIL",h:"TYPE",w:9,c:1,opt:1},{k:"hwCap",g:"REHEAT COIL",h:"CAPACITY (MAX.)",u:"kW",w:9,opt:1},{k:"rhEat",g:"REHEAT COIL",h:"EAT DB",u:"°C",w:6,opt:1},{k:"rhLat",g:"REHEAT COIL",h:"LAT DB",u:"°C",w:6,opt:1},
+  {k:"hwFlow",g:"REHEAT COIL",h:"HW FLOW",u:"L/s",w:7,fmt:"0.00",opt:1},{k:"hwT",g:"REHEAT COIL",h:"EWT / LWT",u:"°C",w:9,c:1,opt:1},{k:"hwPd",g:"REHEAT COIL",h:"PRESS. DROP",u:"kPa",w:7,c:1,opt:1},
+  {k:"yMix",g:"OTHER COMPONENTS",h:"MIXING DAMPERS",w:8,c:1,opt:1},{k:"yWheel",g:"OTHER COMPONENTS",h:"HR WHEEL",w:7,c:1,opt:1},{k:"yPlate",g:"OTHER COMPONENTS",h:"PLATE HX",w:7,c:1,opt:1},{k:"yRa",g:"OTHER COMPONENTS",h:"RUN-AROUND",w:8,c:1,opt:1},{k:"yHp",g:"OTHER COMPONENTS",h:"HEAT PIPE",w:7,c:1,opt:1},
+  {k:"yDes",g:"OTHER COMPONENTS",h:"DESICCANT",w:8,c:1,opt:1},{k:"yPh",g:"OTHER COMPONENTS",h:"PREHEAT",w:7,c:1,opt:1},{k:"yHum",g:"OTHER COMPONENTS",h:"HUMIDIFIER",w:8,c:1,opt:1},{k:"yUv",g:"OTHER COMPONENTS",h:"UV-C",w:6,c:1,opt:1},{k:"yAtt",g:"OTHER COMPONENTS",h:"ATTENUATOR",w:8,c:1,opt:1},{k:"yRf",g:"OTHER COMPONENTS",h:"RETURN FAN",w:8,c:1,opt:1},
+  {k:"pump",h:"COIL PUMP TAG",w:22,opt:1},{k:"notes",h:"NOTES",w:40}
 ];
+const EVAP_COLS=[
+  {k:"no",h:"No.",w:5,fmt:"0"},{k:"id",h:"EVAPORATOR TAG",w:18},{k:"block",h:"BLOCK · FLOOR",w:16},{k:"type",h:"TYPE",w:8,c:1},{k:"cfg",h:"CONFIGURATION",w:20,opt:1},{k:"qty",h:"QTY",u:"set",w:5,fmt:"0"},
+  {k:"flow",g:"SUPPLY FAN (PER UNIT)",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},{k:"esp",g:"SUPPLY FAN (PER UNIT)",h:"EXT. SP",u:"Pa",w:7,fmt:"0"},{k:"fanPow",g:"SUPPLY FAN (PER UNIT)",h:"POWER",u:"kW",w:7},{k:"fanType",g:"SUPPLY FAN (PER UNIT)",h:"FAN TYPE",w:15,c:1},{k:"supply",g:"SUPPLY FAN (PER UNIT)",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},
+  {k:"oaPct",g:"AIR SIDE",h:"OUTDOOR AIR",u:"%",w:8,fmt:"0"},{k:"evIn",g:"AIR SIDE",h:"EAT DB/WB",u:"°C",w:11,c:1,opt:1},{k:"evOut",g:"AIR SIDE",h:"LEAVING MEDIA DB / RH",u:"°C / %",w:12,c:1,opt:1},{k:"supRh",g:"AIR SIDE",h:"SUPPLY DB / RH",u:"°C / %",w:11,c:1},
+  {k:"evMedia",g:"EVAPORATIVE MEDIA",h:"MEDIA",w:12,c:1,opt:1},{k:"evEff",g:"EVAPORATIVE MEDIA",h:"SAT. EFF.",u:"%",w:7,opt:1},{k:"evVf",g:"EVAPORATIVE MEDIA",h:"FACE VEL.",u:"m/s",w:7,opt:1},{k:"evPd",g:"EVAPORATIVE MEDIA",h:"PRESS. DROP",u:"Pa",w:7,opt:1},{k:"evQs",g:"EVAPORATIVE MEDIA",h:"SENSIBLE COOLING",u:"kW",w:9,opt:1},
+  {k:"iecEff",g:"INDIRECT STAGE (IEC)",h:"WBDE",u:"%",w:6,opt:1},{k:"iecSec",g:"INDIRECT STAGE (IEC)",h:"SECONDARY AIR",w:11,c:1,opt:1},{k:"iecOut",g:"INDIRECT STAGE (IEC)",h:"LEAVING DB",u:"°C",w:7,opt:1},{k:"iecQs",g:"INDIRECT STAGE (IEC)",h:"SENSIBLE COOLING",u:"kW",w:9,opt:1},
+  {k:"evW",g:"WATER",h:"EVAPORATION",u:"L/h",w:9,opt:1},{k:"evBl",g:"WATER",h:"BLEED-OFF",u:"L/h",w:8,opt:1},{k:"evMk",g:"WATER",h:"MAKE-UP",u:"L/h",w:8,opt:1},{k:"evPump",g:"WATER",h:"PUMP",u:"kW",w:6,opt:1},{k:"evUv",g:"WATER",h:"UV STERILISER",w:8,c:1,opt:1},
+  {k:"pre",g:"FILTERS",h:"PRE",w:8,c:1,opt:1},{k:"fin",g:"FILTERS",h:"FINAL",w:9,c:1,opt:1},
+  {k:"coil",g:"COOLING COIL",h:"TYPE",w:6,c:1,opt:1},{k:"qTot",g:"COOLING COIL",h:"TOTAL",u:"kW",w:7,opt:1},
+  {k:"rhType",g:"HEATING",h:"REHEAT",w:9,c:1,opt:1},{k:"hwCap",g:"HEATING",h:"CAPACITY",u:"kW",w:8,opt:1},
+  {k:"serves",h:"SERVES",w:20,opt:1},{k:"notes",h:"NOTES",w:40}];
+const MAU_COLS=[
+  {k:"no",h:"No.",w:5,fmt:"0"},{k:"id",h:"MAU TAG",w:18},{k:"block",h:"BLOCK · FLOOR",w:16},{k:"type",h:"MAU TYPE",w:8,c:1},{k:"cfg",h:"CONFIGURATION",w:22},{k:"qty",h:"QTY",u:"set",w:5,fmt:"0"},
+  {k:"qTotAll",g:"COOLING CAPACITY (PER UNIT)",h:"TOTAL",u:"kW",w:8},{k:"qSensAll",g:"COOLING CAPACITY (PER UNIT)",h:"SENSIBLE",u:"kW",w:9},
+  {k:"flow",g:"SUPPLY FAN (PER UNIT)",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},{k:"esp",g:"SUPPLY FAN (PER UNIT)",h:"EXT. SP",u:"Pa",w:7,fmt:"0"},{k:"fanPow",g:"SUPPLY FAN (PER UNIT)",h:"POWER",u:"kW",w:7},{k:"fanType",g:"SUPPLY FAN (PER UNIT)",h:"FAN TYPE",w:15,c:1},{k:"supply",g:"SUPPLY FAN (PER UNIT)",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},
+  {k:"ccEat",g:"AIR SIDE",h:"EAT DB/WB",u:"°C",w:11,c:1},{k:"ccLat",g:"AIR SIDE",h:"OFF-COIL DB/WB",u:"°C",w:11,c:1},{k:"ccDp",g:"AIR SIDE",h:"OFF-COIL DP",u:"°C",w:7},{k:"supDbW",g:"AIR SIDE",h:"SUPPLY DB / W",u:"°C / g/kg",w:12,c:1},
+  {k:"pre",g:"AIR SIDE",h:"PRE FILTER",w:8,c:1,opt:1},{k:"fin",g:"AIR SIDE",h:"FINAL FILTER",w:9,c:1,opt:1},
+  {k:"pcType",g:"PRE-COOLING COIL",h:"TYPE",w:6,c:1,opt:1},{k:"pcQ",g:"PRE-COOLING COIL",h:"TOTAL",u:"kW",w:7,opt:1},{k:"pcFlow",g:"PRE-COOLING COIL",h:"CHW FLOW",u:"L/s",w:7,fmt:"0.00",opt:1},{k:"pcEwt",g:"PRE-COOLING COIL",h:"EWT",u:"°C",w:6,opt:1},{k:"pcLwt",g:"PRE-COOLING COIL",h:"LWT",u:"°C",w:6,opt:1},
+  {k:"coil",g:"COOLING COIL",h:"TYPE",w:6,c:1,opt:1},{k:"chwFlow",g:"COOLING COIL",h:"CHW FLOW",u:"L/s",w:7,fmt:"0.00",opt:1},{k:"ewt",g:"COOLING COIL",h:"EWT",u:"°C",w:6,opt:1},{k:"lwt",g:"COOLING COIL",h:"LWT",u:"°C",w:6,opt:1},{k:"chwPd",g:"COOLING COIL",h:"PRESS. DROP",u:"kPa",w:7,c:1,opt:1},
+  ...POST_COLS,
+  {k:"rhType",g:"REHEAT COIL",h:"TYPE",w:9,c:1,opt:1},{k:"hwCap",g:"REHEAT COIL",h:"CAPACITY (MAX.)",u:"kW",w:9,opt:1},
+  {k:"yWheel",g:"OTHER COMPONENTS",h:"HR WHEEL",w:7,c:1,opt:1},{k:"yPlate",g:"OTHER COMPONENTS",h:"PLATE HX",w:7,c:1,opt:1},{k:"yRa",g:"OTHER COMPONENTS",h:"RUN-AROUND",w:8,c:1,opt:1},{k:"yHp",g:"OTHER COMPONENTS",h:"HEAT PIPE",w:7,c:1,opt:1},{k:"yDes",g:"OTHER COMPONENTS",h:"DESICCANT",w:8,c:1,opt:1},{k:"yPh",g:"OTHER COMPONENTS",h:"PREHEAT",w:7,c:1,opt:1},{k:"yHum",g:"OTHER COMPONENTS",h:"HUMIDIFIER",w:8,c:1,opt:1},{k:"yUv",g:"OTHER COMPONENTS",h:"UV-C",w:6,c:1,opt:1},{k:"yAtt",g:"OTHER COMPONENTS",h:"ATTENUATOR",w:8,c:1,opt:1},
+  {k:"serves",h:"SERVES (AHU)",w:18},{k:"pump",h:"COIL PUMP TAG",w:22,opt:1},{k:"notes",h:"NOTES",w:40}
+];
+const PUMP_COLS=[{k:"no",h:"No.",w:5,fmt:"0"},{k:"tag",h:"PUMP TAG",w:22},{k:"serves",h:"SERVES",w:18},{k:"coil",h:"COIL",w:16},{k:"type",h:"PUMP TYPE",w:26},{k:"qty",h:"QTY",u:"set",w:5,fmt:"0"},
+  {k:"wt",h:"WATER TEMP.",u:"°C",w:10,c:1},{k:"flow",h:"WATER FLOW",u:"L/s",w:8,fmt:"0.00"},{k:"m3h",h:"WATER FLOW",u:"m³/h",w:8},{k:"head",h:"HEAD",u:"kPa / m",w:10,c:1},
+  {k:"p1",g:"PUMP MOTOR (EST.)",h:"POWER P1",u:"kW",w:8,fmt:"0.00"},{k:"supply",g:"PUMP MOTOR (EST.)",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},
+  {k:"ctl",h:"CONTROL",w:30},{k:"ip",h:"IP",w:6,c:1},{k:"remark",h:"REMARK",w:44}];
 const COORD_COLS=[
   {k:"no",h:"No.",w:5,fmt:"0"},{k:"roomId",h:"ROOM ID",w:10},{k:"roomName",h:"ROOM NAME",w:24},{k:"ahu",h:"AHU ID",w:18},
   {k:"rflow",g:"AIRFLOW",h:"ROOM SUPPLY",u:"m³/h",w:10,fmt:"0"},{k:"aflow",g:"AIRFLOW",h:"AHU SUPPLY",u:"m³/h",w:10,fmt:"0"},
   {k:"size",g:"AHU",h:"SIZE W × H × L",u:"mm",w:17,c:1},
-  {k:"elFan",g:"ELECTRICAL LOAD",h:"FANS",u:"kW",w:8},{k:"elHeat",g:"ELECTRICAL LOAD",h:"HEATERS",u:"kW",w:8},{k:"elOther",g:"ELECTRICAL LOAD",h:"OTHERS",u:"kW",w:8,fmt:"0.00"},{k:"elec",g:"ELECTRICAL LOAD",h:"TOTAL",u:"kW",w:8},{k:"supply",g:"ELECTRICAL LOAD",h:"POWER SUPPLY",u:"V/Ph/Hz",w:10,c:1},
+  {k:"elFan",g:"ELECTRICAL LOAD",h:"FANS",u:"kW",w:8},{k:"elHeat",g:"ELECTRICAL LOAD",h:"HEATERS",u:"kW",w:8,opt:1},{k:"elPump",g:"ELECTRICAL LOAD",h:"PUMPS",u:"kW",w:8,fmt:"0.00",opt:1},{k:"elOther",g:"ELECTRICAL LOAD",h:"OTHERS",u:"kW",w:8,fmt:"0.00",opt:1},{k:"elec",g:"ELECTRICAL LOAD",h:"TOTAL",u:"kW",w:8},{k:"supply",g:"ELECTRICAL LOAD",h:"POWER SUPPLY",u:"V/Ph/Hz",w:10,c:1},
   {k:"weight",g:"WEIGHT LOAD",h:"OPERATING WEIGHT",u:"kg",w:11,fmt:"0"},{k:"floorLoad",g:"WEIGHT LOAD",h:"FLOOR LOAD",u:"kg/m²",w:9,fmt:"0"},
-  {k:"chw",g:"PIPE CONNECTIONS",h:"CHW FLOW",u:"L/s",w:9,fmt:"0.00"},{k:"chw2",g:"PIPE CONNECTIONS",h:"CHW FLOW (PRE-COOL)",u:"L/s",w:10,fmt:"0.00"},{k:"hw",g:"PIPE CONNECTIONS",h:"HW FLOW",u:"L/s",w:9,fmt:"0.00"}
+  {k:"chw",g:"PIPE CONNECTIONS",h:"CHW FLOW",u:"L/s",w:9,fmt:"0.00"},{k:"chw2",g:"PIPE CONNECTIONS",h:"CHW FLOW (PRE-COOL)",u:"L/s",w:10,fmt:"0.00",opt:1},{k:"chw3",g:"PIPE CONNECTIONS",h:"CHW FLOW (POST-COOL)",u:"L/s",w:10,fmt:"0.00",opt:1},{k:"hw",g:"PIPE CONNECTIONS",h:"HW FLOW",u:"L/s",w:9,fmt:"0.00"}
 ];
 const HEAD=[{k:"no",h:"No.",w:5,fmt:"0"},{k:"tag",h:"TAG",w:22},{k:"serves",h:"SERVES",w:18},{k:"qty",h:"QTY",u:"set",w:5,fmt:"0"}];
 const DX_COLS=[...HEAD,
@@ -1605,14 +2013,27 @@ const UV_COLS=[...HEAD,{k:"loc",h:"LOCATION",w:18,c:1},{k:"flow",h:"AIRFLOW",u:"
 const RF_COLS=[...HEAD,{k:"flow",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},{k:"esp",g:"PRESSURE",h:"EXT. SP",u:"Pa",w:7,fmt:"0"},{k:"internal",g:"PRESSURE",h:"INTERNAL",u:"Pa",w:8,fmt:"0"},{k:"tsp",g:"PRESSURE",h:"TOTAL",u:"Pa",w:7,fmt:"0"},
   {k:"arr",g:"ELECTRIC DATA",h:"FAN ARRAY",u:"n × kW",w:10,c:1},{k:"inst",g:"ELECTRIC DATA",h:"POWER",u:"kW",w:7},{k:"drive",g:"ELECTRIC DATA",h:"DRIVE",w:6,c:1},{k:"supply",g:"ELECTRIC DATA",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},{k:"remark",h:"REMARK",w:30}];
 const schRecs=key=>rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{ const v=r.sch&&r.sch[key]; (Array.isArray(v)?v:v?[v]:[]).forEach(x=>out.push(Object.assign({no:++k,__i:i,serves:r.id,qty:r.qty},x))); }); return out; };
+const relab=(cols,map)=>cols.map(c=>map[c.k]?Object.assign({},c,{h:map[c.k]}):c);
+const sysOf=r=>r.sys||(r.inputs&&r.inputs.sys)||"recirc";
+const setOf=r=>r.ffuSet||(r.inputs&&r.inputs.ffuSet)||"both";
 const TABLES=[
   {key:"sched", title:"Table 1 · Air handling unit schedule", sheet:"AHU schedule", cols:SCHED_COLS, actions:true,
-    records:rows=>rows.map((r,i)=>Object.assign({},r,{no:i+1,__i:i}))},
+    records:rows=>{ const out=[]; rows.forEach((r,i)=>{ if(sysOf(r)!=="ffu") out.push(Object.assign({},r,{no:out.length+1,__i:i})); }); return out; }},
+  {key:"ffu", title:"Fan filter unit (FFU) schedule", sheet:"FFU schedule", cols:relab(SCHED_COLS,{id:"FFU TAG",type:"FFU TYPE",pre:"PRE",fin:"FINAL"}), actions:true,
+    records:rows=>{ const out=[]; rows.forEach((r,i)=>{ if(sysOf(r)==="ffu"&&setOf(r)!=="evap") out.push(Object.assign({},r,{no:out.length+1,__i:i})); }); return out; }},
   {key:"coord", title:"Table 2 · AHU coordination", sheet:"AHU coordination", cols:COORD_COLS,
     records:rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{ const rs=r.rooms&&r.rooms.length?r.rooms:[{id:"",name:"",flow:NaN}];
       rs.forEach(rm=>out.push({no:++k,__i:i,roomId:rm.id||NA,roomName:rm.name||"",ahu:r.id,rflow:isFinite(rm.flow)?rm.flow:NA,aflow:r.flow,size:r.size,
-        elFan:r.elFan??NA,elHeat:r.elHeat??NA,elOther:r.elOther??NA,elec:r.elec,supply:r.supply,weight:r.weight,floorLoad:r.floorLoad,chw:r.chwFlow,chw2:typeof r.pcFlow==="number"?r.pcFlow:NA,hw:typeof r.hwFlow==="number"?r.hwFlow:NA})); }); return out; }},
-  {key:"dx", title:"AHU DX cooling coil schedule", sheet:"DX coil schedule", cols:DX_COLS, records:schRecs("dx")},
+        elFan:r.elFan??NA,elHeat:r.elHeat??NA,elPump:r.elPump??NA,elOther:r.elOther??NA,elec:r.elec,supply:r.supply,weight:r.weight,floorLoad:r.floorLoad,chw:r.chwFlow,chw2:typeof r.pcFlow==="number"?r.pcFlow:NA,chw3:typeof r.poFlow==="number"?r.poFlow:NA,hw:typeof r.hwFlow==="number"?r.hwFlow:NA}));
+      const m=r.mau; if(m) out.push({no:++k,__i:i,roomId:NA,roomName:`Outdoor air to ${r.id}`,ahu:m.id,rflow:NA,aflow:m.flow,size:m.size,
+        elFan:m.elFan??NA,elHeat:m.elHeat??NA,elPump:m.elPump??NA,elOther:m.elOther??NA,elec:m.elec,supply:m.supply,weight:m.weight,floorLoad:m.floorLoad,chw:m.chwFlow,chw2:typeof m.pcFlow==="number"?m.pcFlow:NA,chw3:typeof m.poFlow==="number"?m.poFlow:NA,hw:typeof m.hwFlow==="number"?m.hwFlow:NA}); }); return out; }},
+  {key:"mau", title:"Make-up air unit (MAU / PAU) schedule", sheet:"MAU schedule", cols:MAU_COLS,
+    records:rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{ if(r.mau&&r.mau.kind!=="evap") out.push(Object.assign({},r.mau,{no:++k,__i:i})); }); return out; }},
+  {key:"evap", title:"Evaporative cooler (evaporator) schedule", sheet:"Evaporator schedule", cols:EVAP_COLS, actions:true,
+    records:rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{ if(sysOf(r)==="ffu"&&setOf(r)==="evap") out.push(Object.assign({},r,{no:++k,__i:i,serves:(r.rooms||[]).map(x=>x.id).filter(Boolean).join(", ")||NA}));
+      else if(r.mau&&r.mau.kind==="evap") out.push(Object.assign({},r.mau,{no:++k,__i:i})); }); return out; }},
+  {key:"pump", title:"Coil circuit pump schedule", sheet:"Coil pumps", cols:PUMP_COLS, records:schRecs("pump")},
+  {key:"dx", title:"DX cooling coil schedule", sheet:"DX coil schedule", cols:DX_COLS, records:schRecs("dx")},
   {key:"hr", title:"Heat recovery schedule", sheet:"Heat recovery", cols:HR_COLS, records:schRecs("hr")},
   {key:"des", title:"Desiccant wheel schedule", sheet:"Desiccant wheel", cols:DES_COLS, records:schRecs("des")},
   {key:"ph", title:"Preheat coil schedule", sheet:"Preheat coil", cols:PH_COLS, records:schRecs("ph")},
@@ -1620,6 +2041,10 @@ const TABLES=[
   {key:"uv", title:"UV-C lamp schedule", sheet:"UV-C lamp", cols:UV_COLS, records:schRecs("uv")},
   {key:"rf", title:"Return fan schedule", sheet:"Return fan", cols:RF_COLS, records:schRecs("rf")}
 ];
+const EMPTYV=v=>v==null||v===""||v===NA||v==="No"||(typeof v==="number"&&!isFinite(v));
+let sumRef=null;
+const sumRows=()=>{ if(sumRef) return sumRef.rows; try{ const a=JSON.parse(localStorage.getItem(SHARED_KEYS.ahu)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } };
+const visCols=t=>{ const recs=t.records(sumRows()); return t.cols.filter(c=>!c.opt||recs.some(r=>!EMPTYV(r[c.k]))); };
 $("sumWrap").innerHTML=TABLES.map((t,i)=>`<div class="sum-blk" id="blk-${t.key}">
   <div class="row"><h3>${esc(t.title)}</h3><div class="btns"><button class="btn" type="button" data-exp="xlsx" data-t="${i}">Excel</button><button class="btn" type="button" data-exp="pdf" data-t="${i}">PDF</button></div></div>
   <div class="tbl-wrap"><table class="sum sched"><thead id="h-${t.key}"></thead><tbody id="b-${t.key}"></tbody></table></div></div>`).join("");
@@ -1628,17 +2053,18 @@ const SUMMARY=makeSummary({
   key:SHARED_KEYS.ahu, unit:"AHU", file:"AHU-schedule", paper:"A3", footer:FOOT,
   countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsxCore", pdfId:"sumPdfCore", buttons:["sumXlsx","sumPdf","sumClear"],
-  tables:TABLES.map(t=>({headId:"h-"+t.key, bodyId:"b-"+t.key, title:t.title, sheet:t.sheet, cols:t.cols, actions:!!t.actions, freezeCols:2, records:t.records})),
+  tables:TABLES.map(t=>({headId:"h-"+t.key, bodyId:"b-"+t.key, title:t.title, sheet:t.sheet, get cols(){ return visCols(t); }, actions:!!t.actions, freezeCols:2, records:t.records})),
   onRender(rows){ TABLES.forEach(t=>$("blk-"+t.key).classList.toggle("hidden",!t.records(rows).length)); fillPickers(rows); },
   collect:collectRow,
   restore(r){ if(r.inputs) setInputs(r.inputs); update(); showView("calc"); try{ history.replaceState(null,"","#calc"); }catch(e){} }
 });
+sumRef=SUMMARY;
 /* pick a saved AHU from the left panel (tag / type / rooms) */
 function fillPickers(rows){
   const txt={tag:r=>`${r.id}${r.type?" · "+r.type:""}`, type:r=>`${r.type||"—"} · ${r.id}`, rooms:r=>`${(r.rooms||[]).map(x=>x.id).filter(Boolean).join(", ")||"—"} · ${r.id}`};
   document.querySelectorAll("select.pick").forEach(sel=>{
     const f=txt[sel.dataset.pick];
-    sel.innerHTML=`<option value="" selected disabled>${rows.length?"Saved AHUs…":"No saved AHU yet"}</option>`+rows.map((r,i)=>`<option value="${i}">${esc(f(r))}</option>`).join("");
+    sel.innerHTML=`<option value="" selected disabled>${rows.length?"Saved units…":"No saved unit yet"}</option>`+rows.map((r,i)=>`<option value="${i}">${esc(f(r))}</option>`).join("");
     sel.disabled=!rows.length; sel.closest(".pickw").classList.toggle("off",!rows.length);
   });
 }
@@ -1649,12 +2075,12 @@ document.querySelectorAll("select.pick").forEach(sel=>sel.addEventListener("chan
 }));
 const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const sumSub=()=>{ const k=SUMMARY.rows.length; return `${k} AHU${k>1?"s":""} · exported ${dateStr()}`; };
-const tblRows=t=>t.records(SUMMARY.rows).map(r=>t.cols.map(c=>r[c.k]));
+const tblRows=t=>{ const cols=visCols(t); return t.records(SUMMARY.rows).map(r=>cols.map(c=>r[c.k])); };
 function exportTables(list,kind,file){
   list=list.filter(t=>t.records(SUMMARY.rows).length);
   if(!list.length){ toast("Nothing to export yet",true); return; }
-  if(kind==="xlsx") EXPORT.xlsx({file:`${file}_${dateStr()}.xlsx`, sheets:list.map(t=>({sheet:t.sheet, title:t.title.replace(/^Table \d+ · /,""), subtitle:sumSub(), cols:t.cols, rows:tblRows(t), freezeCols:2}))});
-  else { EXPORT.pdf({file:`${file}_${dateStr()}`, subtitle:sumSub(), footer:FOOT, paper:"A3", sections:list.map(t=>({title:t.title.replace(/^Table \d+ · /,""), cols:t.cols, rows:tblRows(t)}))});
+  if(kind==="xlsx") EXPORT.xlsx({file:`${file}_${dateStr()}.xlsx`, sheets:list.map(t=>({sheet:t.sheet, title:t.title.replace(/^Table \d+ · /,""), subtitle:sumSub(), cols:visCols(t), rows:tblRows(t), freezeCols:2}))});
+  else { EXPORT.pdf({file:`${file}_${dateStr()}`, subtitle:sumSub(), footer:FOOT, paper:"A3", sections:list.map(t=>({title:t.title.replace(/^Table \d+ · /,""), cols:visCols(t), rows:tblRows(t)}))});
     toast("Choose “Save as PDF” in the print dialog"); }
 }
 $("sumWrap").addEventListener("click",e=>{ const b=e.target.closest("[data-exp]"); if(!b) return;
