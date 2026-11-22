@@ -218,6 +218,23 @@ table.sched th{text-align:center;vertical-align:middle}
 .mau-out{display:grid;gap:14px;border-top:2px solid var(--line);padding-top:14px}
 .sys-more{margin-top:6px;font-size:.78rem;padding:4px 10px}
 .upN,.dnN{font:inherit}
+
+.drafts{display:grid;gap:8px;padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--line)}
+.dr-btns{flex-wrap:wrap;gap:6px}
+.dr-btns .btn{padding:5px 10px;font-size:.82rem}
+#draftNote{margin:0}
+.btn.sm{padding:2px 8px;font-size:.78rem}
+.bal-blk h4{margin:0;font-size:.95rem;letter-spacing:.01em}
+.bal-blk>.row{margin-bottom:6px}
+table.bal td{vertical-align:middle}
+table.bal input.bi{width:100%;min-width:84px;box-sizing:border-box;border:1px solid var(--line);border-radius:4px;padding:3px 6px;font:inherit;font-family:var(--font-num);text-align:right;background:var(--surface);color:var(--ink)}
+table.bal input.bi.t{text-align:left;font-family:inherit;min-width:90px}
+table.bal input.bi::placeholder{color:var(--muted);opacity:.75}
+table.bal input.bi:focus{outline:2px solid var(--accent);outline-offset:-1px}
+table.bal tfoot td{font-weight:600;border-top:2px solid var(--ink)}
+.bal-chk{margin:6px 0 0}
+table.cmp td:first-child{white-space:nowrap;font-weight:500}
+table.cmp th{vertical-align:bottom}
 </style>
 </head>
 <body>
@@ -236,6 +253,11 @@ table.sched th{text-align:center;vertical-align:middle}
 
   <div class="layout">
     <aside class="panel" aria-label="AHU and design inputs">
+      <div class="drafts">
+        <div class="field full"><label for="draftSel">Working AHU <small>(New / Copy are kept here for comparison)</small></label><div class="inp"><select id="draftSel" aria-label="Working AHU"></select></div></div>
+        <div class="btns dr-btns"><button class="btn" type="button" id="draftNew">+ New AHU</button><button class="btn" type="button" id="draftCopy">⧉ Copy AHU</button><button class="btn" type="button" id="draftCmp">Compare</button><button class="btn ghost" type="button" id="draftDel">Delete</button></div>
+        <p class="note" id="draftNote"></p>
+      </div>
       <h2>AHU</h2>
       <div class="grid2">
         <div class="field"><label for="ahuId"><span class="dnN">AHU</span> tag</label><div class="inp"><input id="ahuId" data-save type="text" value="F1/1F/AHU/001" autocomplete="off"><span class="pickw" title="Pick a saved AHU"><span aria-hidden="true">▾</span><select class="pick" data-pick="tag" aria-label="Pick a saved AHU by tag"></select></span></div></div>
@@ -256,8 +278,11 @@ table.sched th{text-align:center;vertical-align:middle}
         <div class="field"><label for="oaSrc">Outdoor air source</label><div class="inp"><select id="oaSrc" data-save><option value="outdoor">Outdoor</option><option value="mau">MAU (pre-treated)</option></select></div></div>
         <div class="field"><label for="oaDb" id="oaDbLbl">Outdoor air DB</label><div class="inp"><input id="oaDb" data-save type="number" step="0.1" value="35"><span class="u">°C</span></div></div>
         <div class="field"><label for="oaWb" id="oaWbLbl">Outdoor air WB</label><div class="inp"><input id="oaWb" data-save type="number" step="0.1" value="28"><span class="u">°C</span></div></div>
-        <div class="field"><label for="roomT">Room DB</label><div class="inp"><input id="roomT" data-save type="number" step="0.1" value="23"><span class="u">°C</span></div></div>
-        <div class="field"><label for="roomRH">Room RH</label><div class="inp"><input id="roomRH" data-save type="number" step="1" value="55"><span class="u">%</span></div></div>
+        <div class="field"><label for="roomT">Room DB, calculation</label><div class="inp"><input id="roomT" data-save type="number" step="0.1" value="23"><span class="u">°C</span></div></div>
+        <div class="field"><label for="roomRH">Room RH, calculation</label><div class="inp"><input id="roomRH" data-save type="number" step="1" value="55"><span class="u">%</span></div></div>
+        <div class="field"><label for="spT">Set point DB <small>(blank = calc.)</small></label><div class="inp"><input id="spT" data-save type="text" value="" placeholder="e.g. 22 ± 2" autocomplete="off"><span class="u">°C</span></div></div>
+        <div class="field"><label for="spRH">Set point RH <small>(blank = calc.)</small></label><div class="inp"><input id="spRH" data-save type="text" value="" placeholder="e.g. ≤ 60" autocomplete="off"><span class="u">%</span></div></div>
+        <p class="note full" id="spNote" style="margin:0">Table 1 shows the set point; the calculation point (linked from the dew point tool) must cover it. Enter a value, a range (20–24, 22 ± 2) or a limit (≤ 60, ≥ 40).</p>
         <div class="field full"><label for="rhCtl">Room RH control</label><div class="inp"><select id="rhCtl" data-save><option value="ctl">Controlled (RH shown in schedules)</option><option value="no">No control (calculate at the RH above, schedule shows “No control”)</option></select></div></div>
         <div class="field full"><label for="retRise">Return air temperature rise (ceiling, lights)</label><div class="inp"><input id="retRise" data-save type="number" step="0.1" value="0.5"><span class="u">K</span></div></div>
       </div>
@@ -420,7 +445,7 @@ table.sched th{text-align:center;vertical-align:middle}
             <button type="button" id="sumXlsxCore" hidden></button><button type="button" id="sumPdfCore" hidden></button>
           </div>
         </div>
-        <p class="note">Press “+ Add to summary” in tab 2 for each AHU, or link all AHUs at once from the other tools. An AHU with the same tag replaces the earlier entry; “Load” brings it back to edit. Table 1 lists the other components as Yes / No; their details are in the component schedules below (shown only when used). Each table has its own Excel and PDF export; “Export all” puts every table in one workbook (one sheet each) or one A3 PDF.</p>
+        <p class="note">Press “+ Add to summary” in tab 2 for each AHU, or link all AHUs at once from the other tools. An AHU with the same tag replaces the earlier entry; “Load” brings it back to edit. Working AHUs made with “+ New AHU” or “⧉ Copy AHU” stay out of these tables until you press “+ Add to summary”. Table 2 lists one row per AHU; Table 3 balances the airflow of each room served. Table 1 lists the other components as Yes / No; their details are in the component schedules below (shown only when used). Each table has its own Excel and PDF export; “Export all” puts every table in one workbook (one sheet each) or one A3 PDF.</p>
         <p class="note hidden" id="sumEmpty" style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center">No AHUs yet.</p>
         <div id="sumWrap" style="display:grid;gap:18px"></div>
       </section>
@@ -456,6 +481,8 @@ table.sched th{text-align:center;vertical-align:middle}
             <li><strong>Evaporative cooler (evaporator), ASHRAE HVAC Systems and Equipment 2020, Ch. 41:</strong> direct media t<sub>2</sub> = t<sub>1</sub> − ε (t<sub>1</sub> − t′<sub>s</sub>) along the entering wet bulb (Eq. 1; ε 70–95 % rigid media, ≈ 80 % random media; face velocity 2–3 m/s rigid, 0.5–1.3 m/s random). Indirect stage t<sub>2</sub> = t<sub>1</sub> − WBDE (t<sub>1</sub> − t<sub>s,secondary</sub>), no moisture added (Eq. 2; WBDE 60–80 %). Water: evaporation = ṁ (W<sub>2</sub> − W<sub>1</sub>) for the media and q / h<sub>fg</sub> for the IEC wet side; bleed-off 5–100 % of evaporation; make-up = evaporation + bleed. Checks: entering WB above ≈ 21 °C (not for indoor comfort), recirculating indoor air through a direct cooler, media face velocity.</li>
             <li><strong>Evaporator + FFU:</strong> choose evaporator only, FFU only, or both. With both, the evaporator supplies either the FFU outdoor-air inlet or the room directly (the FFU then takes outdoor air from outside). Each unit at 100 % outdoor air has no return; below 100 % it gets a mixing box with OA / RA dampers. The same supply choice and outdoor-air % apply to the MAU / PAU (e.g. the MAU keeps the air change with a mixing box while the AHU circulation controls the temperature).</li>
             <li><strong>Linking rooms:</strong> the link takes the recommended case of each room from the dew point tool. One room can be split over several AHUs (airflow ÷ number of AHUs, QTY in Table 1) or several rooms can share one AHU (airflows add up). The AHU added or loaded last follows the inputs: changes are written to its summary row automatically.</li>
+            <li><strong>Working AHUs (New / Copy):</strong> “+ New AHU” starts from the sample inputs and “⧉ Copy AHU” duplicates the open one, so several options can be kept side by side; “Compare” lists their airflow, cooling, reheat, fan and electrical power, size and weight. A working AHU is a draft until “+ Add to summary” is pressed; only then does it enter the schedules and follow later changes. Adding a draft with the same tag as a scheduled AHU replaces that entry.</li>
+            <li><strong>Air flow balance (Table 3):</strong> one table per AHU with the rooms it serves. For each room: return = supply + leakage / transfer in − extract − leakage out. The checks compare Σ room supply with the AHU supply (× QTY), Σ return with the recirculated air (supply − outdoor air), and the net air leaving the rooms (extract + leakage out − leakage in) with the outdoor air. Fresh air per room is shared in proportion to supply unless entered.</li>
             <li><strong>Reheat, 1: Cal and 2: Check:</strong> 1: Cal heats the coil leaving air to the supply target (or to a fixed leaving-air set point); 2: Check is the low room sensible load case (night / equipment off): T<sub>s</sub> = T<sub>room</sub> − q<sub>min</sub> / (ṁ·c<sub>p</sub>). Table 1 shows the value you choose (Cal, Check or the larger); the process schematic shows both.</li>
             <li><strong>Fans and electrical:</strong> plug-fan array, single plug fan or belt-driven centrifugal fan (5 % belt loss). Table 2 lists each consumer group (supply fan, return fan, coil pumps, electric heaters, others) with the motor rating (next IEC size above shaft power × motor margin), supply voltage and an estimated full-load current I = P / (η·√3·U·cos φ) with η 0.88, cos φ 0.85 (3-phase 380 V) or I = P / (η·U·cos φ) (1-phase 220 V); heaters cos φ 1. Use it for preliminary cable and breaker sizing; confirm with the motor nameplate.</li>
             <li><strong>Size and weight (estimate):</strong> face area = supply airflow / coil face velocity, width ≈ 1.5 × height, plus panels; length is the sum of the section lengths (inlet and discharge plenums, mixing box, every component and each access / maintenance section). A length or weight entered in a component card replaces the estimate. Operating weight sums 50 mm double-skin panels, base frame, and typical weights per m² of face area for each section (wet coils included). Use the manufacturer's selection for the final figures.</li>
@@ -1082,6 +1109,7 @@ function calc(){
   if(F.noCc&&!c.rh&&!c.ph) notes.push(["ok",c.dec||c.iec?"Supply follows the evaporative cooler":"No cooling or heating coil",`The supply temperature is the ${c.dec||c.iec?"evaporative cooler leaving air":"air entering the unit"} plus fan heat: ${fmt(S.t)} °C, ${fmt(RHfromW(S.t,S.W,p),0)} %RH.`]);
   else if(Math.abs(S.t-Ts)>0.3) notes.push(["warn",`Supply air ${fmt(S.t)} °C differs from the target ${fmt(Ts)} °C`,S.t>Ts?"Fan heat or wrap-around reheat already exceeds the target; lower the coil leaving temperature or reduce the wrap-around effectiveness.":"Add or enable a reheat coil, or raise the coil leaving temperature."]);
   else notes.push(["ok","Supply air reaches the target",`${fmt(S.t)} °C at the AHU outlet (target ${fmt(Ts)} °C).`]);
+  if($("ctxKind").value!=="up"||toRoom()){ const sc=spCover(roomT,roomRH); if(sc.n) notes.push(sc.ok?["ok","Calculation point covers the set point",sc.txt]:["warn","Calculation point outside the set point",sc.txt+" Re-link the room or revise the set point."]); }
   if($("ctxKind").value==="up"&&!toRoom()){ const rt=n("upRefT",24), md=$("mauMode").value, un=UPN();
     if(md==="lower") notes.push(S.t<rt-0.3?["ok",`${un} supply below the return air`,`${fmt(S.t)} °C vs return ${fmt(rt)} °C: the ${un} air adds cooling${S.W<Wroom?" and dehumidification":""} for the ${DNN()} (no desiccant needed in the ${DNN()}).`]:["warn",`${un} supply not below the return air`,`${fmt(S.t)} °C vs return ${fmt(rt)} °C; lower the ${un} supply DB or choose another supply condition.`]);
     else if(md==="higher") notes.push(S.t>rt+0.3?["ok",`${un} pre-treats only`,`${fmt(S.t)} °C is above the return ${fmt(rt)} °C: the ${DNN()} coil takes the remaining load.`]:["warn",`${un} supply not above the return air`,`${fmt(S.t)} °C vs return ${fmt(rt)} °C; with pre-treatment the ${un} normally leaves warmer than the return air.`]);
@@ -1532,7 +1560,7 @@ td:first-child{white-space:nowrap}.blk{break-inside:avoid}.sch{margin:4pt 0 6pt;
 <div>Altitude: ${fmt(n("alt",0),0)} m<br>Barometric pressure: ${fmt(p*7.50062,3)} mm Hg<br>Atmospheric pressure: ${fmt(p,3)} kPa<br>Room: ${fmt(R.roomT)} °C · ${fmt(R.roomRH,0)} %RH</div></div>
 <div class="sch">${processSVG(R,PM)}</div>
 ${body}
-<p class="ft">Psychrometrics per ASHRAE Handbook – Fundamentals 2021, Ch. 1 (Eq. 3, 5/6, 20, 26, 30, 33/35); coil energy per Eq. 43; evaporative cooling per ASHRAE HVAC Systems and Equipment 2020, Ch. 41 (Eq. 1, 2). Air flow is the design airflow of each stream (m³/h); the energy balance uses the dry-air mass flow, which is constant along a stream. Sign: + heating / adding, − cooling / removing. hochvacsbs.wordpress.com</p>
+<p class="ft">Psychrometrics per ASHRAE Handbook – Fundamentals 2021, Ch. 1 (Eq. 3, 5/6, 20, 26, 30, 33/35); coil energy per Eq. 43; evaporative cooling per ASHRAE HVAC Systems and Equipment 2020, Ch. 41 (Eq. 1, 2). Air flow is the design airflow of each stream (m³/h); the energy balance uses the dry-air mass flow, which is constant along a stream. Sign: + heating / adding, − cooling / removing.</p>
 </body></html>`;
   const f=document.createElement("iframe"); f.setAttribute("aria-hidden","true"); f.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
   document.body.appendChild(f); const doc=f.contentWindow.document; doc.open(); doc.write(html); doc.close();
@@ -1613,8 +1641,8 @@ const EXPORT=(function(){
   }
   const colRef=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
   const NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
-  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border · 7 unit row · 8 centred text w/ border
-  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="4"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font><font><i/><sz val="10"/><color rgb="FF1C5A85"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1C5A85"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE6EFF6"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC4CFD8"/></left><right style="thin"><color rgb="FFC4CFD8"/></right><top style="thin"><color rgb="FFC4CFD8"/></top><bottom style="thin"><color rgb="FFC4CFD8"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border · 7 unit row · 8 centred text w/ border — black on white, thin black borders, centred (for CAD)
+  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="4"><font><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font><font><i/><sz val="10"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const groupSpans=cols=>{ // [{g,start,len}] for consecutive identical group labels
     const out=[]; cols.forEach((c,i)=>{ const last=out[out.length-1];
       if(c.g && last && last.g===c.g && last.start+last.len===i) last.len++; else out.push({g:c.g||null,start:i,len:1}); });
@@ -1734,6 +1762,28 @@ section.brk{page-break-before:always}
     setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(()=>f.remove(),60000); },350);
   }
   return {xlsx,pdf,reportHTML,cellText,headHTML};
+})();
+
+/* summary tables: highlight the row and the column under the pointer */
+(function(){
+  if(window.__sumHl) return; window.__sumHl=1;
+  const st=document.createElement("style");
+  st.textContent="table.sum tbody td.hl-r,table.sum tbody td.hl-c{background:rgba(28,90,133,.10)!important}table.sum tbody td.hl-x{background:rgba(28,90,133,.24)!important;box-shadow:inset 0 0 0 1.5px rgba(28,90,133,.75)}table.sum thead th.hl-h{background:rgba(28,90,133,.20)!important}";
+  document.head.appendChild(st);
+  let cur=null;
+  const clear=()=>{ if(!cur) return; cur.querySelectorAll(".hl-r,.hl-c,.hl-x,.hl-h").forEach(e=>e.classList.remove("hl-r","hl-c","hl-x","hl-h")); cur=null; };
+  const colOf=td=>{ let c=0; for(const x of td.parentNode.cells){ if(x===td) return c; c+=x.colSpan||1; } return c; };
+  document.addEventListener("mouseover",e=>{
+    const td=e.target.closest&&e.target.closest("table.sum tbody td"); if(!td){ clear(); return; }
+    const tb=td.closest("table"); clear(); cur=tb; const ci=colOf(td);
+    [...td.parentNode.cells].forEach(x=>x.classList.add("hl-r"));
+    tb.tBodies[0]&&[...tb.tBodies[0].rows].forEach(r=>{ let c=0; for(const x of r.cells){ const n=x.colSpan||1; if(ci>=c&&ci<c+n&&n===1) x.classList.add("hl-c"); c+=n; } });
+    td.classList.add("hl-x");
+    // header cell of the column: last header row that has it
+    const hr=tb.tHead?[...tb.tHead.rows]:[]; const grid=[]; hr.forEach((r,ri)=>{ grid[ri]=grid[ri]||[]; let c=0; for(const x of r.cells){ while(grid[ri][c]) c++; const cs=x.colSpan||1, rs=x.rowSpan||1;
+      for(let a=0;a<rs;a++) for(let b=0;b<cs;b++){ grid[ri+a]=grid[ri+a]||[]; grid[ri+a][c+b]=x; } c+=cs; } });
+    grid.forEach(row=>{ const h=row&&row[ci]; if(h&&(h.colSpan||1)===1) h.classList.add("hl-h"); });
+  });
 })();
 
 let toastTimer=null;
@@ -1891,6 +1941,26 @@ function evapFields(R,p){ const e=R.evap, i=R.iec, NAv="–";
     evPump:e&&e.rec?r2(n("evPump",0),2):NAv, evUv:e&&e.rec?($("evUv").value==="yes"?"Yes":"No"):NAv,
     iecEff:i?r2(i.eff*100,0):NAv, iecSec:i?(i.sec==="ra"?"Return air":"Outdoor air"):NAv, iecQs:i?r2(i.q,1):NAv, iecOut:i?r2(i.t2,1):NAv};
 }
+/* room set point (text: value, range 20–24, 22 ± 2, limit ≤ 60 / ≥ 40); the calculation point must lie inside it.
+   A single value is read as the upper limit for cooling design (calculation at or below it). */
+function spRange(s){
+  s=String(s||"").replace(/,/g,".").replace(/\s+/g,"").replace(/[°C%]/g,""); if(!s) return null;
+  let m;
+  if(m=s.match(/^(-?[\d.]+)(?:±|\+\/-|\+-)([\d.]+)$/)) return [ +m[1]-+m[2], +m[1]+ +m[2] ];
+  if(m=s.match(/^(-?[\d.]+)[-–~](-?[\d.]+)$/)) return [Math.min(+m[1],+m[2]),Math.max(+m[1],+m[2])];
+  if(m=s.match(/^(?:≤|<=|<|max\.?)([\d.]+)$/i)) return [-Infinity,+m[1]];
+  if(m=s.match(/^(?:≥|>=|>|min\.?)([\d.]+)$/i)) return [+m[1],Infinity];
+  if(m=s.match(/^(-?[\d.]+)$/)) return [-Infinity,+m[1]];
+  return "bad";
+}
+function spCover(t,rh){
+  const out={n:0,ok:true,txt:""}, parts=[];
+  const one=(id,v,u,nm,dp)=>{ const s=$(id).value.trim(); if(!s) return; const r=spRange(s); out.n++;
+    if(r==="bad"){ out.ok=false; parts.push(`${nm} set point “${s}” not understood (use 22 ± 2, 20–24, ≤ 60)`); return; }
+    const ok=v>=r[0]-1e-6&&v<=r[1]+1e-6; if(!ok) out.ok=false; parts.push(`${nm} ${fmt(v,dp)} ${u} ${ok?"within":"outside"} set point ${s} ${u}`); };
+  one("spT",t,"°C","Room DB",1); if($("rhCtl").value!=="no") one("spRH",rh,"%","Room RH",0);
+  out.txt=parts.join("; ")+"."; return out;
+}
 /* one unit's schedule data (runs inside that unit's input context) */
 function collectUnit(R,kind){
   const unitNm=kind==="mau"?UPS():DNN();
@@ -1939,7 +2009,8 @@ function collectUnit(R,kind){
     remark:`${u.nm} circuit. Head = coil ≤ ${fmt(u.coilPd,0)} kPa + ${fmt(u.head-u.coilPd,0)} kPa (3-way valve, strainer, piping).`}));
   sch.rf=R.rf?{tag:tg("RF"), flow:r2(R.rf.q,0), esp:r2(R.rf.esp,0), internal:r2(R.rf.internal,0), tsp:r2(R.rf.tsp,0), arr:`${R.rf.N} × ${fmt(R.rf.motor,R.rf.motor<1?2:1)}`,
     inst:r2(R.rf.inst,1), drive:R.rf.drive, supply:SUP, remark:""}:null;
-  return {id:tag, block:$("block").value.trim(), clean:$("clean").value, roomT:r2(R.roomT,1), roomRH:$("rhCtl").value==="no"?"No control":r2(R.roomRH,0), type:$("ahuType").value.trim(), qty,
+  return {id:tag, block:$("block").value.trim(), clean:$("clean").value, roomT:r2(R.roomT,1), roomRH:r2(R.roomRH,0), spT:$("spT").value.trim()||fmt(R.roomT,1), spRH:$("rhCtl").value==="no"?"No control":($("spRH").value.trim()||fmt(R.roomRH,0)),
+    spOk:(()=>{ const a=spCover(R.roomT,R.roomRH); return a.n?(a.ok?"Yes":"No"):"= calc."; })(), type:$("ahuType").value.trim(), qty,
     coil:R.noCc?NA:R.dx?"DX":"CHW", qTotAll:r2(R.qTot+(R.pc?R.pc.q:0)+(R.dpc?R.dpc.q:0),1), qSensAll:r2(R.qSens+(R.pc?R.pc.qs:0)+(R.dpc?R.dpc.q:0),1),
     fanType:fanTypeTxt($("sfType").value,R.sfN,$("sfDrive").value),
     supDbW:`${fmt(R.S.t)} / ${fmt(R.S.W*1000,2)}`, ccEat:R.noCc?NA:eat, ccLat:R.noCc?NA:lat, ccDp:R.noCc?NA:r2(tdewFromW(R.CO.W,p),1),
@@ -1982,7 +2053,8 @@ const POST_COLS=[{k:"poType",g:"POST-COOLING COIL",h:"TYPE",w:6,c:1,opt:1},{k:"p
   {k:"poFlow",g:"POST-COOLING COIL",h:"CHW FLOW",u:"L/s",w:7,fmt:"0.00",opt:1},{k:"poT",g:"POST-COOLING COIL",h:"EWT / LWT",u:"°C",w:9,c:1,opt:1}];
 const SCHED_COLS=[
   {k:"no",h:"No.",w:5,fmt:"0"},{k:"id",h:"AHU TAG",w:18},{k:"block",h:"BLOCK - FLOOR",w:18},{k:"clean",h:"CLEAN CLASS",w:11,c:1},
-  {k:"roomT",g:"ROOM CONDITION",h:"TEMP.",u:"°C",w:7,fmt:"0"},{k:"roomRH",g:"ROOM CONDITION",h:"RH",u:"%",w:10,fmt:"0",c:1},
+  {k:"spT",g:"ROOM SET POINT",h:"TEMP.",u:"°C",w:9,c:1},{k:"spRH",g:"ROOM SET POINT",h:"RH",u:"%",w:10,c:1},
+  {k:"roomT",g:"ROOM CALCULATION",h:"TEMP.",u:"°C",w:8,fmt:"0.0"},{k:"roomRH",g:"ROOM CALCULATION",h:"RH",u:"%",w:7,fmt:"0"},{k:"spOk",g:"ROOM CALCULATION",h:"COVERS SET POINT",w:9,c:1},
   {k:"type",h:"AHU TYPE",w:8,c:1},{k:"qty",h:"QTY",u:"set",w:5,fmt:"0"},
   {k:"flow",g:"SUPPLY FAN",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},{k:"esp",g:"SUPPLY FAN",h:"EXT. SP",u:"Pa",w:7,fmt:"0"},{k:"fanArr",g:"SUPPLY FAN",h:"FAN ARRAY",u:"n × kW",w:10,c:1},{k:"fanPow",g:"SUPPLY FAN",h:"POWER",u:"kW",w:7},{k:"drive",g:"SUPPLY FAN",h:"DRIVE",w:6,c:1},{k:"supply",g:"SUPPLY FAN",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},
   {k:"oaFlow",g:"AIR SIDE",h:"OUTSIDE AIR",u:"m³/h",w:9,fmt:"0"},{k:"oaSrc",g:"AIR SIDE",h:"OA SOURCE",w:11,c:1},{k:"supDbW",g:"AIR SIDE",h:"SUPPLY DB / W",u:"°C / g/kg",w:12,c:1},
@@ -2029,8 +2101,8 @@ const PUMP_COLS=[{k:"no",h:"No.",w:5,fmt:"0"},{k:"tag",h:"PUMP TAG",w:22},{k:"se
   {k:"p1",g:"PUMP MOTOR (EST.)",h:"POWER P1",u:"kW",w:8,fmt:"0.00"},{k:"supply",g:"PUMP MOTOR (EST.)",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},
   {k:"ctl",h:"CONTROL",w:30},{k:"ip",h:"IP",w:6,c:1},{k:"remark",h:"REMARK",w:44}];
 const COORD_COLS=[
-  {k:"no",h:"No.",w:5,fmt:"0"},{k:"roomId",h:"ROOM ID",w:10},{k:"roomName",h:"ROOM NAME",w:24},{k:"ahu",h:"AHU ID",w:18},
-  {k:"rflow",g:"AIRFLOW",h:"ROOM SUPPLY",u:"m³/h",w:10,fmt:"0"},{k:"aflow",g:"AIRFLOW",h:"AHU SUPPLY",u:"m³/h",w:10,fmt:"0"},
+  {k:"no",h:"No.",w:5,fmt:"0"},{k:"ahu",h:"AHU ID",w:18},{k:"qty",h:"QTY",u:"set",w:5,fmt:"0"},
+  {k:"aflow",g:"AIRFLOW",h:"SUPPLY (PER UNIT)",u:"m³/h",w:10,fmt:"0"},
   {k:"size",g:"AHU",h:"SIZE W × H × L",u:"mm",w:17,c:1},
   {k:"eSf",g:"SUPPLY FAN",h:"MOTOR",u:"n × kW",w:10,c:1},{k:"eSfV",g:"SUPPLY FAN",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},{k:"eSfA",g:"SUPPLY FAN",h:"FLA EACH (EST.)",u:"A",w:8},
   {k:"eRf",g:"RETURN FAN",h:"MOTOR",u:"n × kW",w:10,c:1,opt:1},{k:"eRfV",g:"RETURN FAN",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1,opt:1},{k:"eRfA",g:"RETURN FAN",h:"FLA EACH (EST.)",u:"A",w:8,opt:1},
@@ -2078,10 +2150,10 @@ const TABLES=[
   {key:"ffu", title:"Fan filter unit (FFU) schedule", sheet:"FFU schedule", cols:relab(SCHED_COLS,{id:"FFU TAG",type:"FFU TYPE",pre:"PRE",fin:"FINAL"}), actions:true,
     records:rows=>{ const out=[]; rows.forEach((r,i)=>{ if(sysOf(r)==="ffu"&&setOf(r)!=="evap") out.push(Object.assign({},r,{no:out.length+1,__i:i})); }); return out; }},
   {key:"coord", title:"Table 2 · AHU coordination", sheet:"AHU coordination", cols:COORD_COLS,
-    records:rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{ const rs=r.rooms&&r.rooms.length?r.rooms:[{id:"",name:"",flow:NaN}];
-      rs.forEach(rm=>out.push({no:++k,__i:i,roomId:rm.id||NA,roomName:rm.name||"",ahu:r.id,rflow:isFinite(rm.flow)?rm.flow:NA,aflow:r.flow,size:r.size,
-        ...(r.ex||{}),elec:r.elec,weight:r.weight,floorLoad:r.floorLoad,chw:r.chwFlow,chw2:typeof r.pcFlow==="number"?r.pcFlow:NA,chw3:typeof r.poFlow==="number"?r.poFlow:NA,hw:typeof r.hwFlow==="number"?r.hwFlow:NA}));
-      const m=r.mau; if(m) out.push({no:++k,__i:i,roomId:NA,roomName:`Outdoor air to ${r.id}`,ahu:m.id,rflow:NA,aflow:m.flow,size:m.size,
+    records:rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{
+      out.push({no:++k,__i:i,ahu:r.id,qty:r.qty,aflow:r.flow,size:r.size,
+        ...(r.ex||{}),elec:r.elec,weight:r.weight,floorLoad:r.floorLoad,chw:r.chwFlow,chw2:typeof r.pcFlow==="number"?r.pcFlow:NA,chw3:typeof r.poFlow==="number"?r.poFlow:NA,hw:typeof r.hwFlow==="number"?r.hwFlow:NA});
+      const m=r.mau; if(m) out.push({no:++k,__i:i,ahu:m.id,qty:m.qty,aflow:m.flow,size:m.size,
         ...(m.ex||{}),elec:m.elec,weight:m.weight,floorLoad:m.floorLoad,chw:m.chwFlow,chw2:typeof m.pcFlow==="number"?m.pcFlow:NA,chw3:typeof m.poFlow==="number"?m.poFlow:NA,hw:typeof m.hwFlow==="number"?m.hwFlow:NA}); }); return out; }},
   {key:"mau", title:"Make-up air unit (MAU / PAU) schedule", sheet:"MAU schedule", cols:MAU_COLS,
     records:rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{ if(r.mau&&r.mau.kind!=="evap") out.push(Object.assign({},r.mau,{no:++k,__i:i})); }); return out; }},
@@ -2104,15 +2176,19 @@ const visCols=t=>{ const recs=t.records(sumRows()); return t.cols.filter(c=>!c.o
 $("sumWrap").innerHTML=TABLES.map((t,i)=>`<div class="sum-blk" id="blk-${t.key}">
   <div class="row"><h3>${esc(t.title)}</h3><div class="btns"><button class="btn" type="button" data-exp="xlsx" data-t="${i}">Excel</button><button class="btn" type="button" data-exp="pdf" data-t="${i}">PDF</button></div></div>
   <div class="tbl-wrap"><table class="sum sched"><thead id="h-${t.key}"></thead><tbody id="b-${t.key}"></tbody></table></div></div>`).join("");
-const FOOT="hochvacsbs.wordpress.com · AHU process per ASHRAE Fundamentals 2021, Ch. 1 psychrometrics; CHW supply t_w = 2·t_ad − t_wb (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11). Size, weight and electrical load are estimates for coordination; confirm with the AHU manufacturer's selection.";
+$("blk-coord").insertAdjacentHTML("afterend",`<div class="sum-blk hidden" id="blk-bal">
+  <div class="row"><h3>Table 3 · Air flow balance per AHU</h3><div class="btns"><button class="btn" type="button" data-balexp="xlsx">Excel</button><button class="btn" type="button" data-balexp="pdf">PDF</button></div></div>
+  <p class="note">Rooms come from each AHU's linked rooms (room supply = the recommended case of the dew point tool); add other rooms with “+ Add room”. Enter class, ΔP, extract and leakage; return = supply + leakage / transfer in − extract − leakage out. Fresh air is shared in proportion to supply unless you enter it. Entries are kept per AHU tag in this browser.</p>
+  <div id="balWrap" style="display:grid;gap:16px"></div></div>`);
+const FOOT="AHU process per ASHRAE Fundamentals 2021, Ch. 1 psychrometrics; CHW supply t_w = 2·t_ad − t_wb (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11). Size, weight and electrical load are estimates for coordination; confirm with the AHU manufacturer's selection.";
 var SUMMARY=makeSummary({
   key:SHARED_KEYS.ahu, unit:"AHU", file:"AHU-schedule", paper:"A3", footer:FOOT,
   countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsxCore", pdfId:"sumPdfCore", buttons:["sumXlsx","sumPdf","sumClear"],
   tables:TABLES.map(t=>({headId:"h-"+t.key, bodyId:"b-"+t.key, title:t.title, sheet:t.sheet, get cols(){ return visCols(t); }, actions:!!t.actions, freezeCols:2, records:t.records})),
-  onRender(rows){ TABLES.forEach(t=>$("blk-"+t.key).classList.toggle("hidden",!t.records(rows).length)); fillPickers(rows); },
+  onRender(rows){ TABLES.forEach(t=>$("blk-"+t.key).classList.toggle("hidden",!t.records(rows).length)); fillPickers(rows); balRender(rows); dFill(); },
   collect:collectRow,
-  restore(r){ if(r.inputs) setInputs(r.inputs); update(); showView("calc"); try{ history.replaceState(null,"","#calc"); }catch(e){} }
+  restore(r){ if(r.inputs) openRow(r); else update(); showView("calc"); try{ history.replaceState(null,"","#calc"); }catch(e){} }
 });
 sumRef=SUMMARY;
 /* pick a saved AHU from the left panel (tag / type / rooms) */
@@ -2127,7 +2203,7 @@ function fillPickers(rows){
 document.querySelectorAll("select.pick").forEach(sel=>sel.addEventListener("change",()=>{
   const r=SUMMARY.rows[+sel.value]; sel.value="";
   if(!r||!r.inputs||!Object.keys(r.inputs).length){ toast("This AHU was saved without its inputs; re-enter it",true); return; }
-  SUMMARY.setActive(SUMMARY.keyOf(r)); setInputs(r.inputs); update(); toast(`Loaded ${r.id}`);
+  openRow(r); toast(`Loaded ${r.id}`);
 }));
 const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const sumSub=()=>{ const k=SUMMARY.rows.length; return `${k} AHU${k>1?"s":""} · exported ${dateStr()}`; };
@@ -2141,8 +2217,10 @@ function exportTables(list,kind,file){
 }
 $("sumWrap").addEventListener("click",e=>{ const b=e.target.closest("[data-exp]"); if(!b) return;
   const t=TABLES[+b.dataset.t]; exportTables([t],b.dataset.exp,t.sheet.replace(/\s+/g,"-")); });
-$("sumXlsx").addEventListener("click",()=>exportTables(TABLES,"xlsx","AHU-schedules"));
-$("sumPdf").addEventListener("click",()=>exportTables(TABLES,"pdf","AHU-schedules"));
+const ALL_T=()=>[...TABLES.slice(0,3),BAL_T,...TABLES.slice(3)];
+$("sumXlsx").addEventListener("click",()=>exportTables(ALL_T(),"xlsx","AHU-schedules"));
+$("sumPdf").addEventListener("click",()=>exportTables(ALL_T(),"pdf","AHU-schedules"));
+$("blk-bal").addEventListener("click",e=>{ const b=e.target.closest("[data-balexp]"); if(b) exportTables([BAL_T],b.dataset.balexp,"Air-flow-balance"); });
 
 /* ---------- Link from the other tools ---------- */
 function groupRooms(list,scope){
@@ -2208,11 +2286,12 @@ $("linkBtn").addEventListener("click",()=>{
       if(!list.length||!tag) return;
       dlg.close();
       if(isMau()&&$("unitEdit").value==="mau") switchUnit("ahu");
+      const d0=curDraft(); if(inSum(d0)&&d0.sumKey!==tag){ const nd={id:dId(),inputs:getInputs(),sumKey:null}; DR.list.push(nd); DR.cur=nd.id; SUMMARY.setActive(null); }
       applyGroup({tag,rooms:list},chwRows);
       const tot=list.reduce((a,r)=>a+(isFinite(r.flow)?r.flow:0),0), qMin=list.reduce((a,r)=>a+(isFinite(r.qsMin)?r.qsMin:0),0);
       $("qSa").value=String(Math.round(tot/N)); $("qty").value=String(N); $("rhQmin").value=String(Math.round(qMin/N*100)/100);
       update(); const row=collectRow();
-      if(!row.err){ SUMMARY.put(row); SUMMARY.setActive(SUMMARY.keyOf(row)); }
+      if(!row.err){ SUMMARY.put(row); SUMMARY.setActive(SUMMARY.keyOf(row)); dMark(SUMMARY.keyOf(row)); dStore(); }
       showView("calc");
       toast(`${tag}: ${list.length} room${list.length>1?"s":""}, ${fmt(tot,0)} m³/h${N>1?` split into ${N} AHUs of ${fmt(tot/N,0)} m³/h`:""}; added to the summary`);
     });
@@ -2220,12 +2299,163 @@ $("linkBtn").addEventListener("click",()=>{
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
 });
 
-function update(){ render(); save(); if(typeof SUMMARY!=="undefined"&&SUMMARY) SUMMARY.sync(); }
+/* ---------- Air flow balance per AHU (Table 3) ---------- */
+var BALS=null, BAL_OK=false;
+const BKEY="hvac-ahu-balance-v1";
+function balStore(){ if(!BALS){ try{ BALS=JSON.parse(localStorage.getItem(BKEY)||"{}")||{}; }catch(e){ BALS={}; } } return BALS; }
+const balSave=()=>{ try{ localStorage.setItem(BKEY,JSON.stringify(balStore())); }catch(e){} };
+const nv=v=>{ const x=parseFloat(v); return isFinite(x)?x:NaN; };
+const ahuOf=r=>!(sysOf(r)==="ffu"&&setOf(r)==="evap");
+function balData(r){
+  const S=balStore(), st=S[r.id]||(S[r.id]={}); st.rm=st.rm||{}; st.extra=st.extra||[];
+  const qty=nv(r.qty)>0?nv(r.qty):1, ahuQ=(nv(r.flow)||0)*qty, oa=nv(r.oaFlow), ratio=nv(r.flow)>0&&isFinite(oa)?oa/nv(r.flow):0;
+  const list=[...(r.rooms||[]).filter(x=>x&&x.id).map(x=>({key:"L:"+x.id,id:x.id,name:x.name||"",lflow:nv(x.flow),man:false})),
+    ...st.extra.map(x=>({key:"M:"+x.k,id:x.id||"",name:x.name||"",lflow:NaN,man:true,k:x.k}))];
+  const T={sup:0,ext:0,ret:0,fa:0,lin:0,lout:0};
+  const rows=list.map(x=>{ const e=st.rm[x.key]||{};
+    const sup=isFinite(nv(e.sup))?nv(e.sup):isFinite(x.lflow)?x.lflow:0, ext=nv(e.ext)||0, lin=nv(e.lin)||0, lout=nv(e.lout)||0;
+    const faAuto=sup*ratio, fa=isFinite(nv(e.fa))?nv(e.fa):faAuto, ret=Math.max(0,sup+lin-ext-lout);
+    const o=Object.assign({},x,{e,cls:e.cls!=null?e.cls:(r.clean||""),dp:e.dp!=null?e.dp:"",sup,ext,lin,lout,ret,fa,faAuto});
+    for(const k in T) T[k]+=o[k]; return o; });
+  const chk=[];
+  if(rows.length){
+    const d=(a,b)=>b>0?Math.abs(a-b)/b*100:0, m=v=>fmt(v,0);
+    chk.push(d(T.sup,ahuQ)<=2?`✓ Σ room supply ${m(T.sup)} m³/h = AHU supply ${m(ahuQ)} m³/h${qty>1?` (${qty} × ${m(nv(r.flow))})`:""}`
+      :`⚠ Σ room supply ${m(T.sup)} m³/h ≠ AHU supply ${m(ahuQ)} m³/h${qty>1?` (${qty} × ${m(nv(r.flow))})`:""}: difference ${m(T.sup-ahuQ)} m³/h`);
+    if(isFinite(oa)&&ratio<0.999){ const rc=ahuQ-oa*qty; chk.push(d(T.ret,rc)<=5?`✓ Σ return ${m(T.ret)} m³/h ≈ AHU recirculated air ${m(rc)} m³/h`:`⚠ Σ return ${m(T.ret)} m³/h vs AHU recirculated air ${m(rc)} m³/h (supply − outdoor air): difference ${m(T.ret-rc)} m³/h`); }
+    const net=T.ext+T.lout-T.lin; if(isFinite(oa)) chk.push(`Outdoor air ${m(oa*qty)} m³/h; net air leaving the rooms (extract + leakage out − leakage in) ${m(net)} m³/h${Math.abs(net-oa*qty)>Math.max(50,0.05*oa*qty)?" — check the leakage / extract against the outdoor air":""}`);
+    rows.filter(o=>o.ret===0&&o.sup+o.lin-o.ext-o.lout<0).forEach(o=>chk.push(`⚠ ${o.id||"room"}: extract + leakage out exceed supply + transfer in (no return possible)`));
+  }
+  return {st,rows,T,chk,ahuQ};
+}
+const dpTxt=v=>{ const x=nv(v); return isFinite(x)?(x>0?"+":"")+fmt(x,0):""; };
+function balBlock(r){
+  const B=balData(r), inp=(o,f,v,ph,t)=>`<input class="bi${t?" t":""}" data-k="${esc(o.key)}" data-f="${f}" ${t?'type="text"':'type="number" step="any"'} value="${esc(v==null?"":String(v))}"${ph!=null?` placeholder="${esc(String(ph))}"`:""} aria-label="${f}">`;
+  const ent=(o,f)=>o.e[f]!=null&&o.e[f]!==""?o.e[f]:"";
+  return `<div class="bal-blk" data-ahu="${esc(r.id)}"><div class="row"><h4>${esc(r.id)} AIR FLOW BALANCE TABLE</h4><div class="btns"><button class="btn" type="button" data-baladd>+ Add room</button></div></div>
+  <div class="tbl-wrap"><table class="sum bal"><thead><tr><th>Room No.</th><th>Room name</th><th>Class</th><th class="r">ΔP (Pa)</th><th class="r">Supply</th><th class="r">Extract</th><th class="r">Return</th><th class="r">Fresh air</th><th class="r">Leakage / transfer in</th><th class="r">Leakage out</th><th></th></tr></thead>
+  <tbody>${B.rows.map(o=>`<tr data-k="${esc(o.key)}"><td>${o.man?inp(o,"id",o.id,"Room No.",1):esc(o.id)}</td><td>${o.man?inp(o,"name",o.name,"Room name",1):esc(o.name)}</td>
+    <td>${inp(o,"cls",o.cls,null,1)}</td><td>${inp(o,"dp",o.dp,"+15")}</td><td>${inp(o,"sup",ent(o,"sup"),isFinite(o.lflow)?Math.round(o.lflow):0)}</td><td>${inp(o,"ext",ent(o,"ext"),0)}</td>
+    <td class="r num" data-o="ret">${fmt(o.ret,0)}</td><td>${inp(o,"fa",ent(o,"fa"),Math.round(o.faAuto))}</td><td>${inp(o,"lin",ent(o,"lin"),0)}</td><td>${inp(o,"lout",ent(o,"lout"),0)}</td>
+    <td>${o.man?`<button class="btn ghost sm" type="button" data-balrm title="Remove room" aria-label="Remove room">×</button>`:""}</td></tr>`).join("")
+    ||`<tr><td colspan="11" class="note">No rooms linked to this AHU. Use “+ Add room”, or link rooms from the dew point tool.</td></tr>`}</tbody>
+  <tfoot><tr><td colspan="4">TOTAL (rooms)</td>${["sup","ext","ret","fa","lin","lout"].map(k=>`<td class="r num" data-t="${k}">${fmt(B.T[k],0)}</td>`).join("")}<td></td></tr></tfoot></table></div>
+  <p class="note bal-chk" data-chk>${B.chk.map(esc).join("<br>")}</p></div>`;
+}
+function balRender(rows){
+  const w=$("balWrap"); if(!w||!BAL_OK) return; const list=(rows||[]).filter(ahuOf);
+  $("blk-bal").classList.toggle("hidden",!list.length);
+  w.innerHTML=list.map(balBlock).join("");
+}
+function balRefresh(blk){
+  const r=SUMMARY.rows.find(x=>x.id===blk.dataset.ahu); if(!r) return; const B=balData(r);
+  B.rows.forEach(o=>{ const tr=[...blk.querySelectorAll("tr[data-k]")].find(t=>t.dataset.k===o.key); if(!tr) return;
+    tr.querySelector('[data-o="ret"]').textContent=fmt(o.ret,0); const fa=tr.querySelector('[data-f="fa"]'); if(fa) fa.placeholder=String(Math.round(o.faAuto)); });
+  ["sup","ext","ret","fa","lin","lout"].forEach(k=>{ blk.querySelector(`[data-t="${k}"]`).textContent=fmt(B.T[k],0); });
+  blk.querySelector("[data-chk]").innerHTML=B.chk.map(esc).join("<br>");
+}
+$("balWrap").addEventListener("input",e=>{
+  const el=e.target.closest(".bi"), blk=e.target.closest(".bal-blk"); if(!el||!blk) return;
+  const S=balStore(), st=S[blk.dataset.ahu]||(S[blk.dataset.ahu]={rm:{},extra:[]}); st.rm=st.rm||{}; st.extra=st.extra||[];
+  const k=el.dataset.k, f=el.dataset.f;
+  if(f==="id"||f==="name"){ const x=st.extra.find(y=>"M:"+y.k===k); if(x) x[f]=el.value; }
+  else { const e2=st.rm[k]||(st.rm[k]={}); if(el.value==="") delete e2[f]; else e2[f]=f==="cls"?el.value:nv(el.value); }
+  balSave(); balRefresh(blk);
+});
+$("balWrap").addEventListener("click",e=>{
+  const blk=e.target.closest(".bal-blk"); if(!blk) return; const S=balStore(), st=S[blk.dataset.ahu]||(S[blk.dataset.ahu]={rm:{},extra:[]}); st.extra=st.extra||[]; st.rm=st.rm||{};
+  if(e.target.closest("[data-baladd]")){ st.extra.push({k:dId(),id:"",name:""}); balSave(); balRender(SUMMARY.rows);
+    const nb=[...$("balWrap").querySelectorAll(".bal-blk")].find(b=>b.dataset.ahu===blk.dataset.ahu); const ins=nb&&nb.querySelectorAll('[data-f="id"]'); if(ins&&ins.length) ins[ins.length-1].focus(); }
+  const rm=e.target.closest("[data-balrm]"); if(rm){ const k=rm.closest("tr").dataset.k; st.extra=st.extra.filter(y=>"M:"+y.k!==k); delete st.rm[k]; balSave(); balRender(SUMMARY.rows); }
+});
+const BAL_COLS=[{k:"ahu",h:"AHU TAG",w:16},{k:"roomId",h:"ROOM NO.",w:10},{k:"roomName",h:"ROOM NAME",w:30},{k:"cls",h:"CLASS",w:10,c:1},{k:"dp",h:"ΔP",u:"Pa",w:7,c:1},
+  {k:"sup",h:"SUPPLY",u:"m³/h",w:9,fmt:"0"},{k:"ext",h:"EXTRACT",u:"m³/h",w:9,fmt:"0"},{k:"ret",h:"RETURN",u:"m³/h",w:9,fmt:"0"},{k:"fa",h:"FRESH AIR",u:"m³/h",w:9,fmt:"0"},
+  {k:"lin",h:"LEAKAGE / TRANSFER IN",u:"m³/h",w:11,fmt:"0"},{k:"lout",h:"LEAKAGE OUT",u:"m³/h",w:9,fmt:"0"}];
+const BAL_T={key:"bal", title:"Table 3 · Air flow balance", sheet:"Air flow balance", cols:BAL_COLS,
+  records:rows=>{ const out=[]; rows.filter(ahuOf).forEach(r=>{ const B=balData(r); if(!B.rows.length) return;
+    B.rows.forEach(o=>out.push({ahu:r.id,roomId:o.id,roomName:o.name,cls:o.cls,dp:dpTxt(o.dp),sup:Math.round(o.sup),ext:Math.round(o.ext),ret:Math.round(o.ret),fa:Math.round(o.fa),lin:Math.round(o.lin),lout:Math.round(o.lout)}));
+    out.push({ahu:r.id,roomId:"TOTAL (rooms)",roomName:"",cls:"",dp:"",sup:Math.round(B.T.sup),ext:Math.round(B.T.ext),ret:Math.round(B.T.ret),fa:Math.round(B.T.fa),lin:Math.round(B.T.lin),lout:Math.round(B.T.lout)}); }); return out; }};
+
+BAL_OK=true; balRender(SUMMARY.rows);
+
+/* ---------- Working AHUs: New / Copy, kept for comparison; only “+ Add to summary” puts one in the schedule ---------- */
+var DR=null;
+const DKEY="hvac-ahu-drafts-v1";
+const dId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const curDraft=()=>DR&&DR.list.find(d=>d.id===DR.cur);
+const dPersist=()=>{ try{ localStorage.setItem(DKEY,JSON.stringify(DR)); }catch(e){} };
+const inSum=d=>!!d&&!!d.sumKey&&SUMMARY.rows.some(r=>SUMMARY.keyOf(r)===d.sumKey);
+const dTag=d=>(d.snap&&d.snap.id)||(d.inputs&&d.inputs.ahuId)||"(no tag)";
+function dInit(){
+  try{ const o=JSON.parse(localStorage.getItem(DKEY)||"null"); if(o&&Array.isArray(o.list)&&o.list.length) DR=o; }catch(e){}
+  if(!DR){ const id=dId(); DR={cur:id,list:[{id,inputs:getInputs(),sumKey:SUMMARY.active||null}]}; }
+  if(!curDraft()) DR.cur=DR.list[0].id;
+  const d=curDraft(); SUMMARY.setActive(inSum(d)?d.sumKey:null); dPersist(); dFill();
+}
+function dMark(key){ DR.list.forEach(x=>{ if(x.sumKey===key) x.sumKey=null; }); const d=curDraft(); if(d) d.sumKey=key; dPersist(); }
+function snapOf(){
+  if(!last||last.err) return {id:$("ahuId").value.trim(),err:true};
+  const r=collectRow(); if(r.err) return {id:$("ahuId").value.trim(),err:true};
+  const pick=(o,ks)=>{ const x={}; ks.forEach(k=>x[k]=o[k]); return x; };
+  const s=pick(r,["id","type","sys","ffuSet","qty","flow","oaFlow","coil","qTotAll","qSensAll","hwCap","fanPow","elec","size","weight","supDbW","roomT","roomRH"]);
+  s.nNotes=(last.notes||[]).filter(x=>x[0]!=="ok").length; s.rooms=(r.rooms||[]).map(x=>x.id).filter(Boolean).join(", ");
+  if(r.mau) s.mau=pick(r.mau,["id","flow","qTotAll","hwCap","elec","size"]);
+  return s;
+}
+function dStore(){ const d=curDraft(); if(!d) return; d.inputs=getInputs(); d.snap=snapOf(); dPersist(); dFill(); }
+function dFill(){
+  const sel=$("draftSel"); if(!sel||!DR) return;
+  sel.innerHTML=DR.list.map((d,i)=>`<option value="${esc(d.id)}"${d.id===DR.cur?" selected":""}>${i+1}. ${esc(dTag(d))}${d.inputs&&d.inputs.ahuType?" · "+esc(d.inputs.ahuType):""} — ${inSum(d)?"in summary":"draft"}</option>`).join("");
+  const d=curDraft(), n=DR.list.length;
+  $("draftNote").innerHTML=inSum(d)?`<strong>In the summary</strong> as ${esc(d.sumKey)}: changes update the schedule automatically.`
+    :`<strong>Draft</strong> — kept here for comparison, not in the schedule. Press “+ Add to summary” (tab 2) to schedule it.`+(n>1?` ${n} working AHUs.`:"");
+  $("draftDel").disabled=n<2;
+}
+function dGo(d){ DR.cur=d.id; setInputs(Object.assign({},defaults,d.inputs||{})); SUMMARY.setActive(inSum(d)?d.sumKey:null); update(); }
+function uniqTag(t){ const used=new Set([...DR.list.map(dTag),...SUMMARY.rows.map(r=>r.id)]); if(!used.has(t)) return t; let i=2; while(used.has(`${t}-${i}`)) i++; return `${t}-${i}`; }
+function openRow(r){ // load a scheduled AHU into its working AHU (or a new one)
+  const k=SUMMARY.keyOf(r); let d=DR.list.find(x=>x.sumKey===k);
+  if(!d){ d={id:dId(),sumKey:k}; DR.list.push(d); }
+  d.inputs=r.inputs; dGo(d);
+}
+$("draftSel").addEventListener("change",()=>{ const d=DR.list.find(x=>x.id===$("draftSel").value); if(d&&d.id!==DR.cur){ dGo(d); toast(`Working on ${dTag(d)}`); } });
+$("draftNew").addEventListener("click",()=>{ const d={id:dId(),sumKey:null,inputs:Object.assign({},defaults,{ahuId:uniqTag("AHU-NEW")})}; DR.list.push(d); dGo(d); showView("config"); toast(`New AHU ${dTag(d)} (draft)`); });
+$("draftCopy").addEventListener("click",()=>{ const src=curDraft(), inp=getInputs(); inp.ahuId=uniqTag(`${inp.ahuId||"AHU"} (copy)`);
+  const d={id:dId(),sumKey:null,inputs:inp}; DR.list.splice(DR.list.indexOf(src)+1,0,d); dGo(d); toast(`Copied to ${inp.ahuId} (draft) — not in the schedule`); });
+$("draftDel").addEventListener("click",()=>{ const d=curDraft(); if(!d||DR.list.length<2) return;
+  if(!confirm(`Delete working AHU “${dTag(d)}”?${inSum(d)?" It stays in the summary; use Remove there to take it out of the schedule.":""}`)) return;
+  const i=DR.list.indexOf(d); DR.list.splice(i,1); dGo(DR.list[Math.min(i,DR.list.length-1)]); toast(`Deleted ${dTag(d)}`); });
+$("addSumBtn").addEventListener("click",()=>{ const d=curDraft(); if(d&&SUMMARY.active&&SUMMARY.rows.some(r=>SUMMARY.keyOf(r)===SUMMARY.active)){ dMark(SUMMARY.active); dFill(); } });
+const SYS_TXT=v=>{ const o=document.querySelector(`[data-sys="${v}"]`); return o?o.textContent.trim():v||"—"; };
+$("draftCmp").addEventListener("click",()=>{
+  let dlg=document.getElementById("cmpDlg"); if(dlg) dlg.remove();
+  dlg=document.createElement("dialog"); dlg.id="cmpDlg"; dlg.className="dlg"; dlg.style.maxWidth="min(1100px,calc(100% - 32px))";
+  const L=DR.list, S=d=>d.snap||{};
+  const num=(v,dp)=>typeof v==="number"&&isFinite(v)?fmt(v,dp):(v==null||v===""?"—":esc(String(v)));
+  const best=(k,lo)=>{ const v=L.map(d=>S(d)[k]).filter(x=>typeof x==="number"&&isFinite(x)&&x>0); return v.length>1?(lo?Math.min(...v):Math.max(...v)):NaN; };
+  const ROWS=[["Status",d=>inSum(d)?"In summary":"Draft"],["System",d=>esc(SYS_TXT(S(d).sys))],["Type",d=>esc(S(d).type||"—")],["Rooms",d=>esc(S(d).rooms||"—")],
+    ["Room °C / %RH",d=>`${num(S(d).roomT,1)} / ${num(S(d).roomRH,0)}`],["Quantity (set)",d=>num(S(d).qty,0)],
+    ["Supply airflow (m³/h)",d=>num(S(d).flow,0)],["Outdoor air (m³/h)",d=>num(S(d).oaFlow,0)],["Cooling, total incl. pre-cool (kW)",d=>num(S(d).qTotAll,1),"qTotAll",1],
+    ["Cooling, sensible (kW)",d=>num(S(d).qSensAll,1)],["Reheat, max. (kW)",d=>num(S(d).hwCap,1),"hwCap",1],["Supply fan power (kW)",d=>num(S(d).fanPow,1),"fanPow",1],
+    ["Installed electrical (kW)",d=>num(S(d).elec,1),"elec",1],["Supply DB / W (°C / g/kg)",d=>esc(S(d).supDbW||"—")],["Size W × H × L (mm)",d=>esc(S(d).size||"—")],
+    ["Operating weight (kg)",d=>num(S(d).weight,0),"weight",1],["Outdoor-air unit",d=>S(d).mau?`${esc(S(d).mau.id)}: ${num(S(d).mau.flow,0)} m³/h, ${num(S(d).mau.qTotAll,1)} kW`:"—"],
+    ["Checks with notes",d=>S(d).err?"Input error":num(S(d).nNotes,0)]];
+  dlg.innerHTML=`<form method="dialog" class="dlg-body"><h2>Compare working AHUs</h2>
+    <p class="note">Every working AHU (drafts and scheduled ones) with its last calculated result. Lowest energy, power and weight are marked ★. “Open” loads it for editing; a draft goes into the schedule only with “+ Add to summary”.</p>
+    <div class="tbl-wrap" style="max-height:60vh"><table class="sum cmp"><thead><tr><th>Item</th>${L.map(d=>`<th class="r">${esc(dTag(d))}${d.id===DR.cur?" (open)":""}<br><button class="btn sm" type="button" data-open="${esc(d.id)}"${d.id===DR.cur?" disabled":""}>Open</button></th>`).join("")}</tr></thead>
+    <tbody>${ROWS.map(([h,f,k,lo])=>{ const b=k?best(k,lo):NaN; return `<tr><td>${h}</td>${L.map(d=>{ const v=k?S(d)[k]:NaN; return `<td class="r num">${f(d)}${isFinite(b)&&v===b?" ★":""}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>
+    <div class="btns" style="justify-content:flex-end"><button class="btn ghost" value="close" type="submit">Close</button></div></form>`;
+  document.body.appendChild(dlg);
+  dlg.addEventListener("click",e=>{ const b=e.target.closest("[data-open]"); if(!b) return; const d=DR.list.find(x=>x.id===b.dataset.open); dlg.close(); if(d){ dGo(d); toast(`Working on ${dTag(d)}`); } });
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
+});
+
+function update(){ render(); save(); if(typeof SUMMARY!=="undefined"&&SUMMARY) SUMMARY.sync(); dStore(); }
 $("rooms").addEventListener("input",()=>{ $("roomsData").value=""; });
 document.addEventListener("input",e=>{ if(e.target.closest("[data-save]")||e.target.matches("[data-save]")) update(); });
 document.addEventListener("change",e=>{ if(e.target.matches("[data-save]")) update(); });
 $("resetBtn").addEventListener("click",()=>{ setInputs(defaults); update(); });
-load();
+load(); dInit();
 const h=location.hash.slice(1); if(VIEWS.includes(h)) view=h;
 showView(view); update();
 })();
