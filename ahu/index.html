@@ -209,7 +209,23 @@ table.sched th{text-align:center;vertical-align:middle}
 .inp .pickw select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
 .comp-f .fbtn{grid-column:1/-1}
 .comp-f .fbtn .btn{width:100%}
-.comp.flash{box-shadow:0 0 0 3px var(--accent)}
+.comp.flash,#statesBlk.flash,#m_states.flash{box-shadow:0 0 0 3px var(--accent);border-radius:9px}
+.comp{transition:box-shadow .25s}
+/* diagram navigator */
+svg.diagram g.sec{cursor:pointer;outline:none}
+svg.diagram g.sec .hit{fill:transparent;stroke:transparent;stroke-width:1.5;transition:fill .15s,stroke .15s}
+svg.diagram g.sec:hover .hit,svg.diagram g.sec.hl .hit,svg.diagram g.sec:focus-visible .hit{fill:color-mix(in srgb,var(--accent) 14%,transparent);stroke:var(--accent)}
+.diag-nav{display:flex;flex-wrap:wrap;align-items:center;gap:4px 2px;margin:6px 0 2px;font-size:.78rem}
+.diag-nav .dn-l{color:var(--muted);margin-right:4px}
+.diag-nav i{color:var(--muted);font-style:normal;padding:0 1px}
+.dn-chip{font:inherit;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:2px 9px;cursor:pointer;transition:background .15s,border-color .15s}
+.dn-chip:hover,.dn-chip.hl{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.dn-chip.st{margin-left:8px;border-style:dashed}
+.to-top{position:fixed;right:18px;z-index:40;border:1px solid var(--accent);background:var(--surface);color:var(--accent);border-radius:999px;padding:7px 14px;font:600 .82rem var(--font-body);cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.15);opacity:0;pointer-events:none;transform:translateY(8px);transition:opacity .2s,transform .2s}
+.to-top.on{opacity:1;pointer-events:auto;transform:none}
+.to-top:hover{background:var(--accent);color:#fff}
+#toTop{bottom:18px} #toDiag{bottom:58px}
+@media print{.to-top,.diag-nav{display:none}}
 .proc-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:#fff;margin-top:6px}
 .proc-wrap svg{display:block;min-width:900px}
 .comp-f .finfo{grid-column:1/-1;display:grid;gap:2px;font-size:.78rem;background:var(--bg);border:1px dashed var(--line);border-radius:7px;padding:7px 9px}
@@ -296,6 +312,8 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
     </aside>
 
     <main class="panel">
+      <button type="button" class="to-top" id="toDiag" aria-label="Back to the diagram">↑ Back to diagram</button>
+      <button type="button" class="to-top" id="toTop" aria-label="Back to the top">↑ Back to top</button>
       <nav class="tabs" role="tablist" aria-label="Sections">
         <button class="tab" role="tab" id="tab-config" data-view="config" aria-selected="true">1 · Configuration</button>
         <button class="tab" role="tab" id="tab-calc" data-view="calc" aria-selected="false">2 · Calculation</button>
@@ -359,7 +377,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
           <div class="row" style="margin-top:4px"><h2><span class="upN">MAU / PAU</span> diagram</h2></div>
           <div class="diag-wrap"><svg id="diagramMau" class="diagram" role="img" aria-label="Outdoor-air unit airflow diagram"></svg></div>
           <p class="note" id="diagNoteMau"></p>
-          <p class="note"><strong>↓ <span class="upN">MAU / PAU</span> supply air → <span class="dnN">AHU</span> outdoor-air inlet</strong></p>
+          <p class="note" id="upToDn"><strong>↓ <span class="upN">MAU / PAU</span> supply air → <span class="dnN">AHU</span> outdoor-air inlet</strong></p>
         </div>
         <div class="row" style="margin-top:4px">
           <h2 id="diagTitle">AHU diagram</h2>
@@ -390,7 +408,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
             <div class="hidden" id="procWrapMau"><h3 style="margin:10px 0 4px"><span class="upN">MAU / PAU</span> → room (separate supply)</h3><div class="proc-wrap" id="procSvgMau"></div></div>
             <p class="note">State points along the supply path with dry bulb, wet bulb, RH, humidity ratio, enthalpy, specific volume, dew point and air flow; component duties above the line (+ heating, − cooling). The PDF report lists every state point and process.</p>
           </div>
-          <div>
+          <div id="statesBlk">
             <h3 style="margin-bottom:6px">Air states through the AHU</h3>
             <div class="tbl-wrap"><table><thead><tr><th>Point</th><th>Location</th><th class="r">DB °C</th><th class="r">WB °C</th><th class="r">RH %</th><th class="r">W g/kg</th><th class="r">Dew point °C</th><th class="r">h kJ/kg</th></tr></thead><tbody id="ptsBody"></tbody></table></div>
           </div>
@@ -411,7 +429,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
           <div data-mau class="hidden mau-out">
             <h2 style="margin:0"><span class="upN">MAU / PAU</span> results · <span id="mauHdr"></span></h2>
             <div class="tiles" id="m_tiles"></div>
-            <div><h3 style="margin-bottom:6px">Air states through the <span class="upN">MAU / PAU</span></h3>
+            <div id="m_states"><h3 style="margin-bottom:6px">Air states through the <span class="upN">MAU / PAU</span></h3>
               <div class="tbl-wrap"><table><thead><tr><th>Point</th><th>Location</th><th class="r">DB °C</th><th class="r">WB °C</th><th class="r">RH %</th><th class="r">W g/kg</th><th class="r">Dew point °C</th><th class="r">h kJ/kg</th></tr></thead><tbody id="m_ptsBody"></tbody></table></div></div>
             <div><h3 style="margin-bottom:6px">Component duties</h3>
               <div class="tbl-wrap"><table><thead><tr><th>Component</th><th class="r">Duty</th><th>Details</th><th class="r">Air PD Pa</th></tr></thead><tbody id="m_dutyBody"></tbody></table></div></div>
@@ -545,8 +563,8 @@ const COMPS=[
   {grp:"Casing & access", id:"cCase", name:"Casing & plenums", fixed:true, noLen:true, noWt:true, noAcc:true, desc:"Double-skin panel casing. Set the height to fix the casing; the width then follows from the coil face velocity. A desiccant wheel adds its own reactivation deck below the supply deck.",
     f:[{id:"decks",l:"Return deck",sel:[["auto","Auto"],["single","None (single deck)"],["double","Yes (stacked)"]],v:"auto"},{id:"ahuH",l:"Casing height",u:"mm",v:"",ph:"auto"},
        {id:"casePd",l:"Inlet, outlet & casing allowance",u:"Pa",v:100},{id:"inLen",l:"Inlet plenum length",u:"mm",v:600},{id:"outLen",l:"Discharge plenum length",u:"mm",v:500}]},
-  {grp:"Casing & access", id:"cMix", name:"Mixing box", fixed:true, recirc:true, desc:"Mixes outdoor and return air (return air + outdoor air system).",
-    f:[{id:"mixDamp",l:"OA / RA dampers",sel:[["yes","Yes"],["no","No"]],v:"yes"},{id:"mixPd",l:"Air PD",u:"Pa",v:50}]},
+  {grp:"Casing & access", id:"cMix", name:"Mixing box", fixed:true, recirc:true, desc:"Mixes outdoor and return air (return air + outdoor air system). Before the filters, the return air is filtered too; with energy recovery or a desiccant on the outdoor air, those stay ahead of the mixing box (use the wheel's outdoor-air filter to protect it). With 0 % outdoor air there is no mixing box: the unit takes return air only.",
+    f:[{id:"mixPos",l:"Position",sel:[["coil","After the pre-filter, before the coils"],["filter","Before the filters"]],v:"coil"},{id:"mixDamp",l:"OA / RA dampers",sel:[["yes","Yes"],["no","No"]],v:"yes"},{id:"mixPd",l:"Air PD",u:"Pa",v:50}]},
   {grp:"Casing & access", id:"cAcc", name:"Access / maintenance section", fixed:true, noLen:true, noWt:true, noAcc:true, desc:"Empty section with access door and light. Tick “Access section after” on any component to add one behind it.",
     f:[{id:"accLen",l:"Length per section",u:"mm",v:600},{id:"accWt",l:"Weight per section",u:"kg",v:20}]},
   {grp:"Filters", id:"cPre", name:"Pre-filter", def:true, desc:"One or two stages at the outdoor-air inlet, ahead of every other component (energy recovery, desiccant, mixing box).",
@@ -751,13 +769,13 @@ function calcAll(){
 
 /* ---------- Configuration flags and section layout (shared by the calculation, the diagram and the schedules) ---------- */
 function flags(){
-  const fa=calcSys()==="fa";
+  const fa=calcSys()==="fa", noOa=!fa&&!(n("oaVal",0)>0);
   const c={pre:chk("cPre"),fin:chk("cFin"),wheel:chk("cWheel"),plate:chk("cPlate"),ra:chk("cRa"),hp:chk("cHp"),des:chk("cDes"),ph:chk("cPh"),pc:chk("cPc"),rh:chk("cRh"),hum:chk("cHum"),uv:chk("cUv"),att:chk("cAtt"),rf:chk("cRf")};
   const raOa=c.ra&&$("raPos").value==="oa", hpOa=c.hp&&$("hpPos").value==="oa", desOa=c.des&&$("desPos").value==="oa", desCc=c.des&&$("desPos").value==="cc", desPc=c.des&&$("desPos").value==="pc", noCc=$("ccOn").value==="no"&&($("ctxKind").value!==""||isFfu());
   const ev=evapCtx(); c.dec=ev&&chk("cEvap"); c.iec=ev&&chk("cIec");
-  return {fa,c,raOa,raWrap:c.ra&&!raOa,hpOa,hpWrap:c.hp&&!hpOa,desOa,desMix:c.des&&$("desPos").value==="mix",desCc,desPc,noCc,dpc:desCc&&$("dpc").value==="yes",dpcDx:$("dpcType").value==="dx",
+  return {fa,noOa,mixF:!fa&&!noOa&&$("mixPos").value==="filter",c,raOa,raWrap:c.ra&&!raOa,hpOa,hpWrap:c.hp&&!hpOa,desOa,desMix:c.des&&$("desPos").value==="mix",desCc,desPc,noCc,dpc:desCc&&$("dpc").value==="yes",dpcDx:$("dpcType").value==="dx",
     blow:$("sfPos").value==="blow", finFan:c.fin&&$("finPos").value==="fan", pre2:c.pre&&$("pre2Cls").value!=="—",
-    mixD:!fa&&$("mixDamp").value==="yes", dx:!noCc&&$("ccType").value==="dx", wOaF:c.wheel&&$("wOaF").value!=="—",
+    mixD:!fa&&!noOa&&$("mixDamp").value==="yes", dx:!noCc&&$("ccType").value==="dx", wOaF:c.wheel&&$("wOaF").value!=="—",
     dHeat:c.des&&$("desHeat").value==="yes", dRf:c.des?[$("desRf1").value,$("desRf2").value].filter(v=>v!=="—"):[],
     wRf:c.wheel?[$("wRf1").value,$("wRf2").value].filter(v=>v!=="—"):[],
     ...deckOf(fa,c,raOa,hpOa)};
@@ -775,8 +793,11 @@ function buildLayout(F,d){
   const L=[], c=F.c;
   const add=(k,lbl,cid,len,o)=>{ L.push(Object.assign({k,lbl,cid,len,name:lbl},o||{})); };
   const acc=cid=>{ if(chk(cid+"Acc")) add("acc","Access",null,n("accLen",600)/1000,{name:"Access section"}); };
-  add("oa","",null,n("inLen",600)/1000,{name:"Inlet plenum"});
-  if(c.pre){ add(F.pre2?"filter2":"filter",preLabel(F),"cPre",F.pre2?0.9:0.3,{name:"Pre-filter (outdoor-air inlet)"}); acc("cPre"); }
+  add("oa","",null,n("inLen",600)/1000,{name:F.noOa?"Return-air inlet plenum":"Inlet plenum"});
+  const mixAt=()=>{ add("mix","Mixing box","cMix",0.9,{span:1}); add("pt","M",null,0); acc("cMix"); };
+  const oaSide=c.wheel||c.plate||F.raOa||F.hpOa||F.desOa;
+  if(F.mixF&&!oaSide) mixAt();
+  if(c.pre&&!(F.mixF&&oaSide)){ add(F.pre2?"filter2":"filter",preLabel(F),"cPre",F.pre2?0.9:0.3,{name:F.noOa?"Pre-filter (return-air inlet)":F.mixF?"Pre-filter (after the mixing box)":"Pre-filter (outdoor-air inlet)"}); acc("cPre"); }
   if(F.wOaF) add($("wOaF").value.includes("F7")?"filter2":"filter",$("wOaF").value.replace(/\s/g,""),null,$("wOaF").value.includes("F7")?0.9:0.3,{name:"OA filter (wheel)"});
   if(c.wheel){ add("wheel","HR wheel","cWheel",0.7,{span:1});
     if(F.wRf.length) add("rfilt",F.wRf.slice().reverse().join("+"),null,F.wRf.length>1?0.9:0.3,{name:"Exhaust filters (return deck; stage 1 first in the exhaust direction)",stages:F.wRf.length});
@@ -788,8 +809,9 @@ function buildLayout(F,d){
     if(F.dRf.length) add("rfilt",F.dRf.join("+"),null,F.dRf.length>1?0.9:0.3,{name:"Reactivation filters (reactivation deck)",stages:F.dRf.length,deck:"bot"});
     add("rfan","Fan",null,0.6,{name:"Reactivation fan (reactivation deck)",deck:"bot"}); };
   if(F.desOa){ add("des","Desiccant","cDes",1.0,{span:1}); desTop(); acc("cDes"); }
-  add("pt","OA'",null,0);
-  if(!F.fa){ add("mix","Mixing box","cMix",0.9,{span:1}); acc("cMix"); }
+  if(!F.noOa&&oaSide) add("pt","OA'",null,0);
+  if(F.mixF&&oaSide){ mixAt(); if(c.pre){ add(F.pre2?"filter2":"filter",preLabel(F),"cPre",F.pre2?0.9:0.3,{name:"Pre-filter (after the mixing box)"}); acc("cPre"); } }
+  if(!F.fa&&!F.noOa&&!F.mixF) mixAt();
   if(F.desMix){ add("des","Desiccant","cDes",1.0,{span:1}); desTop(); acc("cDes"); }
   const fin=()=>{ add(fin2()?"filter2":"filter",finLabel(),"cFin",fin2()?1.1:0.6,{name:"Final filter"}); acc("cFin"); };
   const fanUv=()=>{ add("fan","Supply fan","cSf",d.fanLen); acc("cSf"); if(c.uv){ add("uv","UV-C","cUv",0.3,{name:"UV-C lamp"}); acc("cUv"); } };
@@ -849,7 +871,7 @@ function calc(){
   if(raOa) addPd("Run-around coil",n("raPd",0));
   if(hpOa) addPd("Heat pipe",n("hpPd",0));
   if(c.des) addPd("Desiccant wheel",n("desPd",0));
-  if(!fa) addPd(F.mixD?"Mixing box & dampers":"Mixing box",n("mixPd",0));
+  if(!fa&&!F.noOa) addPd(F.mixD?"Mixing box & dampers":"Mixing box",n("mixPd",0));
   if(c.pre){ addPd(`Pre-filter ${$("preCls").value}`,n("prePd",0)); if(F.pre2) addPd(`Pre-filter ${$("pre2Cls").value}`,n("pre2Pd",0)); }
   if(c.fin){ addPd(`Final filter ${$("finCls").value}${F.finFan?" (after fan)":""}`,n("finPd",0)); if(fin2()) addPd(`Final filter ${$("fin2Cls").value}${F.finFan?" (after fan)":""}`,n("fin2Pd",0)); }
   if(c.ph) addPd("Preheat coil",n("phPd",0));
@@ -1158,7 +1180,7 @@ function calc(){
   const W_=(cid,k,auto)=>{ const v=n(cid+"Wt",0); addW(k,v>0?v:auto,v>0); };
   addW("Casing (50 mm panels)",2*(Wo*Ho+Ho*Lo+Wo*Lo)*22); addW("Base frame",Lo*Wo*25);
   const Atot=A+(topDeck?Wi*Hr:0), Ades=A+Wi*Hd;
-  if(!fa) W_("cMix","Mixing box",F.mixD?A*25:A*5);
+  if(!fa&&!F.noOa) W_("cMix","Mixing box",F.mixD?A*25:A*5);
   if(c.pre) W_("cPre","Pre-filter",A*8+(F.pre2?A*12:0));
   if(c.fin) W_("cFin","Final filter",A*18+(fin2()?A*18:0));
   if(F.wOaF) addW("OA filter (wheel)",A*8+($("wOaF").value.includes("F7")?A*12:0));
@@ -1223,7 +1245,8 @@ function fillResults(R,P){
     <div class="tile"><div class="k">${unit} size W × H × L</div><div class="v" style="font-size:1.05rem">${fmt(R.Wo*1000,0)} × ${fmt(R.Ho*1000,0)} × ${fmt(R.Lo*1000,0)}<small>mm</small></div></div>
     <div class="tile"><div class="k">Operating weight · electrical</div><div class="v" style="font-size:1.05rem">${fmt(R.weight,0)}<small>kg · ${fmt(R.elec,1)} kW</small></div></div>`;
   const adpRow=(a,nm)=>isFinite(a)?`<tr><td><strong>ADP</strong></td><td>Apparatus dew point (${nm})</td><td class="r num">${fmt(a)}</td><td class="r num">${fmt(a)}</td><td class="r num">100</td><td class="r num">${fmt(Wsat(a,p)*1000,2)}</td><td class="r num">${fmt(a)}</td><td class="r num">${fmt(enth(a,Wsat(a,p)))}</td></tr>`:"";
-  E("ptsBody").innerHTML=R.pts.map(s=>{ const q=propOf(s,p); return `<tr><td><strong>${esc(s.code)}</strong></td><td>${esc(s.desc)}</td><td class="r num">${fmt(s.t)}</td><td class="r num">${fmt(q.twb)}</td><td class="r num">${fmt(q.rh,0)}</td><td class="r num">${fmt(s.W*1000,2)}</td><td class="r num">${fmt(q.td)}</td><td class="r num">${fmt(q.h)}</td></tr>`; }).join("")
+  const noOa=!R.fa&&!(R.qOa>0); /* 0 % outdoor air: no outdoor-air rows, the coil takes return air */
+  E("ptsBody").innerHTML=R.pts.filter(s=>!(noOa&&["OA","OA'","OH","M"].includes(s.code))).map(s=>{ const q=propOf(s,p); return `<tr><td><strong>${esc(s.code)}</strong></td><td>${esc(s.desc)}</td><td class="r num">${fmt(s.t)}</td><td class="r num">${fmt(q.twb)}</td><td class="r num">${fmt(q.rh,0)}</td><td class="r num">${fmt(s.W*1000,2)}</td><td class="r num">${fmt(q.td)}</td><td class="r num">${fmt(q.h)}</td></tr>`; }).join("")
     +(pc?adpRow(pc.adp,"pre-cooling coil"):"")+adpRow(R.adp,two?"main cooling coil":"cooling coil");
   E("dutyBody").innerHTML=R.duties.map(d=>`<tr><td>${esc(d[0])}</td><td class="r num">${fmt(d[1],d[1]<10?2:1)} kW</td><td>${esc(d[2])}</td><td class="r num">${d[3]?fmt(d[3],0):""}</td></tr>`).join("")
     +(R.pumps||[]).map(u=>`<tr><td>${esc(u.nm)} pump</td><td class="r num">${fmt(u.P1,2)} kW</td><td>${fmt(u.flow,2)} L/s · head ${fmt(u.head,0)} kPa (coil ${fmt(u.coilPd,0)} + ${fmt(u.head-u.coilPd,0)}) · P1 estimate</td><td></td></tr>`).join("");
@@ -1269,6 +1292,7 @@ function render(){
   document.querySelectorAll("[data-ffuonly]").forEach(e=>e.classList.toggle("hidden",!isFfu()));
   const dest=$("upDest").value; document.querySelectorAll("[data-uproom]").forEach(e=>e.classList.toggle("hidden",!editMau||dest!=="room"));
   $("procWrapMau").classList.toggle("hidden",!toRoom());
+  $("upToDn").classList.toggle("hidden",toRoom());
   $("diagTitle").textContent=mau?`${dn} circulation diagram`:isFfu()?`${dn} diagram`:"AHU diagram";
   $("compTitle").textContent=mau?(editMau?`Components — ${up} ${mauTag()}`:`Components — ${dn} ${$("ahuId").value.trim()}`):"Components";
   const neutral=editMau&&$("mauMode").value==="neutral";
@@ -1309,13 +1333,64 @@ $("copyBtn").addEventListener("click",async()=>{ const b=$("copyBtn");
   setTimeout(()=>b.textContent="Copy results",1800); });
 
 $("addPcBtn").addEventListener("click",()=>{ $("cPc").checked=true; update(); const el=$("cPc").closest(".comp"); el.scrollIntoView({behavior:"smooth",block:"center"}); el.classList.add("flash"); setTimeout(()=>el.classList.remove("flash"),1200); });
+/* ---------- Diagram navigator: hover lights a section up, click opens its details ---------- */
+function navKey(s){
+  if(s.k==="pt") return "states";
+  if(s.k==="oa"||s.k==="sa") return "cCase";
+  if(s.k==="acc") return "cAcc";
+  if(s.cid) return s.cid;
+  const nm=s.name||"";
+  if(/wheel/i.test(nm)) return "cWheel";
+  if(/Reactivation|Post-cool/i.test(nm)) return "cDes";
+  if(/eliminator/i.test(nm)) return "cEvap";
+  return null;
+}
+function navBar(svg,nav,unit){
+  const wrap=svg.closest(".diag-wrap"); if(!wrap) return;
+  let bar=wrap.nextElementSibling; if(!bar||!bar.classList.contains("diag-nav")){ bar=document.createElement("div"); bar.className="diag-nav"; wrap.after(bar); }
+  const seen=new Set(), list=nav.filter(o=>o.k!=="pt"&&o.k!=="acc"&&!(seen.has(o.key)&&o.key!=="cCase")&&seen.add(o.key));
+  bar.innerHTML=`<span class="dn-l">Go to:</span>`+list.map(o=>`<button type="button" class="dn-chip" data-nav="${o.key}" data-du="${unit}">${esc(o.nm)}</button>`).join("<i>›</i>")+
+    (nav.some(o=>o.k==="pt")?`<button type="button" class="dn-chip st" data-nav="states" data-du="${unit}">Air states ⓘ</button>`:"");
+}
+function navHl(el,on){
+  const unit=el.dataset.du, key=el.dataset.nav, svg=$(unit==="mau"?"diagramMau":"diagram"); if(!svg) return;
+  const bar=svg.closest(".diag-wrap").nextElementSibling;
+  [...svg.querySelectorAll(".sec"),...(bar?bar.querySelectorAll(".dn-chip"):[])].forEach(x=>{ if(x.dataset.nav===key) x.classList.toggle("hl",on); });
+}
+let navFrom=null;
+function navGo(el){
+  const unit=el.dataset.du, key=el.dataset.nav; navFrom=$(unit==="mau"?"diagramMau":"diagram").closest(".diag-wrap");
+  if(isMau()&&$("unitEdit").value!==unit){ switchUnit(unit); update(); }
+  let tgt;
+  if(key==="states"){ showView("calc"); try{ history.replaceState(null,"","#calc"); }catch(e){} save();
+    tgt=unit==="mau"&&isMau()?$("m_states")||$("calcOut"):$("statesBlk")||$("calcOut"); }
+  else tgt=document.querySelector(`.comp[data-comp="${key}"]`);
+  if(!tgt) return;
+  tgt.scrollIntoView({behavior:"smooth",block:key==="states"?"start":"center"});
+  tgt.classList.add("flash"); setTimeout(()=>tgt.classList.remove("flash"),1600);
+  topBtns();
+}
+["mouseover","mouseout","focusin","focusout"].forEach(ev=>document.addEventListener(ev,e=>{ const el=e.target.closest&&e.target.closest("[data-nav]"); if(!el) return;
+  if(e.relatedTarget&&el.contains(e.relatedTarget)) return; navHl(el,ev==="mouseover"||ev==="focusin"); }));
+/* mousedown, not click: leaving an edited input re-draws the diagram on blur, which would swallow the click */
+document.addEventListener("mousedown",e=>{ if(e.button!==0) return; const el=e.target.closest&&e.target.closest("[data-nav]"); if(el){ e.preventDefault(); navGo(el); } });
+document.addEventListener("click",e=>{ if(e.detail!==0) return; const el=e.target.closest&&e.target.closest("[data-nav]"); if(el) navGo(el); });
+document.addEventListener("keydown",e=>{ if((e.key==="Enter"||e.key===" ")&&e.target.matches&&e.target.matches("g.sec[data-nav]")){ e.preventDefault(); navGo(e.target); } });
+/* back to top / back to the diagram */
+function topBtns(){ const y=window.scrollY>320; $("toTop").classList.toggle("on",y); $("toDiag").classList.toggle("on",y&&!!navFrom&&view==="config"); }
+window.addEventListener("scroll",topBtns,{passive:true});
+$("toTop").addEventListener("click",()=>{ window.scrollTo({top:0,behavior:"smooth"}); navFrom=null; });
+$("toDiag").addEventListener("click",()=>{ if(navFrom) navFrom.scrollIntoView({behavior:"smooth",block:"center"}); navFrom=null; setTimeout(topBtns,600); });
+
 /* ---------- Diagram ---------- */
 function drawDiagram(R,svgId,noteId){
   const svg=$(svgId||"diagram"), F=flags(), c=F.c, fa=F.fa;
   const top=F.top;
-  const WD={dheat:64,rfan:64,oa:34,filter:64,filter2:76,wheel:70,plate:74,racoil:64,hpipe:64,des:76,rfilt:76,pt:14,mix:70,fan:80,hcoil:64,wrapA:64,wrapB:64,ccoil:70,uv:40,hum:70,att:64,acc:46,sa:40};
+  const hasR=!!(R&&!R.err), oaTxt=F.noOa?"RA":$("oaSrc").value==="mau"?(isFfu()?"EVAP":"MAU/PAU"):"OA";
+  const WD={dheat:64,rfan:64,oa:Math.max(34,oaTxt.length*7+22),filter:64,filter2:76,wheel:70,plate:74,racoil:64,hpipe:64,des:76,rfilt:76,pt:hasR?40:14,mix:70,fan:80,hcoil:64,wrapA:64,wrapB:64,ccoil:70,uv:40,hum:70,att:64,acc:46,sa:40};
   const S=(R&&!R.err&&R.lay?R.lay:buildLayout(F,null)).map(s=>Object.assign({},s,{w:WD[s.k]||64}));
-  const x0=30, gap=6; let x=x0; S.forEach(s=>{ s.x=x; x+=s.w+gap; });
+  /* two state points side by side (no section between them) get extra room so their labels do not overlap */
+  const x0=30, gap=6; let x=x0; S.forEach((s,i)=>{ if(hasR&&s.k==="pt"&&S[i-1]&&S[i-1].k==="pt") x+=14; s.x=x; x+=s.w+gap; });
   const react=F.react, dhR=62;
   const W=x+30, yTop=40, dh=82, yBot=top?yTop+dh+34:(fa?40:62), yRe=yBot+dh+46, H=react?yRe+dhR+56:yBot+dh+70;
   svg.setAttribute("viewBox",`0 0 ${W} ${H}`);
@@ -1340,14 +1415,15 @@ function drawDiagram(R,svgId,noteId){
   let rfX=null;
   if(top&&c.rf){ rfX=S[S.length-1].x-110; }
   const pt=(code)=>R&&!R.err&&R.pts.find(q=>q.code===code);
+  const unit=svgId==="diagramMau"?"mau":"ahu", nav=[];
   S.forEach(s=>{
-    const xx=s.x, w=s.w, y=yBot, h=dh;
+    const xx=s.x, w=s.w, y=yBot, h=dh, g0=g.length;
     switch(s.k){
-      case "oa": { const p0=pt("OA");
-        { const dx=xx+w; g+=`<line x1="${dx}" y1="${y+6}" x2="${dx}" y2="${y+h-6}" stroke="var(--surface)" stroke-width="6"/>`;
+      case "oa": { const p0=pt(F.noOa?"R":"OA");
+        if(!F.noOa){ const dx=xx+w; g+=`<line x1="${dx}" y1="${y+6}" x2="${dx}" y2="${y+h-6}" stroke="var(--surface)" stroke-width="6"/>`;
           for(let i=0;i<4;i++){ const yy=y+10+i*(h-20)/3; g+=`<line x1="${dx-6}" y1="${yy-5}" x2="${dx+6}" y2="${yy+5}" stroke="${CL.ink}" stroke-width="1.6"/>`; }
-          g+=`<text x="${dx}" y="${y-6}" text-anchor="middle" class="ds">OA damper</text>`; }
-        g+=`<text x="${xx+w/2}" y="${ym-10}" text-anchor="middle" class="dl">${$("oaSrc").value==="mau"?(isFfu()?"EVAP":"MAU/PAU"):"OA"}</text>`; if(p0) g+=`<text x="${xx+w/2}" y="${ym+20}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text>`;
+          g+=`<text x="${dx+4}" y="${y-8}" text-anchor="end" class="ds">OA damper</text>`; }
+        g+=`<text x="${xx+w/2}" y="${ym-10}" text-anchor="middle" class="dl">${oaTxt}</text>`; if(p0) g+=`<text x="${xx+w/2}" y="${ym+20}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text>`;
         if(top) g+=`<text x="${xx+w/2}" y="${yt-10}" text-anchor="middle" class="dl">EA</text>`; break; }
       case "sa": { const p0=pt("S"); g+=`<text x="${xx+w/2+4}" y="${ym-10}" text-anchor="middle" class="dl">SA</text>`; if(p0) g+=`<text x="${xx+w/2+4}" y="${ym+20}" text-anchor="middle" class="ds">${fmt(p0.t)}°</text>`;
         if(top) g+=`<text x="${xx+w/2+4}" y="${yt-10}" text-anchor="middle" class="dl">RA</text>`; break; }
@@ -1392,7 +1468,6 @@ function drawDiagram(R,svgId,noteId){
         g+=`<path d="M${xx+w/2},${top?yt+12:yBot-34} C${xx+w/2},${yBot-20} ${xx+w/2},${yBot} ${xx+w/2},${ym-12}" fill="none" stroke="${CL.ink}" stroke-width="1.3" marker-end="url(#arr)"/>`; }
         if(!top&&F.mixD){ const pr=pt("R"); g+=`<text x="${xx+w/2+8}" y="${yBot-26}" class="dl">RA</text>`+(pr?`<text x="${xx+w/2+30}" y="${yBot-26}" class="ds">${fmt(pr.t)}°</text>`:""); }
         g+=label(xx+w/2,y+h+16,"Mixing box")+(F.mixD?"":`<text x="${xx+w/2}" y="${y+h+29}" text-anchor="middle" class="ds">no dampers</text>`);
-        const pm=pt("M"); if(pm) g+=`<circle cx="${xx+w-8}" cy="${ym}" r="9" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.2"/><text x="${xx+w-8}" y="${ym+3.5}" text-anchor="middle" class="dp">M</text><text x="${xx+w-8}" y="${ym-15}" text-anchor="middle" class="ds">${fmt(pm.t)}°</text><text x="${xx+w-8}" y="${ym+24}" text-anchor="middle" class="ds">${fmt(tdewFromW(pm.W,R.p))}°dp</text>`;
         break; }
       case "wheel": { const y1=yTop-2, y2=yBot+dh+2, mid=(yTop+dh+yBot)/2;
         g+=box(xx+10,y1,w-20,y2-y1,CL.rec)+`<line x1="${xx+10}" y1="${mid}" x2="${xx+w-10}" y2="${mid}" stroke="${CL.rec}" stroke-width="1.2"/>`;
@@ -1406,15 +1481,22 @@ function drawDiagram(R,svgId,noteId){
         g+=`<text x="${xx+w/2}" y="${ym+7}" text-anchor="middle" style="font:700 20px sans-serif;fill:${CL.des}">−</text><text x="${xx+w/2}" y="${yt+7}" text-anchor="middle" style="font:700 20px sans-serif;fill:${CL.des}">+</text>`;
         g+=label(xx+w/2,y2+16,s.lbl,CL.des); break; }
     }
+    /* navigator: every section is a hover / click target that leads to its settings (state points lead to the calculation) */
+    const key=navKey(s); if(!key||g.length===g0) return;
+    const span=["wheel","plate","hpipe","racoil"].includes(s.k), bot=s.deck==="bot", isDes=s.k==="des", topF=s.k==="rfilt"&&!bot;
+    const hy0=bot?yRe-8:isDes?yBot-8:(span||topF)?yTop-24:yBot-30, hy1=bot?yRe+dhR+34:isDes?yRe+dhR+22:topF?yTop+dh+8:yBot+dh+34;
+    const nm=s.k==="pt"?`State point ${s.lbl==="OA'"?"O'":s.lbl}`:s.k==="oa"?(F.noOa?"Return-air inlet":"Outdoor-air inlet"):s.k==="sa"?"Supply-air outlet":(s.name||s.lbl);
+    nav.push({key,nm,k:s.k});
+    g=g.slice(0,g0)+`<g class="sec" data-nav="${key}" data-du="${unit}" tabindex="0" role="button" aria-label="${esc(nm)}: show details"><title>${esc(nm)} — click for details</title><rect class="hit" x="${xx-gap/2}" y="${hy0}" width="${w+gap}" height="${hy1-hy0}" rx="6"/>`+g.slice(g0)+`</g>`;
   });
   // wrap-around link
   const wa=S.filter(s=>s.k==="wrapA"), wb=S.filter(s=>s.k==="wrapB");
   wa.forEach((a,i)=>{ const b=wb[wb.length-1-i]; if(!b) return; const yy=yBot-14-i*8; g+=`<path d="M${a.x+a.w/2},${yBot} V${yy} H${b.x+b.w/2} V${yBot}" fill="none" stroke="${CL.rec}" stroke-width="1.3" stroke-dasharray="4 3"/>`; });
-  if(rfX!=null){ const r=Math.min(26,dh/2-8), cx=rfX+30, cy=yt; g+=`<circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.6"/>`;
+  if(rfX!=null){ const r=Math.min(26,dh/2-8), cx=rfX+30, cy=yt; nav.push({key:"cRf",nm:"Return fan",k:"fan"}); g+=`<g class="sec" data-nav="cRf" data-du="${unit}" tabindex="0" role="button" aria-label="Return fan: show details"><title>Return fan — click for details</title><rect class="hit" x="${cx-r-14}" y="${yTop-26}" width="${2*r+28}" height="${dh+30}" rx="6"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.6"/>`;
     for(let i=0;i<5;i++){ const a=Math.PI+i*2*Math.PI/5; g+=`<path d="M${cx},${cy} Q${cx+r*0.9*Math.cos(a+0.6)},${cy+r*0.9*Math.sin(a+0.6)} ${cx+r*0.8*Math.cos(a+1.1)},${cy+r*0.8*Math.sin(a+1.1)}" fill="none" stroke="${CL.ink}" stroke-width="1.2"/>`; }
-    g+=`<text x="${cx}" y="${yTop-12}" text-anchor="middle" class="dl">Return fan</text>`; }
+    g+=`<text x="${cx}" y="${yTop-12}" text-anchor="middle" class="dl">Return fan</text></g>`; }
   if(top){ const pr=pt("R"); if(pr) g+=`<text x="${W-24}" y="${yt+20}" text-anchor="end" class="ds">${fmt(pr.t)}°</text>`; }
-  svg.innerHTML=g;
+  svg.innerHTML=g; navBar(svg,nav,unit);
   $(noteId||"diagNote").textContent=R&&!R.err?`Airflow: supply ${fmt(R.Q,0)} m³/h${R.fa?" (100% outdoor air)":` · outdoor air ${fmt(R.qOa,0)} m³/h · return ${fmt(R.qRet,0)} m³/h`} · relief/exhaust ${fmt(R.qRel,0)} m³/h. Numbers under the circles are dry bulb / dew point at that point.`:"";
 }
 
@@ -1426,7 +1508,9 @@ function processModel(R){
   const flowOf=code=>code==="OA"||code==="OA'"||code==="OH"?R.qOa:code==="R"?R.qRet:R.Q;
   const same=(a,b)=>Math.abs(a.t-b.t)<1e-6&&Math.abs(a.W-b.W)<1e-9;
   const keep=["P","RH","H","C1","C","C2","I","E"];
-  const main=[]; R.pts.forEach(q=>{ if(q.code==="R") return; const prev=main[main.length-1]; if(prev&&same(prev,q)&&!keep.includes(q.code)) return; main.push(q); });
+  const noOa=!R.fa&&!(R.qOa>0); /* 0 % outdoor air: the unit takes return air only (no outdoor-air stream, no mixing) */
+  const main=[]; R.pts.forEach(q=>{ if(q.code==="R") return; if(noOa&&["OA","OA'","OH"].includes(q.code)) return;
+    if(noOa&&q.code==="M") q=Object.assign({},q,{desc:"Return air (0 % outdoor air)"}); const prev=main[main.length-1]; if(prev&&same(prev,q)&&!keep.includes(q.code)) return; main.push(q); });
   const ret=R.pts.find(q=>q.code==="R");
   const node=q=>{ const v=vol(q.t,q.W,p), pw=PwfromW(q.W,p);
     return {code:q.code, desc:q.desc, t:q.t, W:q.W, q:flowOf(q.code), twb:wetbulb(q.t,q.W,p), rh:RHfromW(q.t,q.W,p), v, h:enth(q.t,q.W), td:tdewFromW(q.W,p), rho:(1+q.W)/v, pw, pwmm:pw*7.50062, abs:q.W/v*1000}; };
@@ -1605,12 +1689,24 @@ function drawChart(R){
     if(R.mau){ const MP=R.mau.pts.filter(q=>q.code!=="R");
       g+=`<polyline points="${MP.map(q=>pos(q).map(v=>v.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--c-plenum)" stroke-width="2" stroke-dasharray="7 3"/>`; }
     if(isFinite(R.adp)){ const c=by("C"), ci=R.CI, a=[X(R.adp),Y(Wsat(R.adp,p)*1000)];
-      g+=`<line x1="${X(ci.t)}" y1="${Y(ci.W*1000)}" x2="${a[0]}" y2="${a[1]}" stroke="var(--c-coil)" stroke-width="1.3" stroke-dasharray="6 4"/><circle cx="${a[0]}" cy="${a[1]}" r="4.5" fill="var(--surface)" stroke="var(--c-coil)" stroke-width="2"/><text x="${a[0]-8}" y="${a[1]-8}" text-anchor="end" class="lbl" style="fill:var(--c-coil)">ADP ${fmt(R.adp)}</text>`; }
+      g+=`<line x1="${X(ci.t)}" y1="${Y(ci.W*1000)}" x2="${a[0]}" y2="${a[1]}" stroke="var(--c-coil)" stroke-width="1.3" stroke-dasharray="6 4"/><circle cx="${a[0]}" cy="${a[1]}" r="4.5" fill="var(--surface)" stroke="var(--c-coil)" stroke-width="2"/>`; }
     g+=`</g>`;
-    const placed=[];
-    P.forEach(s=>{ const [x,y]=pos(s); let dy=-9; placed.forEach(q=>{ if(Math.abs(q[0]-x)<26&&Math.abs(q[1]-(y+dy))<12) dy-=13; }); placed.push([x,y+dy]);
-      g+=`<circle cx="${x}" cy="${y}" r="5" fill="${s.col}" stroke="var(--surface)" stroke-width="1.6"/><text x="${x+7}" y="${y+dy}" class="lbl" style="fill:${s.col}">${esc(s.code)}</text>`; });
-    if(R.mau) R.mau.pts.filter(q=>q.code!=="R").forEach(q=>{ const [x,y]=pos(q); g+=`<circle cx="${x}" cy="${y}" r="4" fill="var(--surface)" stroke="var(--c-plenum)" stroke-width="2"/><text x="${x+6}" y="${y+12}" class="lbl" style="fill:var(--c-plenum)">m${esc(q.code)}</text>`; });
+    /* point labels: points at the same spot share one label; each label takes the first free spot around its point (no overlaps) */
+    const groups=[]; const addG=(q,code,col,ring)=>{ const [x,y]=pos(q); const gp=groups.find(o=>Math.abs(o.x-x)<2.5&&Math.abs(o.y-y)<2.5&&o.ring===ring); if(gp){ if(!gp.codes.includes(code)) gp.codes.push(code); } else groups.push({x,y,codes:[code],col,ring}); };
+    P.forEach(q=>addG(q,q.code,q.col,false));
+    if(R.mau) R.mau.pts.filter(q=>q.code!=="R").forEach(q=>addG(q,"m"+q.code,"var(--c-plenum)",true));
+    const boxes=groups.map(o=>({x0:o.x-6,y0:o.y-6,x1:o.x+6,y1:o.y+6}));
+    const hit=(b)=>boxes.some(c=>b.x0<c.x1&&b.x1>c.x0&&b.y0<c.y1&&b.y1>c.y0)||b.x0<W0+2||b.x1>W1-2||b.y0<H0+2||b.y1>H1-2;
+    if(isFinite(R.adp)){ const ax=X(R.adp), ay=Y(Wsat(R.adp,p)*1000); boxes.push({x0:ax-6,y0:ay-6,x1:ax+6,y1:ay+6}); groups.push({x:ax,y:ay,codes:["ADP "+fmt(R.adp)],col:"var(--c-coil)",adp:true}); }
+    groups.forEach(o=>{ o.txt=o.codes.join(" · "); });
+    groups.forEach(o=>{ const w=o.txt.length*7.4+2, h=13;
+      const cand=o.adp?[[-8,-6,"end"],[-8,10,"end"],[0,20,"middle"],[8,10,"start"],[-8,-19,"end"],[0,33,"middle"],[8,23,"start"]]:[[8,-6,"start"],[8,10,"start"],[-8,-6,"end"],[-8,10,"end"],[0,-12,"middle"],[0,20,"middle"],[8,-19,"start"],[8,23,"start"],[-8,-19,"end"],[-8,23,"end"],[0,-25,"middle"],[0,33,"middle"]];
+      let pick=null;
+      for(const [dx,dy,an] of cand){ const x0=an==="start"?o.x+dx:an==="end"?o.x+dx-w:o.x-w/2, b={x0,y0:o.y+dy-h+3,x1:x0+w,y1:o.y+dy+3}; if(!hit(b)){ pick=[dx,dy,an,b]; break; } }
+      if(!pick){ const b={x0:o.x+8,y0:o.y-16,x1:o.x+8+w,y1:o.y-3}; pick=[8,-6,"start",b]; }
+      boxes.push(pick[3]); o.lx=o.x+pick[0]; o.ly=o.y+pick[1]; o.an=pick[2]; });
+    groups.forEach(o=>{ if(o.adp) return; g+=o.ring?`<circle cx="${o.x}" cy="${o.y}" r="4" fill="var(--surface)" stroke="var(--c-plenum)" stroke-width="2"/>`:`<circle cx="${o.x}" cy="${o.y}" r="5" fill="${o.col}" stroke="var(--surface)" stroke-width="1.6"/>`; });
+    groups.forEach(o=>{ g+=`<text x="${o.lx}" y="${o.ly}" text-anchor="${o.an}" class="lbl" style="fill:${o.col};paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round">${esc(o.txt)}</text>`; });
     note=`Points: ${P.map(s=>`${s.code} ${s.desc.toLowerCase()} (${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg)`).join("; ")}.${isFinite(R.adp)?` Dashed purple line: coil process extended to the apparatus dew point ${fmt(R.adp)} °C.`:""}`;
   } else g+=`</g>`;
   g+=`<rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}" fill="none" stroke="var(--grid-strong)"/>`;
@@ -2183,7 +2279,7 @@ $("sumWrap").innerHTML=TABLES.map((t,i)=>`<div class="sum-blk" id="blk-${t.key}"
   <div class="row"><h3>${esc(t.title)}</h3><div class="btns"><button class="btn" type="button" data-exp="xlsx" data-t="${i}">Excel</button><button class="btn" type="button" data-exp="pdf" data-t="${i}">PDF</button></div></div>
   <div class="tbl-wrap"><table class="sum sched"><thead id="h-${t.key}"></thead><tbody id="b-${t.key}"></tbody></table></div></div>`).join("");
 $("blk-coord").insertAdjacentHTML("afterend",`<div class="sum-blk hidden" id="blk-bal">
-  <div class="row"><h3>Table 3 · Air flow balance per AHU</h3><div class="btns"><button class="btn" type="button" data-balexp="xlsx">Excel</button><button class="btn" type="button" data-balexp="pdf">PDF</button></div></div>
+  <div class="row"><h3>Table 3 · Air flow balance per AHU</h3><div class="btns"><button class="btn" type="button" data-balexp="xlsx" title="All AHUs in one sheet">Excel (all AHUs)</button><button class="btn" type="button" data-balexp="pdf" title="All AHUs in one report">PDF (all AHUs)</button></div></div>
   <p class="note">Rooms come from each AHU's linked rooms (room supply = the recommended case of the dew point tool); add other rooms with “+ Add room”. Enter class, ΔP, extract and leakage; return = supply + leakage / transfer in − extract − leakage out. Fresh air is shared in proportion to supply unless you enter it. Entries are kept per AHU tag in this browser.</p>
   <div id="balWrap" style="display:grid;gap:16px"></div></div>`);
 const FOOT="AHU process per ASHRAE Fundamentals 2021, Ch. 1 psychrometrics; CHW supply t_w = 2·t_ad − t_wb (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11). Size, weight and electrical load are estimates for coordination; confirm with the AHU manufacturer's selection.";
@@ -2214,11 +2310,12 @@ document.querySelectorAll("select.pick").forEach(sel=>sel.addEventListener("chan
 const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const sumSub=()=>{ const k=SUMMARY.rows.length; return `${k} AHU${k>1?"s":""} · exported ${dateStr()}`; };
 const tblRows=t=>{ const cols=visCols(t); return t.records(SUMMARY.rows).map(r=>cols.map(c=>r[c.k])); };
-function exportTables(list,kind,file){
+function exportTables(list,kind,file,sub,paper){
   list=list.filter(t=>t.records(SUMMARY.rows).length);
   if(!list.length){ toast("Nothing to export yet",true); return; }
-  if(kind==="xlsx") EXPORT.xlsx({file:`${file}_${dateStr()}.xlsx`, sheets:list.map(t=>({sheet:t.sheet, title:t.title.replace(/^Table \d+ · /,""), subtitle:sumSub(), cols:visCols(t), rows:tblRows(t), freezeCols:2}))});
-  else { EXPORT.pdf({file:`${file}_${dateStr()}`, subtitle:sumSub(), footer:FOOT, paper:"A3", sections:list.map(t=>({title:t.title.replace(/^Table \d+ · /,""), cols:visCols(t), rows:tblRows(t)}))});
+  sub=sub||sumSub();
+  if(kind==="xlsx") EXPORT.xlsx({file:`${file}_${dateStr()}.xlsx`, sheets:list.map(t=>({sheet:t.sheet, title:t.title.replace(/^Table \d+ · /,""), subtitle:sub, cols:visCols(t), rows:tblRows(t), freezeCols:t.freeze!=null?t.freeze:2}))});
+  else { EXPORT.pdf({file:`${file}_${dateStr()}`, subtitle:sub, footer:FOOT, paper:paper||"A3", sections:list.map(t=>({title:t.title.replace(/^Table \d+ · /,""), cols:visCols(t), rows:tblRows(t)}))});
     toast("Choose “Save as PDF” in the print dialog"); }
 }
 $("sumWrap").addEventListener("click",e=>{ const b=e.target.closest("[data-exp]"); if(!b) return;
@@ -2338,7 +2435,7 @@ const dpTxt=v=>{ const x=nv(v); return isFinite(x)?(x>0?"+":"")+fmt(x,0):""; };
 function balBlock(r){
   const B=balData(r), inp=(o,f,v,ph,t)=>`<input class="bi${t?" t":""}" data-k="${esc(o.key)}" data-f="${f}" ${t?'type="text"':'type="number" step="any"'} value="${esc(v==null?"":String(v))}"${ph!=null?` placeholder="${esc(String(ph))}"`:""} aria-label="${f}">`;
   const ent=(o,f)=>o.e[f]!=null&&o.e[f]!==""?o.e[f]:"";
-  return `<div class="bal-blk" data-ahu="${esc(r.id)}"><div class="row"><h4>${esc(r.id)} AIR FLOW BALANCE TABLE</h4><div class="btns"><button class="btn" type="button" data-baladd>+ Add room</button></div></div>
+  return `<div class="bal-blk" data-ahu="${esc(r.id)}"><div class="row"><h4>${esc(r.id)} AIR FLOW BALANCE TABLE</h4><div class="btns"><button class="btn" type="button" data-baladd>+ Add room</button><button class="btn" type="button" data-bal1="xlsx" title="Export this AHU's table to Excel">Excel</button><button class="btn" type="button" data-bal1="pdf" title="Export this AHU's table to PDF">PDF</button></div></div>
   <div class="tbl-wrap"><table class="sum bal"><thead><tr><th>Room No.</th><th>Room name</th><th>Class</th><th class="r">ΔP (Pa)</th><th class="r">Supply</th><th class="r">Extract</th><th class="r">Return</th><th class="r">Fresh air</th><th class="r">Leakage / transfer in</th><th class="r">Leakage out</th><th></th></tr></thead>
   <tbody>${B.rows.map(o=>`<tr data-k="${esc(o.key)}"><td>${o.man?inp(o,"id",o.id,"Room No.",1):esc(o.id)}</td><td>${o.man?inp(o,"name",o.name,"Room name",1):esc(o.name)}</td>
     <td>${inp(o,"cls",o.cls,null,1)}</td><td>${inp(o,"dp",o.dp,"+15")}</td><td>${inp(o,"sup",ent(o,"sup"),isFinite(o.lflow)?Math.round(o.lflow):0)}</td><td>${inp(o,"ext",ent(o,"ext"),0)}</td>
@@ -2382,6 +2479,13 @@ const BAL_T={key:"bal", title:"Table 3 · Air flow balance", sheet:"Air flow bal
     B.rows.forEach(o=>out.push({ahu:r.id,roomId:o.id,roomName:o.name,cls:o.cls,dp:dpTxt(o.dp),sup:Math.round(o.sup),ext:Math.round(o.ext),ret:Math.round(o.ret),fa:Math.round(o.fa),lin:Math.round(o.lin),lout:Math.round(o.lout)}));
     out.push({ahu:r.id,roomId:"TOTAL (rooms)",roomName:"",cls:"",dp:"",sup:Math.round(B.T.sup),ext:Math.round(B.T.ext),ret:Math.round(B.T.ret),fa:Math.round(B.T.fa),lin:Math.round(B.T.lin),lout:Math.round(B.T.lout)}); }); return out; }};
 
+/* one AHU's air flow balance on its own (Excel sheet names: no / \ ? * [ ] :, max. 31 characters) */
+const safeName=(t,n)=>String(t).replace(/[\\/?*\[\]:]+/g,"-").replace(/\s+/g," ").trim().slice(0,n||31)||"AHU";
+const balOne=tag=>({key:"bal1", title:`${tag} · Air flow balance`, sheet:safeName(tag+" balance"), freeze:1, cols:BAL_COLS.filter(c=>c.k!=="ahu"),
+  records:rows=>BAL_T.records(rows.filter(r=>r.id===tag))});
+$("balWrap").addEventListener("click",e=>{ const b=e.target.closest("[data-bal1]"), blk=b&&b.closest(".bal-blk"); if(!blk) return;
+  const tag=blk.dataset.ahu, r=SUMMARY.rows.find(x=>x.id===tag), q=r&&nv(r.qty)>1?` × ${nv(r.qty)}`:"";
+  exportTables([balOne(tag)],b.dataset.bal1,"Air-flow-balance_"+safeName(tag,60).replace(/\s/g,"-"),`${r?balData(r).rows.length:0} room(s)${q?` · AHU quantity${q}`:""} · exported ${dateStr()}`,"A4"); });
 BAL_OK=true; balRender(SUMMARY.rows);
 
 /* ---------- Working AHUs: New / Copy, kept for comparison; only “+ Add to summary” puts one in the schedule ---------- */
