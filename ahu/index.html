@@ -196,7 +196,7 @@ table.sched th{text-align:center;vertical-align:middle}
 #sizeBody td.note{font-size:.8rem}
 .layout>main.panel{min-width:0}
 .tbl-wrap{overflow-x:auto;max-width:100%}
-.view>*,#sumWrap>*,#calcOut>*{min-width:0}
+.view>*,#sumWrap>*,#calcOut>*,#balWrap>*,.bal-blk>*{min-width:0}
 
 .comp-f .chkf{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:.8rem;cursor:pointer;margin:0}
 .comp-f .chkf input{width:15px;height:15px;accent-color:var(--accent)}
@@ -227,14 +227,20 @@ table.sched th{text-align:center;vertical-align:middle}
 .bal-blk h4{margin:0;font-size:.95rem;letter-spacing:.01em}
 .bal-blk>.row{margin-bottom:6px}
 table.bal td{vertical-align:middle}
-table.bal input.bi{width:100%;min-width:84px;box-sizing:border-box;border:1px solid var(--line);border-radius:4px;padding:3px 6px;font:inherit;font-family:var(--font-num);text-align:right;background:var(--surface);color:var(--ink)}
-table.bal input.bi.t{text-align:left;font-family:inherit;min-width:90px}
+table.bal input.bi{width:100%;min-width:70px;max-width:110px;box-sizing:border-box;border:1px solid var(--line);border-radius:4px;padding:3px 6px;font:inherit;font-family:var(--font-num);text-align:right;background:var(--surface);color:var(--ink)}
+table.bal input.bi.t{text-align:left;font-family:inherit;min-width:80px;max-width:140px}
 table.bal input.bi::placeholder{color:var(--muted);opacity:.75}
 table.bal input.bi:focus{outline:2px solid var(--accent);outline-offset:-1px}
 table.bal tfoot td{font-weight:600;border-top:2px solid var(--ink)}
 .bal-chk{margin:6px 0 0}
 table.cmp td:first-child{white-space:nowrap;font-weight:500}
 table.cmp th{vertical-align:bottom}
+
+table.bal th{white-space:normal;line-height:1.25}
+table.bal{min-width:0}
+.bal-blk>.row{flex-wrap:wrap;gap:6px}
+table.bal input.bi[type=number]{-moz-appearance:textfield;appearance:textfield;padding:3px 5px}
+table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 </style>
 </head>
 <body>
@@ -280,9 +286,9 @@ table.cmp th{vertical-align:bottom}
         <div class="field"><label for="oaWb" id="oaWbLbl">Outdoor air WB</label><div class="inp"><input id="oaWb" data-save type="number" step="0.1" value="28"><span class="u">°C</span></div></div>
         <div class="field"><label for="roomT">Room DB, calculation</label><div class="inp"><input id="roomT" data-save type="number" step="0.1" value="23"><span class="u">°C</span></div></div>
         <div class="field"><label for="roomRH">Room RH, calculation</label><div class="inp"><input id="roomRH" data-save type="number" step="1" value="55"><span class="u">%</span></div></div>
-        <div class="field"><label for="spT">Set point DB <small>(blank = calc.)</small></label><div class="inp"><input id="spT" data-save type="text" value="" placeholder="e.g. 22 ± 2" autocomplete="off"><span class="u">°C</span></div></div>
-        <div class="field"><label for="spRH">Set point RH <small>(blank = calc.)</small></label><div class="inp"><input id="spRH" data-save type="text" value="" placeholder="e.g. ≤ 60" autocomplete="off"><span class="u">%</span></div></div>
-        <p class="note full" id="spNote" style="margin:0">Table 1 shows the set point; the calculation point (linked from the dew point tool) must cover it. Enter a value, a range (20–24, 22 ± 2) or a limit (≤ 60, ≥ 40).</p>
+        <div class="field"><label for="spT">Set point DB <small>(blank = calc.)</small></label><div class="inp"><input id="spT" data-save type="text" value="" placeholder="22 ± 2" autocomplete="off"><span class="u">°C</span></div></div>
+        <div class="field"><label for="spRH">Set point RH <small>(blank = calc.)</small></label><div class="inp"><input id="spRH" data-save type="text" value="" placeholder="≤ 60" autocomplete="off"><span class="u">%</span></div></div>
+        <p class="note full" id="spNote" style="margin:0;grid-column:1/-1">Table 1 shows the set point; the calculation point (linked from the dew point tool) must cover it. Enter a value, a range (20–24, 22 ± 2) or a limit (≤ 60, ≥ 40).</p>
         <div class="field full"><label for="rhCtl">Room RH control</label><div class="inp"><select id="rhCtl" data-save><option value="ctl">Controlled (RH shown in schedules)</option><option value="no">No control (calculate at the RH above, schedule shows “No control”)</option></select></div></div>
         <div class="field full"><label for="retRise">Return air temperature rise (ceiling, lights)</label><div class="inp"><input id="retRise" data-save type="number" step="0.1" value="0.5"><span class="u">K</span></div></div>
       </div>
