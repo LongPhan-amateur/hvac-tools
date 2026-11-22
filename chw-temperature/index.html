@@ -296,7 +296,7 @@ th.grp{text-align:center}
             <button class="btn ghost" type="button" id="sumClear">Clear all</button>
           </div>
         </div>
-        <p class="note">Calculate a coil in tab 1, then press “+ Add to summary”. A room with the same Room ID replaces the earlier entry. “Load” brings a room back into the calculator to edit it. The summary is saved in this browser.</p>
+        <p class="note">Calculate a coil in tab 1, then press “+ Add to summary”. A room with the same Room ID replaces the earlier entry. The row you added or loaded last follows the calculator: later changes are saved to it automatically. Linking from the dew point tool takes the recommended case of each room. “Load” brings a room back into the calculator to edit it. The summary is saved in this browser.</p>
         <p class="note hidden" id="sumEmpty" style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center">No rooms yet.</p>
         <div class="tbl-wrap" id="sumWrap"><table class="sum"><thead id="sumHead"></thead><tbody id="sumBody"></tbody></table></div>
       </section>
@@ -650,7 +650,11 @@ function readShared(k){ try{ const v=JSON.parse(localStorage.getItem(SHARED_KEYS
 function makeSummary(cfg){
   let rows=[];
   try{ rows=JSON.parse(localStorage.getItem(cfg.key)||"[]"); if(!Array.isArray(rows)) rows=[]; }catch(e){ rows=[]; }
-  const persist=()=>{ try{ localStorage.setItem(cfg.key,JSON.stringify(rows)); }catch(e){} };
+  const keyOf=cfg.keyOf||(r=>r.id||"");
+  /* the row last added or loaded follows the calculator: changes are written back to it automatically */
+  let active=null; try{ active=localStorage.getItem(cfg.key+"-active"); }catch(e){}
+  const setActive=k=>{ active=k||null; try{ if(active) localStorage.setItem(cfg.key+"-active",active); else localStorage.removeItem(cfg.key+"-active"); }catch(e){} };
+  const persist=()=>{ if(cfg.beforePersist) cfg.beforePersist(rows); try{ localStorage.setItem(cfg.key,JSON.stringify(rows)); }catch(e){} };
   const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
   const tables=cfg.tables||[{headId:cfg.headId, bodyId:cfg.bodyId, cols:cfg.cols, title:cfg.title, sheet:"Summary", records:all=>all, actions:true}];
   const recs=t=>{ const out=[]; t.records(rows).forEach((r,i)=>out.push(r.__i==null?Object.assign({__i:i},r):r)); return out; };
@@ -671,27 +675,27 @@ function makeSummary(cfg){
     });
     if(cfg.onRender) cfg.onRender(rows);
   }
-  function put(r){ // add or replace by id; returns true when replaced
-    const i=r.id?rows.findIndex(x=>x.id===r.id):-1;
+  function put(r){ // add or replace by key (Room ID, Room ID + case, AHU tag); returns true when replaced
+    const k=keyOf(r), i=k?rows.findIndex(x=>keyOf(x)===k):-1;
     if(i>=0){ rows[i]=r; return true; } rows.push(r); return false;
   }
   function add(){
     const r=cfg.collect();
     if(r.err){ toast(r.err,true); return; }
-    const rep=put(r); persist(); render();
+    const rep=put(r); setActive(keyOf(r)); persist(); render();
     const n=rows.length, lbl=cfg.unit||"room";
     toast(`${rep?"Updated":"Added"} ${r.id||lbl} ${rep?"in":"to"} the summary (${n} ${lbl}${n>1?"s":""})`);
   }
   tables.filter(t=>t.actions).forEach(t=>$(t.bodyId).addEventListener("click",e=>{
     const ld=e.target.closest("[data-load]"), rm=e.target.closest("[data-rm]");
-    if(ld){ const r=rows[+ld.dataset.load]; cfg.restore(r); toast(`Loaded ${r.id||cfg.unit||"room"}`); }
-    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; persist(); render(); toast(`Removed ${r.id||cfg.unit||"room"}`); }
+    if(ld){ const r=rows[+ld.dataset.load]; setActive(keyOf(r)); cfg.restore(r); toast(`Loaded ${r.id||cfg.unit||"room"}`); }
+    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; if(keyOf(r)===active) setActive(null); persist(); render(); toast(`Removed ${r.id||cfg.unit||"room"}`); }
   }));
   $(cfg.addId).addEventListener("click",add);
   $(cfg.clearId).addEventListener("click",()=>{
     if(!rows.length) return;
     if(!confirm(`Remove all ${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} from the summary?`)) return;
-    rows=[]; persist(); render();
+    rows=[]; setActive(null); persist(); render();
   });
   const sub=()=>`${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`;
   const table=t=>recs(t).map(r=>t.cols.map(c=>r[c.k]));
@@ -704,7 +708,17 @@ function makeSummary(cfg){
     toast("Choose “Save as PDF” in the print dialog");
   });
   render();
-  return {render, put(r){ const x=put(r); persist(); render(); return x; }, get rows(){ return rows; }};
+  /* called after every recalculation: refresh the active row with the current results (no need to press Add again) */
+  let syncBusy=false;
+  function sync(){
+    if(!active||syncBusy) return; const i=rows.findIndex(x=>keyOf(x)===active); if(i<0) return;
+    syncBusy=true; let r; try{ r=cfg.collect(); }finally{ syncBusy=false; }
+    if(!r||r.err||keyOf(r)!==active) return;
+    const a=JSON.stringify(rows[i]), b=JSON.stringify(r); if(a===b) return;
+    rows[i]=r; persist(); render();
+  }
+  if(rows.length&&cfg.beforePersist){ cfg.beforePersist(rows); render(); }
+  return {render, sync, setActive, keyOf, get active(){ return active; }, put(r){ const x=put(r); persist(); render(); return x; }, persist(){ persist(); render(); }, get rows(){ return rows; }};
 }
 
 /* Link dialog: pick rooms from the dew point tool's summary (all / by Room ID / by AC equipment) */
@@ -714,17 +728,17 @@ function linkDialog(opts){ // opts:{title, note, rooms:[...], onApply(list, scop
   dlg=document.createElement("dialog"); dlg.id="linkDlg"; dlg.className="dlg";
   const rooms=opts.rooms;
   const ids=rooms.map(r=>r.id).filter(Boolean);
-  const eqs=[...new Set(rooms.map(r=>r.equip).filter(Boolean))];
+  const cases=opts.cases||[], eqs=cases;
   dlg.innerHTML=`<form method="dialog" class="dlg-body">
     <h2>${esc(opts.title)}</h2>
     <p class="note">${opts.note}</p>
     ${rooms.length?`
     <fieldset class="scope"><legend class="sr">Scope</legend>
-      <label class="opt"><input type="radio" name="scope" value="all" checked> <span>All AHUs / all rooms <small>(${rooms.length} room${rooms.length>1?"s":""}${eqs.length?` · ${eqs.length} AC equipment`:""})</small></span></label>
-      <label class="opt"><input type="radio" name="scope" value="room"> <span>By Room ID</span>
-        <select id="lkRoom">${ids.map(i=>{ const r=rooms.find(x=>x.id===i); return `<option value="${esc(i)}">${esc(i)}${r&&r.name?" — "+esc(r.name):""}${r&&r.equip?" ("+esc(r.equip)+")":""}</option>`; }).join("")}</select></label>
-      <label class="opt"><input type="radio" name="scope" value="equip" ${eqs.length?"":"disabled"}> <span>By AC equipment name</span>
-        <select id="lkEquip" ${eqs.length?"":"disabled"}>${eqs.map(e=>`<option value="${esc(e)}">${esc(e)} — ${rooms.filter(r=>r.equip===e).length} room(s)</option>`).join("")}</select></label>
+      <label class="opt"><input type="radio" name="scope" value="all" checked> <span>All rooms <small>(${rooms.length} room${rooms.length>1?"s":""}, recommended case of each)</small></span></label>
+      <label class="opt"><input type="radio" name="scope" value="room"> <span>By room <small>(recommended case)</small></span>
+        <select id="lkRoom">${ids.map(i=>{ const r=rooms.find(x=>x.id===i); return `<option value="${esc(i)}">${esc(i)}${r&&r.name?" — "+esc(r.name):""}${r&&r.equip?" · case "+esc(r.equip):""}</option>`; }).join("")}</select></label>
+      <label class="opt"><input type="radio" name="scope" value="equip" ${eqs.length?"":"disabled"}> <span>By case <small>(any case of a room)</small></span>
+        <select id="lkEquip" ${eqs.length?"":"disabled"}>${cases.map((c,i)=>`<option value="${i}">${esc(c.id||"—")}${c.name?" — "+esc(c.name):""} · case ${esc(c.equip||"–")}${c.rec?" ✓ recommended":""}</option>`).join("")}</select></label>
     </fieldset>`:`<p class="err">No rooms found. Open the <a href="${opts.sourceHref}">dew point &amp; supply air tool</a>, calculate each room in tab 2 and press “+ Add to summary” first. Both tools must be opened in the same browser.</p>`}
     <div class="btns" style="justify-content:flex-end;margin-top:14px">
       <button class="btn ghost" value="cancel" type="submit">Cancel</button>
@@ -738,7 +752,7 @@ function linkDialog(opts){ // opts:{title, note, rooms:[...], onApply(list, scop
     const sc=sel();
     let list=rooms, key="";
     if(sc==="room"){ key=dlg.querySelector("#lkRoom").value; list=rooms.filter(r=>r.id===key); }
-    if(sc==="equip"){ key=dlg.querySelector("#lkEquip").value; list=rooms.filter(r=>r.equip===key); }
+    if(sc==="equip"){ key=dlg.querySelector("#lkEquip").value; list=[cases[+key]].filter(Boolean); }
     dlg.close(); opts.onApply(list,sc,key);
   });
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
@@ -782,7 +796,7 @@ const SUMCFG={
 };
 const PICK_CFG=SUMCFG;
 PICK_CFG.onRender=rows=>{ if(typeof fillRoomPickers==="function") fillRoomPickers(rows); };
-const SUMMARY=makeSummary(SUMCFG);
+var SUMMARY=makeSummary(SUMCFG);
 /* ---------- left-panel pickers: choose a saved room, or an AC equipment name already used here or in the AHU tool ---------- */
 function fillRoomPickers(rows){
   const eqs=[...new Set([...rows.map(r=>r.equip),...readShared("ahu").map(r=>r.id)].filter(Boolean))];
@@ -798,7 +812,7 @@ function fillRoomPickers(rows){
 document.querySelectorAll("select.pick").forEach(sel=>sel.addEventListener("change",()=>{
   const i=+sel.value; sel.value="";
   if(sel.dataset.pick==="equip"){ const e=JSON.parse(sel.dataset.eqs||"[]")[i]; if(e!=null){ $("acEquip").value=e; update(); } return; }
-  const r=SUMMARY.rows[i]; if(!r) return;
+  const r=SUMMARY.rows[i]; if(!r) return; SUMMARY.setActive(SUMMARY.keyOf(r));
   const cur=(document.querySelector('.tab[aria-selected="true"]')||{}).dataset;
   PICK_CFG.restore(r); if(cur&&cur.view){ showView(cur.view); try{ history.replaceState(null,"","#"+cur.view); }catch(e){} }
   toast(`Loaded ${r.id||"room"}`);
@@ -811,14 +825,16 @@ function applyDewRoom(r){
   const alt=r.inputs&&r.inputs.alt!=null?parseFloat(r.inputs.alt)||0:n("alt",0), p=pressure(alt);
   const Wr=WfromRH(r.t,r.rh,p), Wl=WfromPw(pws(r.tdS),p);
   const set=(id,v)=>{ $(id).value=typeof v==="number"?Math.round(v*100)/100:v; };
-  set("alt",alt); set("roomId",r.id||""); set("roomName",r.name||""); set("acEquip",r.equip||"");
+  set("alt",alt); set("roomId",r.id||""); set("roomName",r.name||"");
   set("te",r.t); set("twe",wetbulb(r.t,Wr,p)); set("tl",r.Tc); set("twl",wetbulb(r.Tc,Wl,p));
   set("tr",r.t); set("rhr",r.rh);
   if(isFinite(r.adp)){ mode="direct"; set("adpIn",r.adp); } else mode="chart";
 }
 $("linkBtn").addEventListener("click",()=>{
-  const rooms=readShared("dew").filter(r=>isFinite(r.Tc)&&isFinite(r.tdS));
-  linkDialog({title:"Link ADP data from the dew point & supply air tool", sourceHref:"../#supply", rooms,
+  /* the dew point tool keeps several cases per room: link only the recommended case of each room (older data: every row) */
+  const all=readShared("dew").filter(r=>isFinite(r.Tc)&&isFinite(r.tdS)), anyRec=all.some(r=>r.rec);
+  const rooms=all.filter(r=>!anyRec||r.rec||!all.some(o=>o.rec&&(o.id||"")===(r.id||"")));
+  linkDialog({title:"Link ADP data from the dew point & supply air tool", sourceHref:"../#supply", rooms, cases:all,
     note:`Each room brings its Room ID, name and AC equipment, the room condition, the coil leaving DB and wet bulb, and the ADP on the room sensible-heat-ratio line (entered as “Enter ADP”). The coil entering air is set to the room (return) air, because the dew point tool has no outdoor air; edit it afterwards if the coil also treats outdoor air. Linked rooms are added to the summary.`,
     onApply(list){
       if(!list.length) return;
@@ -831,7 +847,7 @@ $("linkBtn").addEventListener("click",()=>{
 });
 
 
-function update(){ render(); save(); }
+function update(){ render(); save(); if(typeof SUMMARY!=="undefined"&&SUMMARY) SUMMARY.sync(); }
 IDS.forEach(id=>{ $(id).addEventListener("input",update); $(id).addEventListener("change",update); });
 $("resetBtn").addEventListener("click",()=>{ IDS.forEach(id=>$(id).value=defaults[id]); mode="bf"; update(); });
 load();
