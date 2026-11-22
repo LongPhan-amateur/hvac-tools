@@ -196,7 +196,7 @@ th.grp{text-align:center}
       <h2>Room</h2>
       <div class="grid2">
         <div class="field"><label for="roomId">Room ID</label><div class="inp"><input id="roomId" type="text" value="R-101" autocomplete="off"><span class="pickw" title="Pick a saved room"><span aria-hidden="true">▾</span><select class="pick" data-pick="room" aria-label="Pick a saved room"></select></span></div></div>
-        <div class="field"><label for="acEquip">AC equipment</label><div class="inp"><input id="acEquip" type="text" value="AHU-01" autocomplete="off"><span class="pickw" title="Pick an AC equipment name"><span aria-hidden="true">▾</span><select class="pick" data-pick="equip" aria-label="Pick an AC equipment name"></select></span></div></div>
+        <div class="field"><label for="acEquip">Case</label><div class="inp"><input id="acEquip" type="text" value="1" autocomplete="off" placeholder="1, 2, …"><span class="pickw" title="Pick a case of this room"><span aria-hidden="true">▾</span><select class="pick" data-pick="equip" aria-label="Pick a case of this room"></select></span></div></div>
         <div class="field full"><label for="roomName">Room name</label><div class="inp"><input id="roomName" type="text" value="Packing room" autocomplete="off"><span class="pickw" title="Pick a saved room"><span aria-hidden="true">▾</span><select class="pick" data-pick="name" aria-label="Pick a saved room"></select></span></div></div>
       </div>
       <h2>Room design conditions</h2>
@@ -208,6 +208,7 @@ th.grp{text-align:center}
       </div>
       <dl class="props" id="roomProps"></dl>
       <p class="note">Safety margin: a surface must be at least this much warmer than the dew point to be considered safe.</p>
+      <p class="note">Case: number the design options of one room (1, 2, …), e.g. different airflow, ΔT or coil leaving RH. Each case is kept in the summary and the safest, most accurate case is recommended there.</p>
     </aside>
 
     <main class="panel">
@@ -245,6 +246,7 @@ th.grp{text-align:center}
             <label for="ql">Room latent load</label>
             <div class="inp"><input id="ql" type="number" step="0.1" value="2.5"><span class="u" id="qlUnit">kW</span></div>
           </div>
+          <div class="field"><label for="qsMin">Min. room sensible load (night / equipment off)</label><div class="inp"><input id="qsMin" type="number" step="0.1" value="0"><span class="u">kW</span></div></div>
           <div class="field"><label>Enter latent load as</label>
             <div class="seg" role="group" aria-label="Latent load unit">
               <button type="button" data-lat="kw" aria-pressed="true">kW latent</button>
@@ -317,9 +319,15 @@ th.grp{text-align:center}
             <button class="btn ghost" type="button" id="sumClear">Clear all</button>
           </div>
         </div>
-        <p class="note">Calculate a room in tab 2, then press “+ Add to summary”. A room with the same Room ID replaces the earlier entry. “Load” brings a room back into the calculator to edit it. The summary is saved in this browser.</p>
+        <p class="note">Calculate a room in tab 2, then press “+ Add to summary”. Each Room ID + case is one row; a row with the same Room ID and case is replaced. The row you added or loaded last follows the calculator: later changes are saved to it automatically, without pressing Add again. “Load” brings a case back into the calculator. The summary is saved in this browser.</p>
         <p class="note hidden" id="sumEmpty" style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center">No rooms yet.</p>
-        <div class="tbl-wrap" id="sumWrap"><table class="sum"><thead id="sumHead"></thead><tbody id="sumBody"></tbody></table></div>
+        <div id="sumWrap">
+          <h3 style="margin:6px 0">Cases</h3>
+          <div class="tbl-wrap"><table class="sum"><thead id="sumHead"></thead><tbody id="sumBody"></tbody></table></div>
+          <h3 style="margin:16px 0 6px">Recommendation (one case per room)</h3>
+          <p class="note">Rule: a case with a failed check is not recommended. Among the others, the case with the fewest notes is chosen (condensation margins, duct insulation, low dew point, large ΔT, night reheat); if equal, the lower coil + reheat load (reheat = larger of design and night / low-load case), then the lower airflow. The AHU and chilled water tools link the recommended case of each room.</p>
+          <div class="tbl-wrap"><table class="sum"><thead id="recHead"></thead><tbody id="recBody"></tbody></table></div>
+        </div>
       </section>
 
       <!-- TAB 4 -->
@@ -351,6 +359,10 @@ th.grp{text-align:center}
             <li>A chilled water coil can only bring air down to about (CHWS + approach). Below that you need colder chilled water or a desiccant dehumidifier.</li>
             <li>Diffusers and supply ducts have a surface temperature close to T_s, so T_s must be above the dew point of the surrounding air plus the safety margin. Otherwise insulate, or choose suitable diffusers.</li>
           </ul>
+          <h2>Cases, night case and recommendation</h2>
+          <p>Each room can be calculated for several cases (1, 2, …): for example different airflow, ΔT or coil leaving RH. For every case the night / low-load condition is checked: the moisture load stays, the room sensible load drops to the minimum entered, so the coil must still dry the air to the same dew point while the supply has to be warmer, T<sub>s,n</sub> = t<sub>room</sub> − q<sub>s,min</sub> / (ṁ·c<sub>p</sub>). Reheat at night = ṁ·c<sub>p</sub>·(T<sub>s,n</sub> − T<sub>coil</sub>); the reheat to select is the larger of the design and night values. Without it the room RH rises (estimate shown in the check).</p>
+          <p>Recommendation per room: cases with a failed check are excluded; then the case with the fewest notes (condensation margins, duct insulation, low dew point, large ΔT); then the lowest coil + reheat load (coil load on room air, reheat = larger of design and night); then the lowest airflow. The AHU and chilled water tools link the recommended case.</p>
+          <p>The row you added or loaded last follows the calculator: changes are written to the summary automatically.</p>
           <h2>Limitations</h2>
           <ul>
             <li>Outdoor air, mixing and coil load are not included. This tool only looks at the room heat and moisture balance.</li>
@@ -406,7 +418,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 
 /* ---------- State ---------- */
 const KEY="hvac-dewpoint-supply-en-v1";
-const INPUT_IDS=["roomId","roomName","acEquip","tr","rhr","alt","margin","qs","ql","flowMode","area","height","ach","flow","dt","rhc","chws","approach","tp","rhp"];
+const INPUT_IDS=["roomId","roomName","acEquip","qsMin","tr","rhr","alt","margin","qs","ql","flowMode","area","height","ach","flow","dt","rhc","chws","approach","tp","rhp"];
 const DEFAULT_SURF=[
   {name:"Supply diffuser (aluminium frame)",t:14},
   {name:"Uninsulated supply duct",t:13},
@@ -562,6 +574,13 @@ function supply(R){
     rhRoomActual=RHfromW(R.t,Wleave+mw/mda,p);
   }
   const tdC=tdewFromW(Wleave,p);
+  /* night / low-load case: same moisture load, room sensible load reduced to qsMin. The coil must still dry the air to the
+     same dew point (tcDehum), so the supply has to be reheated up to Ts,n = t_room − qs,min / (ṁ·cp) */
+  const qsMin=Math.max(0,n("qsMin",0)), TsN=R.t-qsMin/(mda*cp), TcN=Math.min(tcDehum,TsN);
+  const reheatNight=Math.max(0,mda*(1.006+1.86*Ws)*(TsN-tcDehum)), reheatMax=Math.max(reheat,reheatNight);
+  /* without reheat at night the coil only follows the temperature: leaving ≈ Ts,n at the coil RH, room RH rises */
+  const WnoRh=Math.min(R.W,WfromRH(TsN,rhc,p)), rhNightNoRh=Math.min(100,RHfromW(R.t,WnoRh+mw/mda,p));
+  const qCoil=mda*(enth(R.t,R.W)-enth(Tc,Wleave));
   // Room sensible heat ratio & apparatus dew point (RSHR line meets saturation curve)
   const qlKW=mw*2501, shr=qs>0? qs/(qs+qlKW) : NaN;
   const slope= qs>0? cp*mw/qs : NaN; // dW/dt along RSHR line (kg/kg per K)
@@ -575,7 +594,7 @@ function supply(R){
   const bf= isFinite(adp)&&R.t-adp>0 ? (Ts-adp)/(R.t-adp) : NaN;
   const Wp=WfromRH(n("tp",30),Math.min(100,n("rhp",70)),p), tdP=tdewFromW(Wp,p);
   return {p,mda,Q,Ts,Ws,tdS,Tc,Wleave,tdC,gov,reheat,rhRoomActual,rhc,chws,appr,vol,mode,
-    ach: vol>0? Q*3600/vol : NaN, tp:n("tp",30), Wp, tdP, qs, mw, rhS:RHfromW(Ts,Wleave,p), qlKW, shr, slope, adp, Wadp, bf};
+    ach: vol>0? Q*3600/vol : NaN, tp:n("tp",30), Wp, tdP, qs, mw, qsMin, TsN, TcN, reheatNight, reheatMax, rhNightNoRh, qCoil, rhS:RHfromW(Ts,Wleave,p), qlKW, shr, slope, adp, Wadp, bf};
 }
 
 let lastSummary="", lastR=null, lastS=null, lastChecks=[], lastSurf="";
@@ -588,7 +607,7 @@ function renderSupply(R,S){
     <div class="tile key"><div class="k">Supply air temp. T<sub>s</sub></div><div class="v">${fmt(S.Ts)}<small>°C</small></div></div>
     <div class="tile"><div class="k">Required supply dew point</div><div class="v">${fmt(S.tdS)}<small>°C</small></div></div>
     <div class="tile"><div class="k">Coil leaving air temp.</div><div class="v">${fmt(S.Tc)}<small>°C</small></div></div>
-    <div class="tile"><div class="k">Reheat</div><div class="v">${fmt(S.reheat)}<small>kW</small></div></div>
+    <div class="tile"><div class="k">Reheat (design / night)</div><div class="v">${fmt(S.reheatMax)}<small>kW · design ${fmt(S.reheat)} · night ${fmt(S.reheatNight)}</small></div></div>
     <div class="tile key"><div class="k">Room sensible heat ratio</div><div class="v">${fmt(S.shr,2)}<small>RSHR</small></div></div>
     <div class="tile"><div class="k">Apparatus dew point (ADP)</div><div class="v">${fmt(S.adp)}<small>°C${isFinite(S.bf)?` · BF ${fmt(S.bf,2)}`:""}</small></div></div>
     <div class="tile"><div class="k">Supply airflow</div><div class="v">${fmt(flowH,0)}<small>m³/h</small></div></div>
@@ -612,6 +631,11 @@ function renderSupply(R,S){
     else checks.push(["ok",`Room sensible heat ratio RSHR ${fmt(S.shr,2)}`,
       `${adpTxt} Every supply state on this line holds the room at design conditions${isFinite(S.bf)?`; at T_s = ${fmt(S.Ts)} °C the equivalent coil bypass factor is ${fmt(S.bf,2)}`:""}.`]);
   }
+  // night / low equipment load
+  if(S.reheatNight>S.reheat+0.05) checks.push(["warn","Night / low-load case governs the reheat",
+    `At a room sensible load of ${fmt(S.qsMin)} kW (night / equipment off) the coil still has to dry the air to ${fmt(S.tdS)} °C dew point, but the supply must be ${fmt(S.TsN)} °C. Reheat ${fmt(S.reheatNight)} kW is needed (design ${fmt(S.reheat)} kW). Without it the room RH rises to about ${fmt(S.rhNightNoRh,0)}%.`]);
+  else checks.push(["ok","Night / low-load case covered",
+    `At a room sensible load of ${fmt(S.qsMin)} kW the supply must be ${fmt(S.TsN)} °C; reheat ${fmt(S.reheatNight)} kW, not more than the design case.`]);
   // coil feasibility
   const minCoil=S.chws+S.appr;
   if(S.Tc<=0){
@@ -662,14 +686,14 @@ function renderSupply(R,S){
 
   lastSummary=[
     `SUPPLY AIR CHECK`,
-    `Room ${$("roomId").value} ${$("roomName").value} · ${$("acEquip").value}`.trim(),
+    `Room ${$("roomId").value} ${$("roomName").value} · case ${$("acEquip").value}`.trim(),
     `Area ${fmt(n("area",0))} m² · height ${fmt(n("height",0),2)} m · volume ${fmt(S.vol,0)} m³`,
     `Room: ${fmt(R.t)} °C / ${fmt(R.rh,0)}% · dew point ${fmt(R.td)} °C · W ${fmt(R.W*1000,2)} g/kg`,
     `Sensible load ${fmt(S.qs)} kW · moisture load ${fmt(S.mw*3600,2)} kg/h`,
     `RSHR ${fmt(S.shr,2)} · ADP ${fmt(S.adp)} °C${isFinite(S.bf)?` · bypass factor ${fmt(S.bf,2)}`:""}`,
     `Supply airflow ${fmt(flowH,0)} m³/h${isFinite(S.ach)?` (${fmt(S.ach,1)} ACH)`:""}`,
     `Supply air ${fmt(S.Ts)} °C · supply dew point ${fmt(S.tdS)} °C`,
-    `Coil leaving ${fmt(S.Tc)} °C · reheat ${fmt(S.reheat)} kW`,
+    `Coil leaving ${fmt(S.Tc)} °C · reheat ${fmt(S.reheat)} kW (night ${fmt(S.reheatNight)} kW at ${fmt(S.qsMin)} kW sensible)`,
     ...checks.map(([c,t])=>`- [${c==="ok"?"Pass":c==="warn"?"Note":"Fail"}] ${t}`)
   ].join("\n");
 }
@@ -921,7 +945,11 @@ function readShared(k){ try{ const v=JSON.parse(localStorage.getItem(SHARED_KEYS
 function makeSummary(cfg){
   let rows=[];
   try{ rows=JSON.parse(localStorage.getItem(cfg.key)||"[]"); if(!Array.isArray(rows)) rows=[]; }catch(e){ rows=[]; }
-  const persist=()=>{ try{ localStorage.setItem(cfg.key,JSON.stringify(rows)); }catch(e){} };
+  const keyOf=cfg.keyOf||(r=>r.id||"");
+  /* the row last added or loaded follows the calculator: changes are written back to it automatically */
+  let active=null; try{ active=localStorage.getItem(cfg.key+"-active"); }catch(e){}
+  const setActive=k=>{ active=k||null; try{ if(active) localStorage.setItem(cfg.key+"-active",active); else localStorage.removeItem(cfg.key+"-active"); }catch(e){} };
+  const persist=()=>{ if(cfg.beforePersist) cfg.beforePersist(rows); try{ localStorage.setItem(cfg.key,JSON.stringify(rows)); }catch(e){} };
   const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
   const tables=cfg.tables||[{headId:cfg.headId, bodyId:cfg.bodyId, cols:cfg.cols, title:cfg.title, sheet:"Summary", records:all=>all, actions:true}];
   const recs=t=>{ const out=[]; t.records(rows).forEach((r,i)=>out.push(r.__i==null?Object.assign({__i:i},r):r)); return out; };
@@ -942,27 +970,27 @@ function makeSummary(cfg){
     });
     if(cfg.onRender) cfg.onRender(rows);
   }
-  function put(r){ // add or replace by id; returns true when replaced
-    const i=r.id?rows.findIndex(x=>x.id===r.id):-1;
+  function put(r){ // add or replace by key (Room ID, Room ID + case, AHU tag); returns true when replaced
+    const k=keyOf(r), i=k?rows.findIndex(x=>keyOf(x)===k):-1;
     if(i>=0){ rows[i]=r; return true; } rows.push(r); return false;
   }
   function add(){
     const r=cfg.collect();
     if(r.err){ toast(r.err,true); return; }
-    const rep=put(r); persist(); render();
+    const rep=put(r); setActive(keyOf(r)); persist(); render();
     const n=rows.length, lbl=cfg.unit||"room";
     toast(`${rep?"Updated":"Added"} ${r.id||lbl} ${rep?"in":"to"} the summary (${n} ${lbl}${n>1?"s":""})`);
   }
   tables.filter(t=>t.actions).forEach(t=>$(t.bodyId).addEventListener("click",e=>{
     const ld=e.target.closest("[data-load]"), rm=e.target.closest("[data-rm]");
-    if(ld){ const r=rows[+ld.dataset.load]; cfg.restore(r); toast(`Loaded ${r.id||cfg.unit||"room"}`); }
-    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; persist(); render(); toast(`Removed ${r.id||cfg.unit||"room"}`); }
+    if(ld){ const r=rows[+ld.dataset.load]; setActive(keyOf(r)); cfg.restore(r); toast(`Loaded ${r.id||cfg.unit||"room"}`); }
+    if(rm){ const r=rows.splice(+rm.dataset.rm,1)[0]; if(keyOf(r)===active) setActive(null); persist(); render(); toast(`Removed ${r.id||cfg.unit||"room"}`); }
   }));
   $(cfg.addId).addEventListener("click",add);
   $(cfg.clearId).addEventListener("click",()=>{
     if(!rows.length) return;
     if(!confirm(`Remove all ${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} from the summary?`)) return;
-    rows=[]; persist(); render();
+    rows=[]; setActive(null); persist(); render();
   });
   const sub=()=>`${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`;
   const table=t=>recs(t).map(r=>t.cols.map(c=>r[c.k]));
@@ -975,7 +1003,17 @@ function makeSummary(cfg){
     toast("Choose “Save as PDF” in the print dialog");
   });
   render();
-  return {render, put(r){ const x=put(r); persist(); render(); return x; }, get rows(){ return rows; }};
+  /* called after every recalculation: refresh the active row with the current results (no need to press Add again) */
+  let syncBusy=false;
+  function sync(){
+    if(!active||syncBusy) return; const i=rows.findIndex(x=>keyOf(x)===active); if(i<0) return;
+    syncBusy=true; let r; try{ r=cfg.collect(); }finally{ syncBusy=false; }
+    if(!r||r.err||keyOf(r)!==active) return;
+    const a=JSON.stringify(rows[i]), b=JSON.stringify(r); if(a===b) return;
+    rows[i]=r; persist(); render();
+  }
+  if(rows.length&&cfg.beforePersist){ cfg.beforePersist(rows); render(); }
+  return {render, sync, setActive, keyOf, get active(){ return active; }, put(r){ const x=put(r); persist(); render(); return x; }, persist(){ persist(); render(); }, get rows(){ return rows; }};
 }
 
 /* Link dialog: pick rooms from the dew point tool's summary (all / by Room ID / by AC equipment) */
@@ -1015,23 +1053,57 @@ function linkDialog(opts){ // opts:{title, note, rooms:[...], onApply(list, scop
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
 }
 
+/* Recommendation: per Room ID choose the safest, most accurate case.
+   1) no failed check; 2) fewest notes; 3) lowest coil + reheat load (reheat = larger of design and night case); 4) lowest airflow */
+function recommend(rows){
+  const by=new Map(), best=new Set(), list=[];
+  rows.forEach(r=>{ const k=r.id||"—"; if(!by.has(k)) by.set(k,[]); by.get(k).push(r); });
+  const num=v=>isFinite(v)?v:0, nf=r=>(r.fails||[]).length||(r.result==="Fail"?1:0), nw=r=>(r.warns||[]).length;
+  const energy=r=>num(r.qCoil)+num(isFinite(r.reheatMax)?r.reheatMax:r.reheat);
+  by.forEach((cs,id)=>{
+    const sorted=cs.slice().sort((a,b)=>(nf(a)>0)-(nf(b)>0)||nw(a)-nw(b)||energy(a)-energy(b)||num(a.flow)-num(b.flow));
+    const b=sorted[0]; best.add(b);
+    const cn=r=>`case ${r.equip||"–"}`;
+    const parts=[];
+    if(nf(b)) parts.push(`all ${cs.length>1?"cases have":"the case has"} failed checks (${(b.fails||[]).join(", ")}); this is the least poor option — revise the design`);
+    else parts.push(nw(b)?`no failed check; notes: ${(b.warns||[]).join(", ")}`:"passes every check");
+    parts.push(b.gov==="Latent"?`holds the design ${fmt(b.rh,0)}% RH (latent load governs, reheat ${fmt(b.reheat)} kW)`:`sensible load governs: room runs drier, about ${fmt(b.rhAct,0)}% RH`);
+    if(isFinite(b.reheatN)) parts.push(`night / low load (${fmt(b.qsMin)} kW sensible) needs ${fmt(b.reheatN)} kW reheat${b.reheatN>num(b.reheat)+0.05?" and governs the reheat size":""}`);
+    parts.push(`coil + reheat ≈ ${fmt(energy(b))} kW at ${fmt(b.flow,0)} m³/h`);
+    const others=sorted.slice(1).map(o=>nf(o)?`${cn(o)} rejected: ${(o.fails||[]).join(", ")||"failed check"}`
+      :nw(o)>nw(b)?`${cn(o)}: more notes (${(o.warns||[]).join(", ")})`
+      :energy(o)>energy(b)+0.05?`${cn(o)}: higher coil + reheat load (${fmt(energy(o))} kW)`:`${cn(o)}: equal, higher airflow (${fmt(o.flow,0)} m³/h)`);
+    const reason=`${cs.length>1?"Recommended ":"Only "}${cn(b)}: ${parts.join("; ")}.${others.length?" "+others.join(". ")+".":""}`;
+    list.push(Object.assign({},b,{cases:cs.map(r=>r.equip||"–").join(", "),energy:Math.round(energy(b)*10)/10,reason,__i:rows.indexOf(b)}));
+  });
+  return {best,list};
+}
 const PICK_CFG={
   key:"hvac-dewpoint-summary-v1",
   title:"Room dew point & supply air temperature — summary",
   file:"Supply-air-summary",
   footer:"hochvacsbs.wordpress.com · Psychrometrics per ASHRAE Handbook – Fundamentals 2021, Ch. 1. Preliminary selection only; verify with dedicated load calculation software.",
-  countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap", headId:"sumHead", bodyId:"sumBody",
+  countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
-  cols:[
-    {k:"id",h:"Room ID",w:10},{k:"name",h:"Room name",w:22},{k:"equip",h:"AC equipment",w:13},
+  tables:[
+    {headId:"sumHead", bodyId:"sumBody", title:"Room cases", sheet:"Cases", actions:true, records:all=>all, cols:[
+    {k:"id",h:"Room ID",w:10},{k:"name",h:"Room name",w:22},{k:"equip",h:"Case",w:6,c:1},{k:"recTxt",h:"Recommended",w:11,c:1},
     {k:"area",h:"Area (m²)",w:9,fmt:"0.0"},{k:"height",h:"Height (m)",w:8,fmt:"0.00"},{k:"vol",h:"Volume (m³)",w:10,fmt:"0"},
     {k:"t",h:"Room DB (°C)",w:9,fmt:"0.0"},{k:"rh",h:"Room RH (%)",w:9,fmt:"0"},{k:"td",h:"Room dew point (°C)",w:10,fmt:"0.0"},
-    {k:"qs",h:"Sensible load (kW)",w:10,fmt:"0.0"},{k:"ql",h:"Latent load (kW)",w:10,fmt:"0.00"},{k:"mw",h:"Moisture load (kg/h)",w:10,fmt:"0.00"},
+    {k:"qs",h:"Sensible load (kW)",w:10,fmt:"0.0"},{k:"qsMin",h:"Min. sensible load, night (kW)",w:11,fmt:"0.0"},{k:"ql",h:"Latent load (kW)",w:10,fmt:"0.00"},{k:"mw",h:"Moisture load (kg/h)",w:10,fmt:"0.00"},
     {k:"shr",h:"RSHR",w:7,fmt:"0.00"},{k:"flow",h:"Supply airflow (m³/h)",w:11,fmt:"0"},{k:"ach",h:"ACH (1/h)",w:8,fmt:"0.0"},
     {k:"Ts",h:"Supply air temp. (°C)",w:10,fmt:"0.0"},{k:"tdS",h:"Supply dew point (°C)",w:10,fmt:"0.0"},{k:"Tc",h:"Coil leaving (°C)",w:9,fmt:"0.0"},
-    {k:"reheat",h:"Reheat (kW)",w:9,fmt:"0.0"},{k:"adp",h:"ADP on RSHR line (°C)",w:10,fmt:"0.0"},{k:"gov",h:"Governing load",w:10},
-    {k:"surf",h:"Cold surfaces needing action",w:11},{k:"result",h:"Result",w:8},{k:"notes",h:"Notes",w:48}
+    {k:"reheat",h:"Reheat, design (kW)",w:10,fmt:"0.0"},{k:"reheatN",h:"Reheat, night (kW)",w:10,fmt:"0.0"},{k:"reheatMax",h:"Reheat, selected (kW)",w:10,fmt:"0.0"},
+    {k:"qCoil",h:"Coil load, room air (kW)",w:10,fmt:"0.0"},{k:"adp",h:"ADP on RSHR line (°C)",w:10,fmt:"0.0"},{k:"gov",h:"Governing load",w:10},
+    {k:"surf",h:"Cold surfaces needing action",w:11},{k:"result",h:"Result",w:8},{k:"notes",h:"Notes",w:48}]},
+    {headId:"recHead", bodyId:"recBody", title:"Recommendation", sheet:"Recommendation", records:rows=>recommend(rows).list, cols:[
+    {k:"id",h:"Room ID",w:10},{k:"name",h:"Room name",w:22},{k:"cases",h:"Cases evaluated",w:10,c:1},{k:"equip",h:"Recommended case",w:10,c:1},
+    {k:"flow",h:"Supply airflow (m³/h)",w:11,fmt:"0"},{k:"Ts",h:"Supply air temp. (°C)",w:10,fmt:"0.0"},{k:"Tc",h:"Coil leaving (°C)",w:9,fmt:"0.0"},
+    {k:"reheat",h:"Reheat, design (kW)",w:10,fmt:"0.0"},{k:"reheatN",h:"Reheat, night (kW)",w:10,fmt:"0.0"},{k:"reheatMax",h:"Reheat, selected (kW)",w:10,fmt:"0.0"},
+    {k:"energy",h:"Coil + reheat (kW)",w:10,fmt:"0.0"},{k:"result",h:"Result",w:8},{k:"reason",h:"Reason",w:70}]}
   ],
+  keyOf:r=>`${r.id||""}|${r.equip||""}`,
+  beforePersist(rows){ const m=recommend(rows); rows.forEach(r=>{ r.rec=m.best.has(r); r.recTxt=r.rec?"✓ Recommended":""; }); },
   collect(){
     const R=lastR, S=lastS;
     if(!R||!S||S.err) return {err:"Fix the supply air inputs in tab 2 before adding to the summary."};
@@ -1040,10 +1112,12 @@ const PICK_CFG={
     const r1=(x,d)=>isFinite(x)?Math.round(x*10**d)/10**d:NaN;
     return {id:$("roomId").value.trim(), name:$("roomName").value.trim(), equip:$("acEquip").value.trim(),
       area:r1(n("area",0),2), height:r1(n("height",0),2), vol:r1(S.vol,1),
-      t:r1(R.t,2), rh:r1(R.rh,1), td:r1(R.td,2), qs:r1(S.qs,3), ql:r1(S.qlKW,3), mw:r1(S.mw*3600,3),
+      t:r1(R.t,2), rh:r1(R.rh,1), td:r1(R.td,2), qs:r1(S.qs,3), qsMin:r1(S.qsMin,3), ql:r1(S.qlKW,3), mw:r1(S.mw*3600,3),
       shr:r1(S.shr,3), flow:r1(S.Q*3600,0), ach:r1(S.ach,2), Ts:r1(S.Ts,2), tdS:r1(S.tdS,2), Tc:r1(S.Tc,2),
-      reheat:r1(S.reheat,2), adp:r1(S.adp,2), gov:S.gov==="latent"?"Latent":"Sensible", surf:lastSurf,
+      reheat:r1(S.reheat,2), reheatN:r1(S.reheatNight,2), reheatMax:r1(S.reheatMax,2), qCoil:r1(S.qCoil,2), rhNightNoRh:r1(S.rhNightNoRh,0),
+      adp:r1(S.adp,2), gov:S.gov==="latent"?"Latent":"Sensible", rhAct:r1(S.rhRoomActual,0), surf:lastSurf,
       result:worst, notes:lastChecks.filter(c=>c[0]!=="ok").map(c=>c[1]).join("; "),
+      fails:lastChecks.filter(c=>c[0]==="bad").map(c=>c[1]), warns:lastChecks.filter(c=>c[0]==="warn"&&!/^Latent load governs|^Night \/ low-load case governs/.test(c[1])).map(c=>c[1]),
       inputs, latMode, surfaces:surfaces.map(x=>({...x}))};
   },
   restore(r){
@@ -1055,23 +1129,29 @@ const PICK_CFG={
   }
 };
 PICK_CFG.onRender=rows=>{ if(typeof fillRoomPickers==="function") fillRoomPickers(rows); };
-const SUMMARY=makeSummary(PICK_CFG);
+var SUMMARY=makeSummary(PICK_CFG);
 /* ---------- left-panel pickers: choose a saved room, or an AC equipment name already used here or in the AHU tool ---------- */
 function fillRoomPickers(rows){
-  const eqs=[...new Set([...rows.map(r=>r.equip),...readShared("ahu").map(r=>r.id)].filter(Boolean))];
+  const rid=$("roomId").value.trim(), used=rows.filter(r=>(r.id||"")===rid).map(r=>r.equip).filter(Boolean);
+  const nx=String(Math.max(0,...used.map(v=>parseInt(v)||0))+1);
+  const eqs=[...new Set([...used,nx])];
   const opt0=(t,k)=>`<option value="" selected disabled>${k?t:"Nothing saved yet"}</option>`;
   document.querySelectorAll("select.pick").forEach(sel=>{
     const k=sel.dataset.pick, list=k==="equip"?eqs:rows;
-    sel.innerHTML=opt0(k==="equip"?"AC equipment…":"Saved rooms…",list.length)+(k==="equip"?eqs.map((e,i)=>`<option value="${i}">${esc(e)}</option>`).join("")
-      :rows.map((r,i)=>`<option value="${i}">${esc(k==="name"?`${r.name||"—"} · ${r.id}`:`${r.id}${r.name?" — "+r.name:""}${r.equip?" ("+r.equip+")":""}`)}</option>`).join(""));
+    sel.innerHTML=opt0(k==="equip"?"Cases of this room…":"Saved rooms…",list.length)+(k==="equip"?eqs.map((e,i)=>`<option value="${i}">${esc(used.includes(e)?`Case ${e}${rows.find(r=>(r.id||"")===rid&&r.equip===e&&r.rec)?" ✓ recommended":""}`:`Case ${e} (new)`)}</option>`).join("")
+      :rows.map((r,i)=>`<option value="${i}">${esc(k==="name"?`${r.name||"—"} · ${r.id} · case ${r.equip||"–"}`:`${r.id}${r.name?" — "+r.name:""} · case ${r.equip||"–"}${r.rec?" ✓":""}`)}</option>`).join(""));
     sel.disabled=!list.length; sel.closest(".pickw").classList.toggle("off",!list.length);
     sel.dataset.eqs=JSON.stringify(eqs);
   });
 }
 document.querySelectorAll("select.pick").forEach(sel=>sel.addEventListener("change",()=>{
   const i=+sel.value; sel.value="";
-  if(sel.dataset.pick==="equip"){ const e=JSON.parse(sel.dataset.eqs||"[]")[i]; if(e!=null){ $("acEquip").value=e; update(); } return; }
-  const r=SUMMARY.rows[i]; if(!r) return;
+  if(sel.dataset.pick==="equip"){ const e=JSON.parse(sel.dataset.eqs||"[]")[i]; if(e==null) return;
+    const rid=$("roomId").value.trim(), r0=SUMMARY.rows.find(r=>(r.id||"")===rid&&r.equip===e);
+    if(r0){ SUMMARY.setActive(SUMMARY.keyOf(r0)); PICK_CFG.restore(r0); showView("supply"); toast(`Loaded ${rid} case ${e}`); }
+    else { $("acEquip").value=e; SUMMARY.setActive(null); update(); toast(`New case ${e}: press “+ Add to summary” to keep it`); }
+    return; }
+  const r=SUMMARY.rows[i]; if(!r) return; SUMMARY.setActive(SUMMARY.keyOf(r));
   const cur=(document.querySelector('.tab[aria-selected="true"]')||{}).dataset;
   PICK_CFG.restore(r); if(cur&&cur.view){ showView(cur.view); try{ history.replaceState(null,"","#"+cur.view); }catch(e){} }
   toast(`Loaded ${r.id||"room"}`);
@@ -1089,6 +1169,7 @@ function update(){
   $("volOut").value=fmt(Math.max(0,n("area",0))*Math.max(0,n("height",0)),0);
   renderSupply(R,S); renderChart(R,S);
   save();
+  if(typeof SUMMARY!=="undefined"&&SUMMARY){ SUMMARY.sync(); fillRoomPickers(SUMMARY.rows); }
 }
 INPUT_IDS.forEach(id=>{ $(id).addEventListener("input",update); $(id).addEventListener("change",update); });
 $("resetBtn").addEventListener("click",()=>{
