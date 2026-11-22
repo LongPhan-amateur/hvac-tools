@@ -325,7 +325,7 @@ th.grp{text-align:center}
           <h3 style="margin:6px 0">Cases</h3>
           <div class="tbl-wrap"><table class="sum"><thead id="sumHead"></thead><tbody id="sumBody"></tbody></table></div>
           <h3 style="margin:16px 0 6px">Recommendation (one case per room)</h3>
-          <p class="note">Rule: a case with a failed check is not recommended. Among the others, the case with the fewest notes is chosen (condensation margins, duct insulation, low dew point, large ΔT, night reheat); if equal, the lower coil + reheat load (reheat = larger of design and night / low-load case), then the lower airflow. The AHU and chilled water tools link the recommended case of each room.</p>
+          <p class="note">Rule: a case with a failed check is not recommended. Among the others, the case with the fewest notes is chosen (condensation margins, duct insulation, low dew point, large ΔT, night reheat); if still equal, the case with the larger coil + reheat load is kept for safety (reheat = larger of design and night / low-load case), then the larger airflow. The AHU and chilled water tools link the recommended case of each room.</p>
           <div class="tbl-wrap"><table class="sum"><thead id="recHead"></thead><tbody id="recBody"></tbody></table></div>
         </div>
       </section>
@@ -361,7 +361,7 @@ th.grp{text-align:center}
           </ul>
           <h2>Cases, night case and recommendation</h2>
           <p>Each room can be calculated for several cases (1, 2, …): for example different airflow, ΔT or coil leaving RH. For every case the night / low-load condition is checked: the moisture load stays, the room sensible load drops to the minimum entered, so the coil must still dry the air to the same dew point while the supply has to be warmer, T<sub>s,n</sub> = t<sub>room</sub> − q<sub>s,min</sub> / (ṁ·c<sub>p</sub>). Reheat at night = ṁ·c<sub>p</sub>·(T<sub>s,n</sub> − T<sub>coil</sub>); the reheat to select is the larger of the design and night values. Without it the room RH rises (estimate shown in the check).</p>
-          <p>Recommendation per room: cases with a failed check are excluded; then the case with the fewest notes (condensation margins, duct insulation, low dew point, large ΔT); then the lowest coil + reheat load (coil load on room air, reheat = larger of design and night); then the lowest airflow. The AHU and chilled water tools link the recommended case.</p>
+          <p>Recommendation per room: cases with a failed check are excluded; then the case with the fewest notes (condensation margins, duct insulation, low dew point, large ΔT); if still equal, the larger coil + reheat load is chosen as a safety margin (coil load on room air, reheat = larger of design and night); then the larger airflow. The AHU and chilled water tools link the recommended case.</p>
           <p>The row you added or loaded last follows the calculator: changes are written to the summary automatically.</p>
           <h2>Limitations</h2>
           <ul>
@@ -807,8 +807,8 @@ const EXPORT=(function(){
   }
   const colRef=i=>{let s="";i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26);}return s;};
   const NS='xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
-  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border · 7 unit row · 8 centred text w/ border
-  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="4"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font><font><i/><sz val="10"/><color rgb="FF1C5A85"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1C5A85"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE6EFF6"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC4CFD8"/></left><right style="thin"><color rgb="FFC4CFD8"/></right><top style="thin"><color rgb="FFC4CFD8"/></top><bottom style="thin"><color rgb="FFC4CFD8"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/><xf numFmtId="0" fontId="3" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  // styles: 0 default · 1 header · 2 num 0.0 · 3 title · 4 num 0 · 5 num 0.00 · 6 text w/ border · 7 unit row · 8 centred text w/ border — black on white, thin black borders, centred (for CAD)
+  const STY=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts><fonts count="4"><font><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font><font><i/><sz val="10"/><color rgb="FF000000"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/><xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="2" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
   const groupSpans=cols=>{ // [{g,start,len}] for consecutive identical group labels
     const out=[]; cols.forEach((c,i)=>{ const last=out[out.length-1];
       if(c.g && last && last.g===c.g && last.start+last.len===i) last.len++; else out.push({g:c.g||null,start:i,len:1}); });
@@ -928,6 +928,28 @@ section.brk{page-break-before:always}
     setTimeout(()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){} setTimeout(()=>f.remove(),60000); },350);
   }
   return {xlsx,pdf,reportHTML,cellText,headHTML};
+})();
+
+/* summary tables: highlight the row and the column under the pointer */
+(function(){
+  if(window.__sumHl) return; window.__sumHl=1;
+  const st=document.createElement("style");
+  st.textContent="table.sum tbody td.hl-r,table.sum tbody td.hl-c{background:rgba(28,90,133,.10)!important}table.sum tbody td.hl-x{background:rgba(28,90,133,.24)!important;box-shadow:inset 0 0 0 1.5px rgba(28,90,133,.75)}table.sum thead th.hl-h{background:rgba(28,90,133,.20)!important}";
+  document.head.appendChild(st);
+  let cur=null;
+  const clear=()=>{ if(!cur) return; cur.querySelectorAll(".hl-r,.hl-c,.hl-x,.hl-h").forEach(e=>e.classList.remove("hl-r","hl-c","hl-x","hl-h")); cur=null; };
+  const colOf=td=>{ let c=0; for(const x of td.parentNode.cells){ if(x===td) return c; c+=x.colSpan||1; } return c; };
+  document.addEventListener("mouseover",e=>{
+    const td=e.target.closest&&e.target.closest("table.sum tbody td"); if(!td){ clear(); return; }
+    const tb=td.closest("table"); clear(); cur=tb; const ci=colOf(td);
+    [...td.parentNode.cells].forEach(x=>x.classList.add("hl-r"));
+    tb.tBodies[0]&&[...tb.tBodies[0].rows].forEach(r=>{ let c=0; for(const x of r.cells){ const n=x.colSpan||1; if(ci>=c&&ci<c+n&&n===1) x.classList.add("hl-c"); c+=n; } });
+    td.classList.add("hl-x");
+    // header cell of the column: last header row that has it
+    const hr=tb.tHead?[...tb.tHead.rows]:[]; const grid=[]; hr.forEach((r,ri)=>{ grid[ri]=grid[ri]||[]; let c=0; for(const x of r.cells){ while(grid[ri][c]) c++; const cs=x.colSpan||1, rs=x.rowSpan||1;
+      for(let a=0;a<rs;a++) for(let b=0;b<cs;b++){ grid[ri+a]=grid[ri+a]||[]; grid[ri+a][c+b]=x; } c+=cs; } });
+    grid.forEach(row=>{ const h=row&&row[ci]; if(h&&(h.colSpan||1)===1) h.classList.add("hl-h"); });
+  });
 })();
 
 let toastTimer=null;
@@ -1054,14 +1076,14 @@ function linkDialog(opts){ // opts:{title, note, rooms:[...], onApply(list, scop
 }
 
 /* Recommendation: per Room ID choose the safest, most accurate case.
-   1) no failed check; 2) fewest notes; 3) lowest coil + reheat load (reheat = larger of design and night case); 4) lowest airflow */
+   1) no failed check; 2) fewest notes; 3) if equal, the larger coil + reheat load (safety margin; reheat = larger of design and night case); 4) larger airflow */
 function recommend(rows){
   const by=new Map(), best=new Set(), list=[];
   rows.forEach(r=>{ const k=r.id||"—"; if(!by.has(k)) by.set(k,[]); by.get(k).push(r); });
   const num=v=>isFinite(v)?v:0, nf=r=>(r.fails||[]).length||(r.result==="Fail"?1:0), nw=r=>(r.warns||[]).length;
   const energy=r=>num(r.qCoil)+num(isFinite(r.reheatMax)?r.reheatMax:r.reheat);
   by.forEach((cs,id)=>{
-    const sorted=cs.slice().sort((a,b)=>(nf(a)>0)-(nf(b)>0)||nw(a)-nw(b)||energy(a)-energy(b)||num(a.flow)-num(b.flow));
+    const sorted=cs.slice().sort((a,b)=>(nf(a)>0)-(nf(b)>0)||nw(a)-nw(b)||energy(b)-energy(a)||num(b.flow)-num(a.flow));
     const b=sorted[0]; best.add(b);
     const cn=r=>`case ${r.equip||"–"}`;
     const parts=[];
@@ -1069,10 +1091,10 @@ function recommend(rows){
     else parts.push(nw(b)?`no failed check; notes: ${(b.warns||[]).join(", ")}`:"passes every check");
     parts.push(b.gov==="Latent"?`holds the design ${fmt(b.rh,0)}% RH (latent load governs, reheat ${fmt(b.reheat)} kW)`:`sensible load governs: room runs drier, about ${fmt(b.rhAct,0)}% RH`);
     if(isFinite(b.reheatN)) parts.push(`night / low load (${fmt(b.qsMin)} kW sensible) needs ${fmt(b.reheatN)} kW reheat${b.reheatN>num(b.reheat)+0.05?" and governs the reheat size":""}`);
-    parts.push(`coil + reheat ≈ ${fmt(energy(b))} kW at ${fmt(b.flow,0)} m³/h`);
+    parts.push(`coil + reheat ≈ ${fmt(energy(b))} kW at ${fmt(b.flow,0)} m³/h${cs.length>1&&!nf(b)?" (larger load kept as safety margin)":""}`);
     const others=sorted.slice(1).map(o=>nf(o)?`${cn(o)} rejected: ${(o.fails||[]).join(", ")||"failed check"}`
       :nw(o)>nw(b)?`${cn(o)}: more notes (${(o.warns||[]).join(", ")})`
-      :energy(o)>energy(b)+0.05?`${cn(o)}: higher coil + reheat load (${fmt(energy(o))} kW)`:`${cn(o)}: equal, higher airflow (${fmt(o.flow,0)} m³/h)`);
+      :energy(o)<energy(b)-0.05?`${cn(o)}: same checks, lower coil + reheat load (${fmt(energy(o))} kW), less safety margin`:`${cn(o)}: equal, lower airflow (${fmt(o.flow,0)} m³/h)`);
     const reason=`${cs.length>1?"Recommended ":"Only "}${cn(b)}: ${parts.join("; ")}.${others.length?" "+others.join(". ")+".":""}`;
     list.push(Object.assign({},b,{cases:cs.map(r=>r.equip||"–").join(", "),energy:Math.round(energy(b)*10)/10,reason,__i:rows.indexOf(b)}));
   });
@@ -1082,7 +1104,7 @@ const PICK_CFG={
   key:"hvac-dewpoint-summary-v1",
   title:"Room dew point & supply air temperature — summary",
   file:"Supply-air-summary",
-  footer:"hochvacsbs.wordpress.com · Psychrometrics per ASHRAE Handbook – Fundamentals 2021, Ch. 1. Preliminary selection only; verify with dedicated load calculation software.",
+  footer:"Psychrometrics per ASHRAE Handbook – Fundamentals 2021, Ch. 1. Preliminary selection only; verify with dedicated load calculation software.",
   countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
   tables:[
