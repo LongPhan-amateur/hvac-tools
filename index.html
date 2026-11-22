@@ -167,6 +167,15 @@ table.sum th,table.sum td{white-space:nowrap}
 .dlg::backdrop{background:rgba(10,20,30,.45)}
 .dlg-body{padding:20px 22px;display:grid;gap:10px}
 .dlg-body h2{margin:0}
+table.sum tr.grp-gap td{height:14px;padding:0;border:0;background:var(--bg)}
+table.sum tr.grp-gap:hover td{background:var(--bg)}
+.dlg.wide{max-width:860px}
+.dlg .gen-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px}
+.dlg .gen-grid .field{margin:0}
+.dlg h3{margin:6px 0 0;font-size:.9rem}
+.dlg .gen-prev{font-size:.82rem;color:var(--muted)}
+.dlg .gen-prev b{color:var(--ink)}
+@media (max-width:700px){.dlg .gen-grid{grid-template-columns:1fr 1fr}}
 .scope{border:0;padding:0;margin:4px 0 0;display:grid;gap:10px}
 .opt{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer;font-size:.92rem}
 .opt input{accent-color:var(--accent)}
@@ -282,7 +291,7 @@ th.grp{text-align:center}
         <div id="supplyErr" class="err hidden"></div>
         <div id="supplyOut" class="view on" style="padding:0">
           <div class="tiles" id="supplyTiles"></div>
-          <div class="row"><h2>Results & checks</h2><div class="btns"><button class="btn" type="button" id="copyBtn">Copy results</button><button class="btn primary" type="button" id="addSumBtn">+ Add to summary</button></div></div>
+          <div class="row"><h2>Results & checks</h2><div class="btns"><button class="btn" type="button" id="copyBtn">Copy results</button><button class="btn" type="button" id="genBtn2" data-gen>⚙ Auto generate cases</button><button class="btn primary" type="button" id="addSumBtn">+ Add to summary</button></div></div>
           <div class="checks" id="supplyChecks"></div>
           <div class="tbl-wrap">
             <table>
@@ -314,12 +323,13 @@ th.grp{text-align:center}
         <div class="row">
           <h2>Room summary</h2>
           <div class="btns">
+            <button class="btn primary" type="button" id="genBtn" data-gen>⚙ Auto generate cases</button>
             <button class="btn" type="button" id="sumXlsx">Export Excel</button>
             <button class="btn" type="button" id="sumPdf">Export PDF</button>
             <button class="btn ghost" type="button" id="sumClear">Clear all</button>
           </div>
         </div>
-        <p class="note">Calculate a room in tab 2, then press “+ Add to summary”. Each Room ID + case is one row; a row with the same Room ID and case is replaced. The row you added or loaded last follows the calculator: later changes are saved to it automatically, without pressing Add again. “Load” brings a case back into the calculator. The summary is saved in this browser.</p>
+        <p class="note">Calculate a room in tab 2, then press “+ Add to summary”, or press “⚙ Auto generate cases” to make one case per corner of a set point band in one step. Cases of the same Room ID are kept together, with a blank row between rooms. Each Room ID + case is one row; a row with the same Room ID and case is replaced. The row you added or loaded last follows the calculator: later changes are saved to it automatically, without pressing Add again. “Load” brings a case back into the calculator. The summary is saved in this browser.</p>
         <p class="note hidden" id="sumEmpty" style="padding:18px;border:1px dashed var(--line);border-radius:8px;text-align:center">No rooms yet.</p>
         <div id="sumWrap">
           <h3 style="margin:6px 0">Cases</h3>
@@ -1108,7 +1118,7 @@ const PICK_CFG={
   countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
   tables:[
-    {headId:"sumHead", bodyId:"sumBody", title:"Room cases", sheet:"Cases", actions:true, records:all=>all, cols:[
+    {headId:"sumHead", bodyId:"sumBody", title:"Room cases", sheet:"Cases", actions:true, records:all=>{ const out=[]; all.forEach((r,i)=>{ if(i&&(all[i-1].id||"")!==(r.id||"")) out.push({__i:-1,__gap:true}); out.push(Object.assign({__i:i},r)); }); return out; }, cols:[
     {k:"id",h:"Room ID",w:10},{k:"name",h:"Room name",w:22},{k:"equip",h:"Case",w:6,c:1},{k:"recTxt",h:"Recommended",w:11,c:1},
     {k:"area",h:"Area (m²)",w:9,fmt:"0.0"},{k:"height",h:"Height (m)",w:8,fmt:"0.00"},{k:"vol",h:"Volume (m³)",w:10,fmt:"0"},
     {k:"t",h:"Room DB (°C)",w:9,fmt:"0.0"},{k:"rh",h:"Room RH (%)",w:9,fmt:"0"},{k:"td",h:"Room dew point (°C)",w:10,fmt:"0.0"},
@@ -1125,7 +1135,7 @@ const PICK_CFG={
     {k:"energy",h:"Coil + reheat (kW)",w:10,fmt:"0.0"},{k:"result",h:"Result",w:8},{k:"reason",h:"Reason",w:70}]}
   ],
   keyOf:r=>`${r.id||""}|${r.equip||""}`,
-  beforePersist(rows){ const m=recommend(rows); rows.forEach(r=>{ r.rec=m.best.has(r); r.recTxt=r.rec?"✓ Recommended":""; }); },
+  beforePersist(rows){ groupRows(rows); const m=recommend(rows); rows.forEach(r=>{ r.rec=m.best.has(r); r.recTxt=r.rec?"✓ Recommended":""; }); },
   collect(){
     const R=lastR, S=lastS;
     if(!R||!S||S.err) return {err:"Fix the supply air inputs in tab 2 before adding to the summary."};
@@ -1150,7 +1160,16 @@ const PICK_CFG={
     try{ history.replaceState(null,"","#supply"); }catch(e){}
   }
 };
-PICK_CFG.onRender=rows=>{ if(typeof fillRoomPickers==="function") fillRoomPickers(rows); };
+PICK_CFG.onRender=rows=>{ if(typeof fillRoomPickers==="function") fillRoomPickers(rows);
+  /* blank separator row between rooms */
+  $("sumBody").querySelectorAll('[data-load="-1"]').forEach(b=>{ const tr=b.closest("tr"); tr.className="grp-gap"; tr.innerHTML=`<td colspan="${tr.children.length}"></td>`; }); };
+/* keep the cases of one Room ID together (rooms in the order first added), cases in ascending order */
+function groupRows(rows){
+  const order=new Map(); rows.forEach(r=>{ const k=r.id||""; if(!order.has(k)) order.set(k,order.size); });
+  const cn=r=>{ const x=parseFloat(r.equip); return isFinite(x)?x:Infinity; };
+  const s=rows.map((r,i)=>({r,i})).sort((a,b)=>order.get(a.r.id||"")-order.get(b.r.id||"")||cn(a.r)-cn(b.r)||String(a.r.equip||"").localeCompare(String(b.r.equip||""))||a.i-b.i);
+  s.forEach((o,i)=>rows[i]=o.r);
+}
 var SUMMARY=makeSummary(PICK_CFG);
 /* ---------- left-panel pickers: choose a saved room, or an AC equipment name already used here or in the AHU tool ---------- */
 function fillRoomPickers(rows){
@@ -1180,6 +1199,102 @@ document.querySelectorAll("select.pick").forEach(sel=>sel.addEventListener("chan
 }));
 fillRoomPickers(SUMMARY.rows);
 
+
+/* ---------- Auto generate: one case per corner of the set point band (DB low/high × RH low/high) ---------- */
+function spBand(txt,unit){
+  const t=String(txt||"").replace(/,/g,".").trim(); if(!t) return null; let m;
+  if((m=t.match(/^(-?\d+(?:\.\d+)?)\s*(?:±|\+\/-|\+-)\s*(\d+(?:\.\d+)?)/))) { const c=+m[1], d=+m[2]; return [c-d,c+d,c]; }
+  if((m=t.match(/^(-?\d+(?:\.\d+)?)\s*(?:–|—|-|to|~|÷)\s*(-?\d+(?:\.\d+)?)/))) { const a=+m[1], b=+m[2]; return [Math.min(a,b),Math.max(a,b),(a+b)/2]; }
+  if((m=t.match(/^(?:≤|<=|<|≥|>=|>)?\s*(-?\d+(?:\.\d+)?)/))) { const v=+m[1]; return [v,v,v]; }
+  return null;
+}
+const GEN_COMMON=["qs","ql","qsMin","flowMode","area","height","ach","flow","dt","rhc","chws","approach","tp","rhp","alt","margin"];
+function genCombos(db,rh,nominal){
+  const T=db[1]>db[0]?[db[1],db[0]]:[db[0]], H=rh[1]>rh[0]?[rh[1],rh[0]]:[rh[0]], out=[];
+  H.forEach(h=>T.forEach(t=>out.push([t,h])));          // high RH first: (T high, RH high), (T low, RH high), (T high, RH low), (T low, RH low)
+  if(nominal&&!out.some(c=>c[0]===db[2]&&c[1]===rh[2])) out.push([db[2],rh[2]]);
+  return out;
+}
+function openGenerator(){
+  let dlg=$("genDlg"); if(dlg) dlg.remove();
+  dlg=document.createElement("dialog"); dlg.id="genDlg"; dlg.className="dlg wide";
+  const lbl=id=>{ const l=document.querySelector(`label[for="${id}"]`); return l?l.textContent.trim():id; };
+  const unit=id=>{ const u=$(id).parentElement.querySelector(".u"); return u&&u.id!=="qlUnit"?u.textContent:""; };
+  const fld=id=>{ const el=$(id), mode=el.closest("[data-mode]");
+    const ctl=el.tagName==="SELECT"?`<select id="g_${id}">${[...el.options].map(o=>`<option value="${esc(o.value)}"${o.value===el.value?" selected":""}>${esc(o.textContent)}</option>`).join("")}</select>`
+      :`<input id="g_${id}" type="number" step="any" value="${esc(el.value)}">${id==="ql"?`<span class="u" id="g_qlU">${latMode==="kw"?"kW":"kg/h"}</span>`:unit(id)?`<span class="u">${esc(unit(id))}</span>`:""}`;
+    return `<div class="field"${mode?` data-gmode="${mode.dataset.mode}"`:""}><label for="g_${id}">${esc(lbl(id))}</label><div class="inp">${ctl}</div></div>`; };
+  const rid=$("roomId").value.trim(), used=SUMMARY.rows.filter(r=>(r.id||"")===rid).length;
+  const cur=r=>{ const v=+$(r).value; return isFinite(v)?v:""; };
+  dlg.innerHTML=`<form method="dialog" class="dlg-body">
+    <h2>Auto generate cases from a set point</h2>
+    <p class="note">One case is made for each corner of the set point band: dry bulb low / high × RH low / high (for example 22 ± 2 °C and 50 ± 5 % gives 24/55, 20/55, 24/45, 20/45). The common data below is used for every case; the cases go straight into the summary and the recommendation picks one.</p>
+    <h3>Room &amp; set point</h3>
+    <div class="gen-grid">
+      <div class="field"><label for="g_roomId">Room ID</label><div class="inp"><input id="g_roomId" type="text" value="${esc(rid)}" autocomplete="off"></div></div>
+      <div class="field"><label for="g_roomName">Room name</label><div class="inp"><input id="g_roomName" type="text" value="${esc($("roomName").value)}" autocomplete="off"></div></div>
+      <div class="field"><label for="g_lat">Enter latent load as</label><div class="inp"><select id="g_lat"><option value="kw"${latMode==="kw"?" selected":""}>kW latent</option><option value="kgh"${latMode==="kgh"?" selected":""}>kg/h moisture</option></select></div></div>
+      <div class="field"><label for="g_db">Set point dry bulb</label><div class="inp"><input id="g_db" type="text" value="${esc(cur("tr")===""?"22 ± 2":cur("tr")+" ± 2")}" placeholder="22 ± 2  or  20–24" autocomplete="off"><span class="u">°C</span></div></div>
+      <div class="field"><label for="g_rh">Set point RH</label><div class="inp"><input id="g_rh" type="text" value="${esc(cur("rhr")===""?"50 ± 5":cur("rhr")+" ± 5")}" placeholder="50 ± 5  or  45–55" autocomplete="off"><span class="u">%</span></div></div>
+      <div class="field"><label for="g_mode">Existing cases of this room</label><div class="inp"><select id="g_mode"><option value="replace">Replace them (cases 1, 2, 3 …)</option><option value="append">Keep them, number on</option></select></div></div>
+      <label class="field" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="g_nom"> <span>Also add the nominal set point (centre of the band) as a case</span></label>
+    </div>
+    <h3>Common data for every case</h3>
+    <div class="gen-grid">${GEN_COMMON.map(fld).join("")}</div>
+    <p class="gen-prev" id="g_prev"></p>
+    <p class="err hidden" id="g_err"></p>
+    <div class="btns" style="justify-content:flex-end;margin-top:6px">
+      <button class="btn ghost" value="cancel" type="submit">Cancel</button>
+      <button class="btn primary" id="g_go" type="button">Generate</button>
+    </div></form>`;
+  document.body.appendChild(dlg);
+  const G=id=>dlg.querySelector("#g_"+id);
+  const read=()=>{ const db=spBand(G("db").value), rh=spBand(G("rh").value), id=G("roomId").value.trim();
+    if(!id) return {err:"Enter a Room ID."};
+    if(!db) return {err:"Enter the dry bulb set point, e.g. 22 ± 2 or 20–24."};
+    if(!rh) return {err:"Enter the RH set point, e.g. 50 ± 5 or 45–55."};
+    if(rh[0]<=0||rh[1]>=100) return {err:"RH must be between 0 and 100 %."};
+    const mode=G("mode").value, ex=SUMMARY.rows.filter(r=>(r.id||"")===id);
+    const start=mode==="append"?Math.max(0,...ex.map(r=>parseInt(r.equip)||0))+1:1;
+    return {id,name:G("roomName").value.trim(),db,rh,mode,start,ex:ex.length,combos:genCombos(db,rh,G("nom").checked)}; };
+  const refresh=()=>{ const fm=G("flowMode").value; dlg.querySelectorAll("[data-gmode]").forEach(e=>e.classList.toggle("hidden",!e.dataset.gmode.split(" ").includes(fm)));
+    G("qlU").textContent=G("lat").value==="kw"?"kW":"kg/h";
+    const o=read(); G("err").classList.add("hidden");
+    G("prev").innerHTML=o.err?"":`${o.combos.length} case${o.combos.length>1?"s":""} for <b>${esc(o.id)}</b>: `+o.combos.map((c,i)=>`case ${o.start+i} = <b>${fmt(c[0])} °C / ${fmt(c[1],0)} %</b>`).join(" · ")+(o.ex?` — ${o.mode==="replace"?`replaces the ${o.ex} existing case${o.ex>1?"s":""}`:`kept with the ${o.ex} existing case${o.ex>1?"s":""}`}`:""); };
+  dlg.addEventListener("input",refresh); dlg.addEventListener("change",refresh); refresh();
+  G("go").addEventListener("click",()=>{
+    const o=read(); if(o.err){ G("err").textContent=o.err; G("err").classList.remove("hidden"); return; }
+    const common={}; GEN_COMMON.forEach(id=>common[id]=G(id).value);
+    const res=generateCases(o,common,G("lat").value);
+    if(res.err){ G("err").textContent=res.err; G("err").classList.remove("hidden"); return; }
+    dlg.close(); showView("summary"); try{ history.replaceState(null,"","#summary"); }catch(e){}
+    toast(`Generated ${res.n} case${res.n>1?"s":""} for ${o.id}${res.bad?` (${res.bad} with a failed check)`:""}`);
+  });
+  if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
+}
+function generateCases(o,common,lat){
+  const saved={}; INPUT_IDS.forEach(id=>saved[id]=$(id).value); const savedLat=latMode, savedActive=SUMMARY.active;
+  const made=[]; let err=null;
+  SUMMARY.setActive(null);
+  try{
+    o.combos.forEach((c,i)=>{ if(err) return;
+      GEN_COMMON.forEach(id=>$(id).value=common[id]); latMode=lat;
+      $("roomId").value=o.id; $("roomName").value=o.name; $("acEquip").value=String(o.start+i); $("tr").value=String(c[0]); $("rhr").value=String(c[1]);
+      update(); const r=PICK_CFG.collect(); if(r.err){ err=`Case ${fmt(c[0])} °C / ${fmt(c[1],0)} %: ${r.err}`; return; } made.push(r); });
+  } finally {
+    INPUT_IDS.forEach(id=>$(id).value=saved[id]); latMode=savedLat; update();
+  }
+  if(err){ SUMMARY.setActive(savedActive); return {err}; }
+  const rows=SUMMARY.rows;
+  if(o.mode==="replace"){ const at=rows.findIndex(x=>(x.id||"")===o.id);
+    for(let i=rows.length-1;i>=0;i--) if((rows[i].id||"")===o.id) rows.splice(i,1);
+    if(at>=0){ rows.splice(Math.min(at,rows.length),0,...made); made.length=0; } } /* the room keeps its place in the table */
+  made.forEach(r=>{ const k=SUMMARY.keyOf(r), i=rows.findIndex(x=>SUMMARY.keyOf(x)===k); if(i>=0) rows[i]=r; else rows.push(r); });
+  SUMMARY.setActive(null); /* the calculator keeps what it showed before; it no longer writes into a row until a row is added or loaded */
+  SUMMARY.persist(); fillRoomPickers(rows);
+  return {n:o.combos.length,bad:rows.filter(r=>(r.id||"")===o.id&&r.result==="Fail").length};
+}
+document.querySelectorAll("[data-gen]").forEach(b=>b.addEventListener("click",openGenerator));
 
 /* ---------- Main ---------- */
 function update(){
