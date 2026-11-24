@@ -67,6 +67,26 @@ header.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
 aside.panel{position:sticky;top:12px;display:grid;gap:14px}
 @media (max-width:900px){aside.panel{position:static}}
+/* the right panel scrolls on its own (vertical and horizontal bars), the page never gets wider than the window */
+.layout{grid-template-columns:290px minmax(0,1fr)}
+.layout>main.panel{min-width:0}
+.view{grid-template-columns:minmax(0,1fr)}
+.view>*{min-width:0}
+@media (min-width:901px){
+  .layout>main.panel{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+  aside.panel{max-height:calc(100vh - 24px);overflow:auto}
+}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+.layout>.panel{scrollbar-width:auto;scrollbar-color:#9fb3c2 transparent}
+.layout>.panel::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{width:12px;height:12px}
+.layout>.panel::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:#9fb3c2;border-radius:8px;border:3px solid transparent;background-clip:padding-box}
+.layout>.panel::-webkit-scrollbar-thumb:hover,.tbl-wrap::-webkit-scrollbar-thumb:hover{background-color:var(--accent)}
+/* summary tables: their own scroll box with the header row kept in view */
+#view-summary .tbl-wrap{max-height:calc(100vh - 230px);overflow:auto;border:1px solid var(--line);border-radius:8px}
+#view-summary table.sum thead{position:sticky;top:0;z-index:3}
+#view-summary table.sum thead th{background:var(--surface);box-shadow:inset 0 -1px 0 var(--line)}
+@media print{.layout>main.panel,aside.panel,#view-summary .tbl-wrap{max-height:none!important;overflow:visible!important;position:static!important;border:0}}
+
 
 .field{display:grid;gap:4px}
 .field label{font-size:.82rem;color:var(--muted);font-weight:500}
@@ -272,6 +292,13 @@ th.grp{text-align:center}
               <option value="dt">From supply ΔT</option>
             </select></div>
           </div>
+          <div class="field"><label for="flowBasis">Airflow volume basis</label>
+            <div class="inp"><select id="flowBasis">
+              <option value="std">Standard air (q = 1.23·Q·ΔT)</option>
+              <option value="supply">Actual, at supply air state</option>
+              <option value="room">Actual, at room air state</option>
+            </select></div>
+          </div>
           <div class="field"><label for="area">Room area</label><div class="inp"><input id="area" type="number" step="1" min="0" value="200"><span class="u">m²</span></div></div>
           <div class="field"><label for="height">Room height</label><div class="inp"><input id="height" type="number" step="0.1" min="0" value="3"><span class="u">m</span></div></div>
           <div class="field"><label for="volOut">Room volume (area × height)</label><div class="inp"><input id="volOut" type="text" readonly tabindex="-1" style="font-family:var(--font-num)"><span class="u">m³</span></div></div>
@@ -351,7 +378,10 @@ th.grp{text-align:center}
           <span class="eq">v = 0.287042·(t + 273.15)·(1 + 1.607858·W) / p &nbsp;[m³/kg]</span>
           <p>The dew point is the temperature at which the saturation vapor pressure equals the partial vapor pressure p_w. The tool solves it by bisection.</p>
           <h2>Supply air temperature selection</h2>
-          <span class="eq">ṁ = Q / v_s ; &nbsp; T_s = T_r − Q_sens / (ṁ·c_p) ; &nbsp; c_p = 1.006 + 1.86·W_r</span>
+          <span class="eq">Standard air: Q_sens = 1.23 · Q · ΔT &nbsp;[kW, m³/s, K] → ṁ = 1.23 · Q / c_p &nbsp;(ρ = 1.2 kg/m³, c_p ≈ 1.025; ASHRAE Fundamentals Ch. 18)</span>
+          <span class="eq">Actual: ṁ = Q / v &nbsp;(v at the supply or room state, Eq. 26)</span>
+          <span class="eq">T_s = T_r − Q_sens / (ṁ·c_p) ; &nbsp; c_p = 1.006 + 1.86·W_r</span>
+          <p>The coil, reheat and supply states depend only on the mass flow ṁ. With the ΔT method ṁ = Q_sens / (c_p·ΔT), so the same sensible load and ΔT always give the same mass flow. On <em>standard air</em> the volume flow is Q = Q_sens / (1.23·ΔT), identical for every room state. On an <em>actual</em> basis it changes slightly with the specific volume and the moist-air c_p (e.g. supply 17 °C vs 13 °C differ by about 1.4 %). Use standard air for comparing cases and schedules, and the actual basis (usually at the fan, i.e. the supply state) when the altitude is high or the fan is selected at actual conditions.</p>
           <span class="eq">W_s = W_r − ṁ_w / ṁ ; &nbsp; ṁ_w = Q_lat / 2501 &nbsp;(or kg/h ÷ 3600)</span>
           <h2>Sensible heat ratio line &amp; ADP</h2>
           <span class="eq">RSHR = Q_sens / (Q_sens + Q_lat) ; &nbsp; Q_lat = ṁ_w × 2501 &nbsp;[kW]</span>
@@ -428,7 +458,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 
 /* ---------- State ---------- */
 const KEY="hvac-dewpoint-supply-en-v1";
-const INPUT_IDS=["roomId","roomName","acEquip","qsMin","tr","rhr","alt","margin","qs","ql","flowMode","area","height","ach","flow","dt","rhc","chws","approach","tp","rhp"];
+const INPUT_IDS=["roomId","roomName","acEquip","qsMin","tr","rhr","alt","margin","qs","ql","flowMode","flowBasis","area","height","ach","flow","dt","rhc","chws","approach","tp","rhp"];
 const DEFAULT_SURF=[
   {name:"Supply diffuser (aluminium frame)",t:14},
   {name:"Uninsulated supply duct",t:13},
@@ -554,8 +584,12 @@ function syncModeUI(){
   $("qlUnit").textContent=latMode==="kw"?"kW":"kg/h";
 }
 
+/* volume ↔ mass flow. Standard air: q_s = 1.23 · Q · Δt (ASHRAE Fundamentals 2021 Ch.18; ρ = 1.2 kg/m³, c_p ≈ 1.025 kJ/kg·K),
+   so the same sensible load and ΔT give the same m³/h whatever the room state; the mass flow for the psychrometrics is
+   ṁ = 1.23 · Q / c_p(actual). "Actual" converts with the specific volume (Ch.1 Eq. 26) at the supply or room state. */
+const C_STD=1.23;
 function supply(R){
-  const p=R.p, mode=$("flowMode").value;
+  const p=R.p, mode=$("flowMode").value, basis=$("flowBasis").value||"std";
   const qs=n("qs",0), ql=Math.max(0,n("ql",0)), vol=Math.max(0,n("area",0))*Math.max(0,n("height",0));
   const rhc=Math.min(100,Math.max(50,n("rhc",95)));
   const chws=n("chws",6), appr=Math.max(0,n("approach",3));
@@ -566,12 +600,14 @@ function supply(R){
     const dt=n("dt",0);
     if(dt<=0) return {err:"ΔT must be greater than 0."};
     if(qs<=0) return {err:"The ΔT method needs a sensible load greater than 0."};
-    Ts=R.t-dt; mda=qs/(cp*dt); Ws=R.W-mw/mda; Q=mda*spv(Ts,Math.max(Ws,1e-5),p);
+    Ts=R.t-dt; mda=qs/(cp*dt); Ws=R.W-mw/mda;
+    Q= basis==="std" ? qs/(C_STD*dt) : basis==="room" ? mda*R.v : mda*spv(Ts,Math.max(Ws,1e-5),p);
   }else{
     Q = mode==="ach" ? vol*n("ach",0)/3600 : n("flow",0)/3600;
     if(Q<=0) return {err:mode==="ach"?"Enter room area, height and an air change rate greater than 0.":"Enter an airflow greater than 0."};
-    let vs=R.v;
-    for(let k=0;k<5;k++){ mda=Q/vs; Ts=R.t-qs/(mda*cp); Ws=R.W-mw/mda; vs=spv(Ts,Math.max(Ws,1e-5),p); }
+    if(basis==="supply"){ let vs=R.v;
+      for(let k=0;k<5;k++){ mda=Q/vs; Ts=R.t-qs/(mda*cp); Ws=R.W-mw/mda; vs=spv(Ts,Math.max(Ws,1e-5),p); } }
+    else { mda= basis==="std" ? C_STD*Q/cp : Q/R.v; Ts=R.t-qs/(mda*cp); Ws=R.W-mw/mda; }
   }
   if(Ws<=0.0003) return {err:"Airflow is too low to remove the latent load (supply humidity ratio comes out ≤ 0.3 g/kg). Increase the airflow or reduce the latent load."};
   const tdS=tdewFromW(Ws,p);
@@ -603,7 +639,7 @@ function supply(R){
   }
   const bf= isFinite(adp)&&R.t-adp>0 ? (Ts-adp)/(R.t-adp) : NaN;
   const Wp=WfromRH(n("tp",30),Math.min(100,n("rhp",70)),p), tdP=tdewFromW(Wp,p);
-  return {p,mda,Q,Ts,Ws,tdS,Tc,Wleave,tdC,gov,reheat,rhRoomActual,rhc,chws,appr,vol,mode,
+  return {p,basis,mda,Q,Ts,Ws,tdS,Tc,Wleave,tdC,gov,reheat,rhRoomActual,rhc,chws,appr,vol,mode,
     ach: vol>0? Q*3600/vol : NaN, tp:n("tp",30), Wp, tdP, qs, mw, qsMin, TsN, TcN, reheatNight, reheatMax, rhNightNoRh, qCoil, rhS:RHfromW(Ts,Wleave,p), qlKW, shr, slope, adp, Wadp, bf};
 }
 
@@ -620,7 +656,7 @@ function renderSupply(R,S){
     <div class="tile"><div class="k">Reheat (design / night)</div><div class="v">${fmt(S.reheatMax)}<small>kW · design ${fmt(S.reheat)} · night ${fmt(S.reheatNight)}</small></div></div>
     <div class="tile key"><div class="k">Room sensible heat ratio</div><div class="v">${fmt(S.shr,2)}<small>RSHR</small></div></div>
     <div class="tile"><div class="k">Apparatus dew point (ADP)</div><div class="v">${fmt(S.adp)}<small>°C${isFinite(S.bf)?` · BF ${fmt(S.bf,2)}`:""}</small></div></div>
-    <div class="tile"><div class="k">Supply airflow</div><div class="v">${fmt(flowH,0)}<small>m³/h</small></div></div>
+    <div class="tile"><div class="k">Supply airflow</div><div class="v">${fmt(flowH,0)}<small>m³/h · ${S.basis==="std"?"standard air":S.basis==="room"?"at room state":"at supply state"} · ${fmt(S.mda*3600,0)} kg/h</small></div></div>
     <div class="tile"><div class="k">ΔT room − supply</div><div class="v">${fmt(R.t-S.Ts)}<small>K${isFinite(S.ach)?` · ${fmt(S.ach,1)} ACH`:""}</small></div></div>`;
 
   const checks=[];
@@ -1208,7 +1244,7 @@ function spBand(txt,unit){
   if((m=t.match(/^(?:≤|<=|<|≥|>=|>)?\s*(-?\d+(?:\.\d+)?)/))) { const v=+m[1]; return [v,v,v]; }
   return null;
 }
-const GEN_COMMON=["qs","ql","qsMin","flowMode","area","height","ach","flow","dt","rhc","chws","approach","tp","rhp","alt","margin"];
+const GEN_COMMON=["qs","ql","qsMin","flowMode","flowBasis","area","height","ach","flow","dt","rhc","chws","approach","tp","rhp","alt","margin"];
 function genCombos(db,rh,nominal){
   const T=db[1]>db[0]?[db[1],db[0]]:[db[0]], H=rh[1]>rh[0]?[rh[1],rh[0]]:[rh[0]], out=[];
   H.forEach(h=>T.forEach(t=>out.push([t,h])));          // high RH first: (T high, RH high), (T low, RH high), (T high, RH low), (T low, RH low)
