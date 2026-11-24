@@ -67,6 +67,26 @@ header.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
 aside.panel{position:sticky;top:12px;display:grid;gap:14px}
 @media (max-width:900px){aside.panel{position:static}}
+/* the right panel scrolls on its own (vertical and horizontal bars), the page never gets wider than the window */
+.layout{grid-template-columns:290px minmax(0,1fr)}
+.layout>main.panel{min-width:0}
+.view{grid-template-columns:minmax(0,1fr)}
+.view>*{min-width:0}
+@media (min-width:901px){
+  .layout>main.panel{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+  aside.panel{max-height:calc(100vh - 24px);overflow:auto}
+}
+@media (max-width:900px){.layout{grid-template-columns:minmax(0,1fr)}}
+.layout>.panel{scrollbar-width:auto;scrollbar-color:#9fb3c2 transparent}
+.layout>.panel::-webkit-scrollbar,.tbl-wrap::-webkit-scrollbar{width:12px;height:12px}
+.layout>.panel::-webkit-scrollbar-thumb,.tbl-wrap::-webkit-scrollbar-thumb{background:#9fb3c2;border-radius:8px;border:3px solid transparent;background-clip:padding-box}
+.layout>.panel::-webkit-scrollbar-thumb:hover,.tbl-wrap::-webkit-scrollbar-thumb:hover{background-color:var(--accent)}
+/* summary tables: their own scroll box with the header row kept in view */
+#view-summary .tbl-wrap{max-height:calc(100vh - 230px);overflow:auto;border:1px solid var(--line);border-radius:8px}
+#view-summary table.sum thead{position:sticky;top:0;z-index:3}
+#view-summary table.sum thead th{background:var(--surface);box-shadow:inset 0 -1px 0 var(--line)}
+@media print{.layout>main.panel,aside.panel,#view-summary .tbl-wrap{max-height:none!important;overflow:visible!important;position:static!important;border:0}}
+
 
 .field{display:grid;gap:4px}
 .field label{font-size:.82rem;color:var(--muted);font-weight:500}
@@ -195,6 +215,16 @@ table.sched th{text-align:center;vertical-align:middle}
 #sizeBody th{text-align:left;white-space:nowrap;width:1%}
 #sizeBody td.note{font-size:.8rem}
 .layout>main.panel{min-width:0}
+.cmp-pick{display:grid;grid-template-columns:minmax(220px,1fr) 2fr;gap:10px}
+.cmp-pick fieldset{border:1px solid var(--line);border-radius:8px;padding:6px 10px 8px;margin:0;min-width:0}
+.cmp-pick legend{font-size:.8rem;font-weight:600;padding:0 4px}
+.cmp-list{display:grid;gap:2px 12px;max-height:150px;overflow:auto;font-size:.82rem}
+.cmp-list.cols{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.cmp-opt{display:flex;gap:6px;align-items:baseline;cursor:pointer}
+.cmp-opt small{color:var(--muted)}
+.lnk{border:0;background:none;color:var(--accent);font:inherit;font-weight:400;cursor:pointer;padding:0}
+.lnk:hover{text-decoration:underline}
+@media (max-width:700px){.cmp-pick{grid-template-columns:1fr}}
 .tbl-wrap{overflow-x:auto;max-width:100%}
 .view>*,#sumWrap>*,#calcOut>*,#balWrap>*,.bal-blk>*{min-width:0}
 
@@ -505,7 +535,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
             <li><strong>Evaporative cooler (evaporator), ASHRAE HVAC Systems and Equipment 2020, Ch. 41:</strong> direct media t<sub>2</sub> = t<sub>1</sub> − ε (t<sub>1</sub> − t′<sub>s</sub>) along the entering wet bulb (Eq. 1; ε 70–95 % rigid media, ≈ 80 % random media; face velocity 2–3 m/s rigid, 0.5–1.3 m/s random). Indirect stage t<sub>2</sub> = t<sub>1</sub> − WBDE (t<sub>1</sub> − t<sub>s,secondary</sub>), no moisture added (Eq. 2; WBDE 60–80 %). Water: evaporation = ṁ (W<sub>2</sub> − W<sub>1</sub>) for the media and q / h<sub>fg</sub> for the IEC wet side; bleed-off 5–100 % of evaporation; make-up = evaporation + bleed. Checks: entering WB above ≈ 21 °C (not for indoor comfort), recirculating indoor air through a direct cooler, media face velocity.</li>
             <li><strong>Evaporator + FFU:</strong> choose evaporator only, FFU only, or both. With both, the evaporator supplies either the FFU outdoor-air inlet or the room directly (the FFU then takes outdoor air from outside). Each unit at 100 % outdoor air has no return; below 100 % it gets a mixing box with OA / RA dampers. The same supply choice and outdoor-air % apply to the MAU / PAU (e.g. the MAU keeps the air change with a mixing box while the AHU circulation controls the temperature).</li>
             <li><strong>Linking rooms:</strong> the link takes the recommended case of each room from the dew point tool. One room can be split over several AHUs (airflow ÷ number of AHUs, QTY in Table 1) or several rooms can share one AHU (airflows add up). The AHU added or loaded last follows the inputs: changes are written to its summary row automatically.</li>
-            <li><strong>Working AHUs (New / Copy):</strong> “+ New AHU” starts from the sample inputs and “⧉ Copy AHU” duplicates the open one, so several options can be kept side by side; “Compare” lists their airflow, cooling, reheat, fan and electrical power, size and weight. A working AHU is a draft until “+ Add to summary” is pressed; only then does it enter the schedules and follow later changes. Adding a draft with the same tag as a scheduled AHU replaces that entry.</li>
+            <li><strong>Working AHUs (New / Copy):</strong> “+ New AHU” starts from the sample inputs and “⧉ Copy AHU” duplicates the open one, so several options can be kept side by side; “Compare” lists their airflow, cooling, reheat, fan and electrical power, size and weight; tick which AHUs and which items to show (the choice is remembered in this browser). A working AHU is a draft until “+ Add to summary” is pressed; only then does it enter the schedules and follow later changes. Adding a draft with the same tag as a scheduled AHU replaces that entry.</li>
             <li><strong>Air flow balance (Table 3):</strong> one table per AHU with the rooms it serves. For each room: return = supply + leakage / transfer in − extract − leakage out. The checks compare Σ room supply with the AHU supply (× QTY), Σ return with the recirculated air (supply − outdoor air), and the net air leaving the rooms (extract + leakage out − leakage in) with the outdoor air. Fresh air per room is shared in proportion to supply unless entered.</li>
             <li><strong>Reheat, 1: Cal and 2: Check:</strong> 1: Cal heats the coil leaving air to the supply target (or to a fixed leaving-air set point); 2: Check is the low room sensible load case (night / equipment off): T<sub>s</sub> = T<sub>room</sub> − q<sub>min</sub> / (ṁ·c<sub>p</sub>). Table 1 shows the value you choose (Cal, Check or the larger); the process schematic shows both.</li>
             <li><strong>Fans and electrical:</strong> plug-fan array, single plug fan or belt-driven centrifugal fan (5 % belt loss). Table 2 lists each consumer group (supply fan, return fan, coil pumps, electric heaters, others) with the motor rating (next IEC size above shaft power × motor margin), supply voltage and an estimated full-load current I = P / (η·√3·U·cos φ) with η 0.88, cos φ 0.85 (3-phase 380 V) or I = P / (η·U·cos φ) (1-phase 220 V); heaters cos φ 1. Use it for preliminary cable and breaker sizing; confirm with the motor nameplate.</li>
@@ -1377,9 +1407,12 @@ document.addEventListener("mousedown",e=>{ if(e.button!==0) return; const el=e.t
 document.addEventListener("click",e=>{ if(e.detail!==0) return; const el=e.target.closest&&e.target.closest("[data-nav]"); if(el) navGo(el); });
 document.addEventListener("keydown",e=>{ if((e.key==="Enter"||e.key===" ")&&e.target.matches&&e.target.matches("g.sec[data-nav]")){ e.preventDefault(); navGo(e.target); } });
 /* back to top / back to the diagram */
-function topBtns(){ const y=window.scrollY>320; $("toTop").classList.toggle("on",y); $("toDiag").classList.toggle("on",y&&!!navFrom&&view==="config"); }
-window.addEventListener("scroll",topBtns,{passive:true});
-$("toTop").addEventListener("click",()=>{ window.scrollTo({top:0,behavior:"smooth"}); navFrom=null; });
+/* the right panel has its own scroll bar on wide screens; on narrow screens the window scrolls */
+const mainPanel=()=>document.querySelector(".layout>main.panel");
+const panelScrolls=()=>{ const m=mainPanel(); return !!m&&getComputedStyle(m).overflowY==="auto"; };
+function topBtns(){ const y=(panelScrolls()?mainPanel().scrollTop:window.scrollY)>320; $("toTop").classList.toggle("on",y); $("toDiag").classList.toggle("on",y&&!!navFrom&&view==="config"); }
+window.addEventListener("scroll",topBtns,{passive:true}); mainPanel().addEventListener("scroll",topBtns,{passive:true});
+$("toTop").addEventListener("click",()=>{ mainPanel().scrollTo({top:0,behavior:"smooth"}); window.scrollTo({top:0,behavior:"smooth"}); navFrom=null; });
 $("toDiag").addEventListener("click",()=>{ if(navFrom) navFrom.scrollIntoView({behavior:"smooth",block:"center"}); navFrom=null; setTimeout(topBtns,600); });
 
 /* ---------- Diagram ---------- */
@@ -2537,12 +2570,13 @@ $("draftDel").addEventListener("click",()=>{ const d=curDraft(); if(!d||DR.list.
   const i=DR.list.indexOf(d); DR.list.splice(i,1); dGo(DR.list[Math.min(i,DR.list.length-1)]); toast(`Deleted ${dTag(d)}`); });
 $("addSumBtn").addEventListener("click",()=>{ const d=curDraft(); if(d&&SUMMARY.active&&SUMMARY.rows.some(r=>SUMMARY.keyOf(r)===SUMMARY.active)){ dMark(SUMMARY.active); dFill(); } });
 const SYS_TXT=v=>{ const o=document.querySelector(`[data-sys="${v}"]`); return o?o.textContent.trim():v||"—"; };
+/* Compare: tick the AHUs and the items to compare; the choice is remembered in this browser */
+const CMPKEY="hvac-ahu-cmp-v1";
 $("draftCmp").addEventListener("click",()=>{
   let dlg=document.getElementById("cmpDlg"); if(dlg) dlg.remove();
-  dlg=document.createElement("dialog"); dlg.id="cmpDlg"; dlg.className="dlg"; dlg.style.maxWidth="min(1100px,calc(100% - 32px))";
+  dlg=document.createElement("dialog"); dlg.id="cmpDlg"; dlg.className="dlg"; dlg.style.maxWidth="min(1180px,calc(100% - 32px))";
   const L=DR.list, S=d=>d.snap||{};
   const num=(v,dp)=>typeof v==="number"&&isFinite(v)?fmt(v,dp):(v==null||v===""?"—":esc(String(v)));
-  const best=(k,lo)=>{ const v=L.map(d=>S(d)[k]).filter(x=>typeof x==="number"&&isFinite(x)&&x>0); return v.length>1?(lo?Math.min(...v):Math.max(...v)):NaN; };
   const ROWS=[["Status",d=>inSum(d)?"In summary":"Draft"],["System",d=>esc(SYS_TXT(S(d).sys))],["Type",d=>esc(S(d).type||"—")],["Rooms",d=>esc(S(d).rooms||"—")],
     ["Room °C / %RH",d=>`${num(S(d).roomT,1)} / ${num(S(d).roomRH,0)}`],["Quantity (set)",d=>num(S(d).qty,0)],
     ["Supply airflow (m³/h)",d=>num(S(d).flow,0)],["Outdoor air (m³/h)",d=>num(S(d).oaFlow,0)],["Cooling, total incl. pre-cool (kW)",d=>num(S(d).qTotAll,1),"qTotAll",1],
@@ -2550,13 +2584,38 @@ $("draftCmp").addEventListener("click",()=>{
     ["Installed electrical (kW)",d=>num(S(d).elec,1),"elec",1],["Supply DB / W (°C / g/kg)",d=>esc(S(d).supDbW||"—")],["Size W × H × L (mm)",d=>esc(S(d).size||"—")],
     ["Operating weight (kg)",d=>num(S(d).weight,0),"weight",1],["Outdoor-air unit",d=>S(d).mau?`${esc(S(d).mau.id)}: ${num(S(d).mau.flow,0)} m³/h, ${num(S(d).mau.qTotAll,1)} kW`:"—"],
     ["Checks with notes",d=>S(d).err?"Input error":num(S(d).nNotes,0)]];
+  let C={ahu:null,items:null}; try{ C=Object.assign(C,JSON.parse(localStorage.getItem(CMPKEY)||"{}")); }catch(e){}
+  const selA=new Set(Array.isArray(C.ahu)?C.ahu.filter(id=>L.some(d=>d.id===id)):L.map(d=>d.id));
+  if(!selA.size) L.forEach(d=>selA.add(d.id));
+  const selI=new Set(Array.isArray(C.items)?C.items.filter(h=>ROWS.some(r=>r[0]===h)):ROWS.map(r=>r[0]));
+  if(!selI.size) ROWS.forEach(r=>selI.add(r[0]));
+  const keep=()=>{ try{ localStorage.setItem(CMPKEY,JSON.stringify({ahu:[...selA],items:[...selI]})); }catch(e){} };
+  const chk=(grp,val,on,txt)=>`<label class="cmp-opt"><input type="checkbox" data-grp="${grp}" value="${esc(val)}"${on?" checked":""}> <span>${txt}</span></label>`;
   dlg.innerHTML=`<form method="dialog" class="dlg-body"><h2>Compare working AHUs</h2>
-    <p class="note">Every working AHU (drafts and scheduled ones) with its last calculated result. Lowest energy, power and weight are marked ★. “Open” loads it for editing; a draft goes into the schedule only with “+ Add to summary”.</p>
-    <div class="tbl-wrap" style="max-height:60vh"><table class="sum cmp"><thead><tr><th>Item</th>${L.map(d=>`<th class="r">${esc(dTag(d))}${d.id===DR.cur?" (open)":""}<br><button class="btn sm" type="button" data-open="${esc(d.id)}"${d.id===DR.cur?" disabled":""}>Open</button></th>`).join("")}</tr></thead>
-    <tbody>${ROWS.map(([h,f,k,lo])=>{ const b=k?best(k,lo):NaN; return `<tr><td>${h}</td>${L.map(d=>{ const v=k?S(d)[k]:NaN; return `<td class="r num">${f(d)}${isFinite(b)&&v===b?" ★":""}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table></div>
+    <p class="note">Tick the AHUs and the items to compare; each AHU shows its last calculated result. Among the ticked AHUs the lowest energy, power and weight are marked ★. “Open” loads an AHU for editing; a draft goes into the schedule only with “+ Add to summary”.</p>
+    <div class="cmp-pick">
+      <fieldset><legend>AHUs <button class="lnk" type="button" data-all="a">All</button> · <button class="lnk" type="button" data-none="a">None</button></legend>
+        <div class="cmp-list">${L.map((d,i)=>chk("a",d.id,selA.has(d.id),`${i+1}. ${esc(dTag(d))}${d.id===DR.cur?" <small>(open)</small>":""} <small>· ${inSum(d)?"in summary":"draft"}</small>`)).join("")}</div></fieldset>
+      <fieldset><legend>Items <button class="lnk" type="button" data-all="i">All</button> · <button class="lnk" type="button" data-none="i">None</button></legend>
+        <div class="cmp-list cols">${ROWS.map(r=>chk("i",r[0],selI.has(r[0]),esc(r[0]))).join("")}</div></fieldset>
+    </div>
+    <div class="tbl-wrap" style="max-height:52vh" id="cmpTbl"></div>
     <div class="btns" style="justify-content:flex-end"><button class="btn ghost" value="close" type="submit">Close</button></div></form>`;
   document.body.appendChild(dlg);
-  dlg.addEventListener("click",e=>{ const b=e.target.closest("[data-open]"); if(!b) return; const d=DR.list.find(x=>x.id===b.dataset.open); dlg.close(); if(d){ dGo(d); toast(`Working on ${dTag(d)}`); } });
+  const draw=()=>{
+    const A=L.filter(d=>selA.has(d.id)), R=ROWS.filter(r=>selI.has(r[0]));
+    const best=(k,lo)=>{ const v=A.map(d=>S(d)[k]).filter(x=>typeof x==="number"&&isFinite(x)&&x>0); return v.length>1?(lo?Math.min(...v):Math.max(...v)):NaN; };
+    $("cmpTbl").innerHTML=!A.length||!R.length?`<p class="note" style="padding:14px;border:1px dashed var(--line);border-radius:8px;text-align:center">Tick at least one AHU and one item.</p>`
+      :`<table class="sum cmp"><thead><tr><th>Item</th>${A.map(d=>`<th class="r">${esc(dTag(d))}${d.id===DR.cur?" (open)":""}<br><button class="btn sm" type="button" data-open="${esc(d.id)}"${d.id===DR.cur?" disabled":""}>Open</button></th>`).join("")}</tr></thead>
+      <tbody>${R.map(([h,f,k,lo])=>{ const b=k?best(k,lo):NaN; return `<tr><td>${h}</td>${A.map(d=>{ const v=k?S(d)[k]:NaN; return `<td class="r num">${f(d)}${isFinite(b)&&v===b?" ★":""}</td>`; }).join("")}</tr>`; }).join("")}</tbody></table>`;
+  };
+  draw();
+  dlg.addEventListener("change",e=>{ const c=e.target.closest("[data-grp]"); if(!c) return; const set=c.dataset.grp==="a"?selA:selI; c.checked?set.add(c.value):set.delete(c.value); keep(); draw(); });
+  dlg.addEventListener("click",e=>{
+    const all=e.target.closest("[data-all],[data-none]");
+    if(all){ const g=all.dataset.all||all.dataset.none, on=!!all.dataset.all, set=g==="a"?selA:selI;
+      dlg.querySelectorAll(`[data-grp="${g}"]`).forEach(c=>{ c.checked=on; on?set.add(c.value):set.delete(c.value); }); keep(); draw(); return; }
+    const b=e.target.closest("[data-open]"); if(!b) return; const d=DR.list.find(x=>x.id===b.dataset.open); dlg.close(); if(d){ dGo(d); toast(`Working on ${dTag(d)}`); } });
   if(dlg.showModal) dlg.showModal(); else dlg.setAttribute("open","");
 });
 
