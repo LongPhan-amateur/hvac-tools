@@ -127,6 +127,17 @@ td.num{white-space:nowrap}
 td input{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;padding:5px 7px}
 td input[type=number]{font-family:var(--font-num);max-width:90px}
 
+.fbtn{border:0;background:none;cursor:pointer;font:inherit;font-size:.7rem;line-height:1;color:var(--muted);padding:2px 3px;margin-left:3px;border-radius:4px;vertical-align:middle}
+.fbtn:hover{background:var(--line)}.fbtn.on{color:#fff;background:var(--accent)}
+.fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.8rem;margin:0 0 6px;padding:5px 10px;border-radius:8px;background:var(--warn-bg);color:var(--warn)}
+.fbar.hidden{display:none}.fbar button{font-size:.78rem;padding:2px 8px}
+.fpop{position:fixed;z-index:1000;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 36px rgba(0,0,0,.22);padding:10px;width:250px;font-size:.84rem}
+.fpop input[type=search]{width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;margin-bottom:6px}
+.fpop .fl{max-height:240px;overflow:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0;margin:4px 0}
+.fpop label{display:flex;gap:6px;align-items:center;padding:2px 2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fpop label small{margin-left:auto;color:var(--muted)}
+.fpop .fb{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+@media print{.fbtn,.fbar,.fpop{display:none!important}}
 .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.76rem;font-weight:600;white-space:nowrap}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}
 .pill.warn{background:var(--warn-bg);color:var(--warn)}
@@ -484,7 +495,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
             <span><i style="background:var(--c-supply)"></i>Supply</span>
           </div>
         </div>
-        <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 780 470" role="img" aria-label="Psychrometric chart of the AHU process"></svg></div>
+        <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 836 470" role="img" aria-label="Psychrometric chart of the AHU process"></svg></div>
         <p class="note" id="chartNote"></p>
       </section>
 
@@ -1715,6 +1726,17 @@ function drawChart(R){
   for(let w=0;w<=wMax;w+=5) g+=`<line x1="${W0}" y1="${Y(w)}" x2="${W1}" y2="${Y(w)}" stroke="var(--grid)"/><text x="${W1+8}" y="${Y(w)+4}">${w}</text>`;
   g+=`<text x="${(W0+W1)/2}" y="${H1+36}" text-anchor="middle">Dry-bulb temperature (°C)</text>`;
   g+=`<text x="${W1+44}" y="${(H0+H1)/2}" text-anchor="middle" transform="rotate(90 ${W1+44} ${(H0+H1)/2})">Humidity ratio W (g/kg dry air)</text>`;
+  /* RSHR scale (as on the dew point tool's chart): a line from the alignment point (5 °C / 3 g/kg) to a value on the scale
+     has the slope dW/dt = c_p·(1 − SHR)/(h_fg·SHR) of a room process with that sensible heat ratio */
+  const tRm=n("roomT",NaN), WRm=isFinite(tRm)?WfromRH(tRm,Math.min(100,Math.max(1,n("roomRH",50))),p):NaN, cpR=1.006+1.86*(isFinite(WRm)?WRm:0.01);
+  const tRef=5, Wref=0.003, xS=W1+70, tS=tMin+(xS-W0)/(W1-W0)*(tMax-tMin);
+  const yShr=shr=>Y((Wref+cpR*(1-shr)/(2501*shr)*(tS-tRef))*1000), xRef=X(tRef), yRef=Y(Wref*1000);
+  g+=`<line x1="${xS}" y1="${H0}" x2="${xS}" y2="${H1}" stroke="var(--grid-strong)"/>`;
+  for(let k=100;k>=20;k-=5){ const v=k/100, y=yShr(v); if(y<H0-0.5||y>H1) continue; const major=k%10===0;
+    g+=`<line x1="${xS}" y1="${y}" x2="${xS+(major?7:4)}" y2="${y}" stroke="var(--muted)"/>`;
+    if(major||k===95||k===85) g+=`<text x="${xS+10}" y="${y+4}"${major?"":` style="font-size:9.5px"`}>${major?v.toFixed(1):v.toFixed(2)}</text>`; }
+  g+=`<text x="${xS+46}" y="${(H0+H1)/2}" text-anchor="middle" transform="rotate(90 ${xS+46} ${(H0+H1)/2})">RSHR (sensible heat ratio)</text>`;
+  g+=`<circle cx="${xRef}" cy="${yRef}" r="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.6"/><circle cx="${xRef}" cy="${yRef}" r="1.3" fill="var(--muted)"/>`;
   g+=`<g clip-path="url(#plotClip)">`;
   for(let rh=10;rh<100;rh+=10) g+=`<polyline points="${curve(rh)}" fill="none" stroke="var(--grid-strong)" stroke-width="${rh===50?1.2:0.8}"/>`;
   g+=`<polyline points="${curve(100)}" fill="none" stroke="var(--ink)" stroke-width="1.6"/>`;
@@ -1732,6 +1754,19 @@ function drawChart(R){
       if(m){ g+=`<line x1="${pos(oa2)[0]}" y1="${pos(oa2)[1]}" x2="${pos(r)[0]}" y2="${pos(r)[1]}" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="5 4"/>`; } }
     if(R.mau){ const MP=R.mau.pts.filter(q=>q.code!=="R");
       g+=`<polyline points="${MP.map(q=>pos(q).map(v=>v.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--c-plenum)" stroke-width="2" stroke-dasharray="7 3"/>`; }
+    /* room RSHR line: the supply air S picks up the room's sensible and latent heat along S → room point; extended to saturation (room ADP) */
+    const Sp=by("S"); var shr=NaN, adpR=NaN, shrTxt="";
+    if(Sp&&isFinite(WRm)){ const dT=tRm-Sp.t, dW=WRm-Sp.W;
+      if(dT>0.05&&dW>-1e-7){ shr=cpR*dT/(cpR*dT+2501*Math.max(0,dW)); const sl=Math.max(0,dW)/dT, Wl=t=>WRm-(tRm-t)*sl;
+        const f=t=>Wsat(t,p)-Wl(t); let lo=tRm; while(lo>-20&&f(lo)>0) lo-=0.5; if(f(lo)<=0) adpR=bisect(f,lo,lo+0.5);
+        const tA=isFinite(adpR)?adpR:tMin, tB=tRm+4, [ax,ay]=[X(tA),Y(Wl(tA)*1000)], [bx,by2]=[X(tB),Y(Wl(tB)*1000)], [rx,ry]=[X(tRm),Y(WRm*1000)];
+        g+=`<line x1="${ax}" y1="${ay}" x2="${bx}" y2="${by2}" stroke="var(--c-shr)" stroke-width="1.6" stroke-dasharray="8 4"/>`;
+        const ang=Math.atan2(by2-ay,bx-ax)*180/Math.PI, mx=(ax*0.35+rx*0.65), my=(ay*0.35+ry*0.65);
+        shrTxt=`<text x="${mx}" y="${my+15}" text-anchor="middle" class="lbl" style="fill:var(--c-shr);paint-order:stroke;stroke:var(--surface);stroke-width:3px" transform="rotate(${ang.toFixed(1)} ${mx} ${my})">RSHR ${fmt(shr,2)}</text>`;
+        if(shr>0&&shr<=1){ const ys=yShr(shr);
+          if(ys>=H0-0.5&&ys<=H1) shrTxt+=`<line x1="${xRef}" y1="${yRef}" x2="${xS}" y2="${ys}" stroke="var(--c-shr)" stroke-width="1" stroke-dasharray="3 3" opacity=".75"/>`+
+            `<path d="M${xS},${ys} l-7,-4.5 v9 z" fill="var(--c-shr)"/><text x="${xS-9}" y="${ys-6}" text-anchor="end" class="lbl" style="fill:var(--c-shr);font-size:11px;paint-order:stroke;stroke:var(--surface);stroke-width:3px">${fmt(shr,2)}</text>`; }
+        if(Math.abs(by("R").t-tRm)>0.05||Math.abs(by("R").W-WRm)>1e-5) shrTxt+=`<circle cx="${rx}" cy="${ry}" r="4" fill="var(--surface)" stroke="var(--c-room)" stroke-width="2"/>`; } }
     if(isFinite(R.adp)){ const c=by("C"), ci=R.adpEst?R.CO:R.CI, a=[X(R.adp),Y(Wsat(R.adp,p)*1000)];
       g+=`<line x1="${X(ci.t)}" y1="${Y(ci.W*1000)}" x2="${a[0]}" y2="${a[1]}" stroke="var(--c-coil)" stroke-width="1.3" stroke-dasharray="6 4"/><circle cx="${a[0]}" cy="${a[1]}" r="4.5" fill="var(--surface)" stroke="var(--c-coil)" stroke-width="2"/>`; }
     g+=`</g>`;
@@ -1750,8 +1785,11 @@ function drawChart(R){
       if(!pick){ const b={x0:o.x+8,y0:o.y-16,x1:o.x+8+w,y1:o.y-3}; pick=[8,-6,"start",b]; }
       boxes.push(pick[3]); o.lx=o.x+pick[0]; o.ly=o.y+pick[1]; o.an=pick[2]; });
     groups.forEach(o=>{ if(o.adp) return; g+=o.ring?`<circle cx="${o.x}" cy="${o.y}" r="4" fill="var(--surface)" stroke="var(--c-plenum)" stroke-width="2"/>`:`<circle cx="${o.x}" cy="${o.y}" r="5" fill="${o.col}" stroke="var(--surface)" stroke-width="1.6"/>`; });
+    g+=shrTxt;
     groups.forEach(o=>{ g+=`<text x="${o.lx}" y="${o.ly}" text-anchor="${o.an}" class="lbl" style="fill:${o.col};paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round">${esc(o.txt)}</text>`; });
-    note=`Points: ${P.map(s=>`${s.code} ${s.desc.toLowerCase()} (${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg)`).join("; ")}.${isFinite(R.adp)?` ${R.adpEst?`Dashed purple line: coil leaving point to the estimated apparatus dew point ≈ ${fmt(R.adp)} °C (= leaving dew point; the line E→L does not reach saturation).`:`Dashed purple line: coil process extended to the apparatus dew point ${fmt(R.adp)} °C.`}`:""}`;
+    note=`Points: ${P.map(s=>`${s.code} ${s.desc.toLowerCase()} (${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg)`).join("; ")}.${isFinite(R.adp)?` ${R.adpEst?`Dashed purple line: coil leaving point to the estimated apparatus dew point ≈ ${fmt(R.adp)} °C (= leaving dew point; the line E→L does not reach saturation).`:`Dashed purple line: coil process extended to the apparatus dew point ${fmt(R.adp)} °C.`}`:""}`+
+      (isFinite(shr)?` Red dashed line: room process S → room (${fmt(tRm)} °C / ${fmt(WRm*1000,2)} g/kg), RSHR = ${fmt(shr,2)}${isFinite(adpR)?`, meeting saturation at the room ADP ${fmt(adpR)} °C`:""}; any supply state on it holds the room at the calculation condition. RSHR scale on the right: the thin dashed line from the alignment point (5 °C / 3 g/kg) to ${fmt(shr,2)} on the scale is parallel to it.`:
+       (Sp&&isFinite(WRm)?` No room RSHR line: the supply air (${fmt(Sp.t)} °C) is not colder than the room (${fmt(tRm)} °C) or is wetter than the room.`:""));
   } else g+=`</g>`;
   g+=`<rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}" fill="none" stroke="var(--grid-strong)"/>`;
   svg.innerHTML=g; $("chartNote").textContent=note||"Enter valid inputs to plot the process.";
@@ -1856,13 +1894,13 @@ const EXPORT=(function(){
     const d=f==="0"?0:f==="0.00"?2:1;
     return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
   }
-  function headHTML(cols,extraLead){ // returns <tr>… rows (group + header + units)
+  function headHTML(cols,extraLead,deco){ // returns <tr>… rows (group + header + units)
     const hasG=cols.some(c=>c.g), hasU=cols.some(c=>c.u), lead=extraLead?`<th rowspan="${hasG?2:1}"></th>`:"";
     let h="";
     if(hasG){
-      h+=`<tr>${lead}${groupSpans(cols).map(sp=>sp.g?`<th colspan="${sp.len}" class="grp">${xe(sp.g)}</th>`:`<th rowspan="2">${xe(cols[sp.start].h)}</th>`).join("")}</tr>`;
-      h+=`<tr>${cols.filter(c=>c.g).map(c=>`<th>${xe(c.h)}</th>`).join("")}</tr>`;
-    }else h+=`<tr>${lead}${cols.map(c=>`<th>${xe(c.h)}</th>`).join("")}</tr>`;
+      h+=`<tr>${lead}${groupSpans(cols).map(sp=>sp.g?`<th colspan="${sp.len}" class="grp">${xe(sp.g)}</th>`:`<th rowspan="2">${xe(cols[sp.start].h)}${deco?deco(cols[sp.start]):""}</th>`).join("")}</tr>`;
+      h+=`<tr>${cols.filter(c=>c.g).map(c=>`<th>${xe(c.h)}${deco?deco(c):""}</th>`).join("")}</tr>`;
+    }else h+=`<tr>${lead}${cols.map(c=>`<th>${xe(c.h)}${deco?deco(c):""}</th>`).join("")}</tr>`;
     if(hasU) h+=`<tr class="units">${extraLead?"<th></th>":""}${cols.map(c=>`<th>${xe(c.u||"")}</th>`).join("")}</tr>`;
     return h;
   }
@@ -1955,6 +1993,74 @@ function makeSummary(cfg){
   const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
   const tables=cfg.tables||[{headId:cfg.headId, bodyId:cfg.bodyId, cols:cfg.cols, title:cfg.title, sheet:"Summary", records:all=>all, actions:true}];
   const recs=t=>{ const out=[]; t.records(rows).forEach((r,i)=>out.push(r.__i==null?Object.assign({__i:i},r):r)); return out; };
+
+  /* header filters (Excel-like): ▾ on Room ID / name / case / tag columns; shown rows and exports follow the filter */
+  const FKEYS=cfg.filterKeys||["id","name","equip"];
+  let filt={}; try{ const o=JSON.parse(localStorage.getItem(cfg.key+"-filter")||"{}"); Object.keys(o).forEach(h=>{ filt[h]={}; Object.keys(o[h]).forEach(k=>filt[h][k]=new Set(o[h][k])); }); }catch(e){ filt={}; }
+  const saveF=()=>{ try{ const o={}; Object.keys(filt).forEach(h=>{ const ks=Object.keys(filt[h]); if(ks.length){ o[h]={}; ks.forEach(k=>o[h][k]=[...filt[h][k]]); } }); localStorage.setItem(cfg.key+"-filter",JSON.stringify(o)); }catch(e){} };
+  const cellT=(r,c)=>{ const v=r[c.k]; const t=EXPORT.cellText(v,c.fmt); return t===""?"(blank)":t; };
+  const tblOf=h=>tables.find(t=>t.headId===h);
+  function applyF(h,list){
+    const f=filt[h], t=tblOf(h); if(!f||!t||!Object.keys(f).length) return list;
+    const cols=t.cols.filter(c=>f[c.k]);
+    const keep=list.filter(r=>r.__gap||cols.every(c=>f[c.k].has(cellT(r,c))));
+    const out=[]; keep.forEach((r,i)=>{ if(!r.__gap) out.push(r); else if(out.length&&!out[out.length-1].__gap&&keep.slice(i+1).some(x=>!x.__gap)) out.push(r); });
+    return out;
+  }
+  const fBtn=t=>c=>FKEYS.includes(c.k)?`<button class="fbtn${filt[t.headId]&&filt[t.headId][c.k]?" on":""}" type="button" data-fh="${t.headId}" data-fk="${c.k}" title="Filter ${esc(c.h)}" aria-label="Filter ${esc(c.h)}">▾</button>`:"";
+  function fBar(t,shown,all){
+    const wrap=$(t.headId).closest(".tbl-wrap"); if(!wrap) return;
+    let b=document.getElementById("fb-"+t.headId);
+    if(!b){ b=document.createElement("div"); b.id="fb-"+t.headId; b.className="fbar hidden"; wrap.parentNode.insertBefore(b,wrap); }
+    const f=filt[t.headId]||{}, ks=Object.keys(f);
+    b.classList.toggle("hidden",!ks.length);
+    if(!ks.length){ b.innerHTML=""; return; }
+    const nm=k=>{ const c=t.cols.find(x=>x.k===k); return c?c.h:k; };
+    b.innerHTML=`<span>Filtered: ${ks.map(k=>`<b>${esc(nm(k))}</b> = ${esc([...f[k]].slice(0,4).join(", "))}${f[k].size>4?" …":""}`).join(" · ")} — showing ${shown} of ${all} rows (exports follow the filter)</span><button class="btn ghost" type="button" data-fclr="${t.headId}">Clear filter</button>`;
+  }
+  function closePop(){ const p=document.getElementById("fpop"); if(p) p.remove(); }
+  function openPop(btn){
+    closePop();
+    const h=btn.dataset.fh, k=btn.dataset.fk, t=tblOf(h); if(!t) return;
+    const c=t.cols.find(x=>x.k===k); if(!c) return;
+    const cnt=new Map(); recs(t).filter(r=>!r.__gap).forEach(r=>{ const v=cellT(r,c); cnt.set(v,(cnt.get(v)||0)+1); });
+    const vals=[...cnt.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const cur=filt[h]&&filt[h][k];
+    const p=document.createElement("div"); p.id="fpop"; p.className="fpop"; p.setAttribute("role","dialog");
+    p.innerHTML=`<input type="search" placeholder="Search ${esc(c.h)}…" aria-label="Search values">
+      <label><input type="checkbox" data-fall> <b>Select all</b></label>
+      <div class="fl">${vals.map(v=>`<label title="${esc(v)}"><input type="checkbox" data-fv="${esc(v)}" ${!cur||cur.has(v)?"checked":""}> <span>${esc(v)}</span><small>${cnt.get(v)}</small></label>`).join("")}</div>
+      <div class="fb"><button class="btn ghost" type="button" data-fx="clear">Clear</button><button class="btn primary" type="button" data-fx="ok">OK</button></div>`;
+    document.body.appendChild(p);
+    const rc=btn.getBoundingClientRect(), w=p.offsetWidth, hh=p.offsetHeight;
+    p.style.left=Math.max(8,Math.min(rc.left,innerWidth-w-8))+"px";
+    p.style.top=(rc.bottom+4+hh>innerHeight-8?Math.max(8,rc.top-hh-4):rc.bottom+4)+"px";
+    const boxes=()=>[...p.querySelectorAll("[data-fv]")], vis=()=>boxes().filter(x=>x.closest("label").style.display!=="none");
+    const all=p.querySelector("[data-fall]"), sync=()=>{ const v=vis(); all.checked=v.length&&v.every(x=>x.checked); all.indeterminate=!all.checked&&v.some(x=>x.checked); };
+    sync();
+    all.addEventListener("change",()=>vis().forEach(x=>x.checked=all.checked));
+    p.querySelector(".fl").addEventListener("change",sync);
+    const q=p.querySelector("input[type=search]");
+    q.addEventListener("input",()=>{ const s=q.value.trim().toLowerCase(); boxes().forEach(x=>{ const show=!s||x.dataset.fv.toLowerCase().includes(s); x.closest("label").style.display=show?"":"none"; if(s) x.checked=show; }); sync(); });
+    q.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); p.querySelector('[data-fx="ok"]').click(); } });
+    p.addEventListener("click",e=>{ const b=e.target.closest("[data-fx]"); if(!b) return;
+      if(!filt[h]) filt[h]={};
+      if(b.dataset.fx==="clear") delete filt[h][k];
+      else { const on=boxes().filter(x=>x.checked).map(x=>x.dataset.fv);
+        if(!on.length){ toast("Tick at least one value",true); return; }
+        if(on.length===vals.length) delete filt[h][k]; else filt[h][k]=new Set(on); }
+      saveF(); closePop(); render(); });
+    setTimeout(()=>q.focus(),0);
+  }
+  document.addEventListener("click",e=>{
+    const fb=e.target.closest("[data-fh]");
+    if(fb&&tblOf(fb.dataset.fh)){ e.stopPropagation(); const p=document.getElementById("fpop"); if(p&&p.dataset.for===fb.dataset.fh+"|"+fb.dataset.fk){ closePop(); return; } openPop(fb); const np=document.getElementById("fpop"); if(np) np.dataset.for=fb.dataset.fh+"|"+fb.dataset.fk; return; }
+    const cl=e.target.closest("[data-fclr]"); if(cl&&tblOf(cl.dataset.fclr)){ delete filt[cl.dataset.fclr]; saveF(); render(); return; }
+    if(!e.target.closest("#fpop")) closePop();
+  });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePop(); });
+  window.addEventListener("resize",closePop);
+  document.addEventListener("scroll",e=>{ if(!(e.target.closest&&e.target.closest("#fpop"))) closePop(); },true);
   function render(){
     $(cfg.countId).textContent=rows.length;
     const has=rows.length>0;
@@ -1962,8 +2068,9 @@ function makeSummary(cfg){
     $(cfg.wrapId).classList.toggle("hidden",!has);
     cfg.buttons.forEach(id=>$(id).disabled=!has);
     tables.forEach(t=>{
-      $(t.headId).innerHTML=EXPORT.headHTML(t.cols,t.actions);
-      $(t.bodyId).innerHTML=recs(t).map(r=>`<tr>
+      $(t.headId).innerHTML=EXPORT.headHTML(t.cols,t.actions,fBtn(t));
+      const all=recs(t), shown=applyF(t.headId,all); fBar(t,shown.filter(r=>!r.__gap).length,all.filter(r=>!r.__gap).length);
+      $(t.bodyId).innerHTML=shown.map(r=>`<tr>
         ${t.actions?`<td><div class="btns" style="flex-wrap:nowrap;gap:2px"><button class="btn ghost" type="button" data-load="${r.__i}" title="Load back into the calculator">Load</button><button class="btn ghost" type="button" data-rm="${r.__i}" aria-label="Remove ${esc(r.id||"row")}">✕</button></div></td>`:""}
         ${t.cols.map(c=>{ const v=r[c.k];
           if(c.k==="result") return `<td><span class="pill ${v==="Pass"?"ok":v==="Note"?"warn":"bad"}">${esc(v)}</span></td>`;
@@ -1995,7 +2102,7 @@ function makeSummary(cfg){
     rows=[]; setActive(null); persist(); render();
   });
   const sub=()=>`${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`;
-  const table=t=>recs(t).map(r=>t.cols.map(c=>r[c.k]));
+  const table=t=>applyF(t.headId,recs(t)).map(r=>t.cols.map(c=>r[c.k]));
   $(cfg.xlsxId).addEventListener("click",()=>{ if(!rows.length) return;
     EXPORT.xlsx({file:`${cfg.file}_${dateStr()}.xlsx`, sheets:tables.map(t=>({sheet:t.sheet||"Summary", title:t.title, subtitle:sub(), cols:t.cols, rows:table(t), paper:t.paper, freezeCols:t.freezeCols}))});
   });
@@ -2015,7 +2122,7 @@ function makeSummary(cfg){
     rows[i]=r; persist(); render();
   }
   if(rows.length&&cfg.beforePersist){ cfg.beforePersist(rows); render(); }
-  return {render, sync, setActive, keyOf, get active(){ return active; }, put(r){ const x=put(r); persist(); render(); return x; }, persist(){ persist(); render(); }, get rows(){ return rows; }};
+  return {render, sync, setActive, filterRecs:(h,list)=>applyF(h,list), keyOf, get active(){ return active; }, put(r){ const x=put(r); persist(); render(); return x; }, persist(){ persist(); render(); }, get rows(){ return rows; }};
 }
 
 /* Link dialog: pick rooms from the dew point tool's summary (all / by Room ID / by AC equipment) */
@@ -2329,7 +2436,7 @@ $("blk-coord").insertAdjacentHTML("afterend",`<div class="sum-blk hidden" id="bl
 const FOOT="AHU process per ASHRAE Fundamentals 2021, Ch. 1 psychrometrics; CHW supply t_w = 2·t_ad − t_wb (ASHRAE HVAC S&E 2016, Ch. 13, Eq. 11). Size, weight and electrical load are estimates for coordination; confirm with the AHU manufacturer's selection.";
 var SUMMARY=makeSummary({
   key:SHARED_KEYS.ahu, unit:"AHU", file:"AHU-schedule", paper:"A3", footer:FOOT,
-  countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
+  filterKeys:["id","ahu","tag","serves","type","block","cfg","coil","pos","loc"], countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsxCore", pdfId:"sumPdfCore", buttons:["sumXlsx","sumPdf","sumClear"],
   tables:TABLES.map(t=>({headId:"h-"+t.key, bodyId:"b-"+t.key, title:t.title, sheet:t.sheet, get cols(){ return visCols(t); }, actions:!!t.actions, freezeCols:2, records:t.records})),
   onRender(rows){ TABLES.forEach(t=>$("blk-"+t.key).classList.toggle("hidden",!t.records(rows).length)); fillPickers(rows); balRender(rows); dFill(); },
@@ -2353,7 +2460,7 @@ document.querySelectorAll("select.pick").forEach(sel=>sel.addEventListener("chan
 }));
 const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
 const sumSub=()=>{ const k=SUMMARY.rows.length; return `${k} AHU${k>1?"s":""} · exported ${dateStr()}`; };
-const tblRows=t=>{ const cols=visCols(t); return t.records(SUMMARY.rows).map(r=>cols.map(c=>r[c.k])); };
+const tblRows=t=>{ const cols=visCols(t); return SUMMARY.filterRecs("h-"+t.key,t.records(SUMMARY.rows)).map(r=>cols.map(c=>r[c.k])); };
 function exportTables(list,kind,file,sub,paper){
   list=list.filter(t=>t.records(SUMMARY.rows).length);
   if(!list.length){ toast("Nothing to export yet",true); return; }
