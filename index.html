@@ -339,9 +339,10 @@ th.grp{text-align:center}
             <span><i style="background:var(--c-coil)"></i>C · Coil leaving</span>
             <span><i style="background:var(--c-plenum)"></i>P · Ceiling void</span>
             <span><i style="background:var(--c-shr);border-radius:1px;height:3px;width:16px"></i>RSHR line → ADP</span>
+            <span><i style="background:none;border:2px solid var(--muted);width:9px;height:9px"></i>RSHR scale (alignment point ⊙ 5 °C / 3 g/kg)</span>
           </div>
         </div>
-        <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 780 470" role="img" aria-label="Psychrometric chart"></svg></div>
+        <div class="chart-wrap"><svg class="chart" id="chart" viewBox="0 0 836 470" role="img" aria-label="Psychrometric chart"></svg></div>
         <p class="note" id="chartNote"></p>
       </section>
 
@@ -767,7 +768,22 @@ function renderChart(R,S){
   for(let t=0;t<=40;t+=5) g+=`<line x1="${X(t)}" y1="${H0}" x2="${X(t)}" y2="${H1}" stroke="var(--grid)"/><text x="${X(t)}" y="${H1+16}" text-anchor="middle">${t}</text>`;
   for(let w=0;w<=wMax;w+=4) g+=`<line x1="${W0}" y1="${Y(w)}" x2="${W1}" y2="${Y(w)}" stroke="var(--grid)"/><text x="${W1+8}" y="${Y(w)+4}">${w}</text>`;
   g+=`<text x="${(W0+W1)/2}" y="${H1+36}" text-anchor="middle">Dry-bulb temperature (°C)</text>`;
-  g+=`<text x="${W1+44}" y="${(H0+H1)/2}" text-anchor="middle" transform="rotate(90 ${W1+44} ${(H0+H1)/2})">Humidity ratio W (g/kg dry air)</text>`;
+  g+=`<text x="${W1+40}" y="${(H0+H1)/2}" text-anchor="middle" transform="rotate(90 ${W1+40} ${(H0+H1)/2})">Humidity ratio W (g/kg dry air)</text>`;
+  /* RSHR scale (like the sensible-heat-ratio scale of a printed chart): a line from the alignment point (5 °C / 3 g/kg)
+     to a value on the scale has the slope of a process with that sensible heat ratio (alignment point 5 °C / 3 g/kg),
+     dW/dt = c_p·(1 − SHR) / (h_fg·SHR); draw a parallel through the room point to read or check the RSHR line. */
+  /* alignment point low on the left (5 °C, 3 g/kg) so the scale has a long lever and 0.7–1.0 are well spread */
+  /* c_p of the room air, the same as the room's RSHR line, so the guide below is exactly parallel to it */
+  const tRef=5, Wref=0.003, cpR=1.006+1.86*R.W, xS=W1+70, tS=tMin+(xS-W0)/(W1-W0)*(tMax-tMin);
+  const yShr=shr=>Y((Wref+cpR*(1-shr)/(2501*shr)*(tS-tRef))*1000);
+  const [xRef,yRef]=[X(tRef),Y(Wref*1000)];
+  let sc=`<line x1="${xS}" y1="${H0}" x2="${xS}" y2="${H1}" stroke="var(--grid-strong)"/>`;
+  for(let k=100;k>=20;k-=5){ const v=k/100, y=yShr(v); if(y<H0-0.5||y>H1) continue; const major=k%10===0;
+    sc+=`<line x1="${xS}" y1="${y}" x2="${xS+(major?7:4)}" y2="${y}" stroke="var(--muted)"/>`;
+    if(major||k===95||k===85) sc+=`<text x="${xS+10}" y="${y+4}"${major?"":` style="font-size:9.5px"`}>${major?v.toFixed(1):v.toFixed(2)}</text>`; }
+  sc+=`<text x="${xS+46}" y="${(H0+H1)/2}" text-anchor="middle" transform="rotate(90 ${xS+46} ${(H0+H1)/2})">RSHR (sensible heat ratio)</text>`;
+  sc+=`<circle cx="${xRef}" cy="${yRef}" r="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.6"/><circle cx="${xRef}" cy="${yRef}" r="1.3" fill="var(--muted)"/>`;
+  g+=sc;
   // enthalpy lines
   let hl="";
   for(let h=10;h<=120;h+=10){
@@ -807,16 +823,24 @@ function renderChart(R,S){
       const ang=Math.atan2(by-ay,bx-ax)*180/Math.PI, mx=(ax+rx)/2, my=(ay+ry)/2;
       g+=`<text x="${mx}" y="${my+16}" text-anchor="middle" class="lbl" style="fill:var(--c-shr)" transform="rotate(${ang.toFixed(1)} ${mx} ${my})">RSHR ${fmt(S.shr,2)}</text>`;
       if(isFinite(S.adp)) g+=`<circle cx="${ax}" cy="${ay}" r="4.5" fill="var(--surface)" stroke="var(--c-shr)" stroke-width="2"/><text x="${ax-8}" y="${ay-8}" text-anchor="end" class="lbl" style="fill:var(--c-shr)">ADP ${fmt(S.adp)}</text>`;
+      // the same RSHR on the scale: guide from the alignment point, parallel to the room's RSHR line
+      if(S.shr>0&&S.shr<=1){ const ys=yShr(S.shr);
+        if(ys>=H0-0.5&&ys<=H1){ g+=`<line x1="${xRef}" y1="${yRef}" x2="${xS}" y2="${ys}" stroke="var(--c-shr)" stroke-width="1" stroke-dasharray="3 3" opacity=".75"/>`+
+          `<path d="M${xS},${ys} l-7,-4.5 v9 z" fill="var(--c-shr)"/><text x="${xS-9}" y="${ys-6}" text-anchor="end" class="lbl" style="fill:var(--c-shr);font-size:11px;paint-order:stroke;stroke:var(--surface);stroke-width:3px">${fmt(S.shr,2)}</text>`; }
+        else note+=`RSHR ${fmt(S.shr,2)} is below the end of the RSHR scale. `; }
     }
-    g+=`<line x1="${sx}" y1="${sy}" x2="${rx}" y2="${ry}" stroke="var(--c-supply)" stroke-width="2"/>`;
+    g+=`<g clip-path="url(#plotClip)"><line x1="${sx}" y1="${sy}" x2="${rx}" y2="${ry}" stroke="var(--c-supply)" stroke-width="2"/></g>`;
     if(S.gov==="latent") g+=`<line x1="${cx}" y1="${cy}" x2="${sx}" y2="${sy}" stroke="var(--c-coil)" stroke-width="2" stroke-dasharray="6 3"/>`;
     if(py>H0) g+=dot(px,py,"var(--c-plenum)","P");
-    if(S.gov==="latent") g+=dot(cx,cy,"var(--c-coil)","C",-16,-8);
-    g+=dot(sx,sy,"var(--c-supply)",S.gov==="latent"?"S":"S = C",8,16);
+    const inPlot=(x,y)=>x>=W0&&x<=W1&&y>=H0&&y<=H1;
+    if(S.gov==="latent"&&inPlot(cx,cy)) g+=dot(cx,cy,"var(--c-coil)","C",-16,-8);
+    if(inPlot(sx,sy)) g+=dot(sx,sy,"var(--c-supply)",S.gov==="latent"?"S":"S = C",8,16);
+    else note+=`The supply point (${fmt(S.Ts)} °C) is outside the chart range. `;
     note+=`Red dashed line: room sensible heat ratio RSHR = ${fmt(S.shr,2)}${isFinite(S.adp)?`, meeting saturation at ADP ${fmt(S.adp)} °C`:""}. Any supply state on it holds the room at design. `+
       (S.gov==="latent"?"":`Here the coil leaves at S = C, below the line, so the room ends up drier than design. `)+
       `Line S→R is the supply air picking up heat and moisture in the room. `+
-      (S.gov==="latent"?`Dashed line C→S is ${fmt(S.reheat)} kW of reheat.`:`No reheat: the coil leaves directly at the supply air temperature.`);
+      (S.gov==="latent"?`Dashed line C→S is ${fmt(S.reheat)} kW of reheat.`:`No reheat: the coil leaves directly at the supply air temperature.`)+
+      ` RSHR scale on the right: the thin dashed line from the alignment point (5 °C / 3 g/kg) to ${fmt(S.shr,2)} on the scale is parallel to the room's RSHR line; for another ratio, draw a parallel to its scale line through the room point.`;
   }else note+="Enter data in tab 2 to plot the supply air process.";
   g+=dot(rx,ry,"var(--c-room)","R");
   svg.innerHTML=g;
