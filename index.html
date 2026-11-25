@@ -402,7 +402,8 @@ th.grp{text-align:center}
           </ul>
           <h2>Cases, night case and recommendation</h2>
           <p>Each room can be calculated for several cases (1, 2, …): for example different airflow, ΔT or coil leaving RH. For every case the night / low-load condition is checked: the moisture load stays, the room sensible load drops to the minimum entered, so the coil must still dry the air to the same dew point while the supply has to be warmer, T<sub>s,n</sub> = t<sub>room</sub> − q<sub>s,min</sub> / (ṁ·c<sub>p</sub>). Reheat at night = ṁ·c<sub>p</sub>·(T<sub>s,n</sub> − T<sub>coil</sub>); the reheat to select is the larger of the design and night values. Without it the room RH rises (estimate shown in the check).</p>
-          <p>Recommendation per room: cases with a failed check are excluded; then the case with the fewest notes (condensation margins, duct insulation, low dew point, large ΔT); if still equal, the larger coil + reheat load is chosen as a safety margin (coil load on room air, reheat = larger of design and night); then the larger airflow. The AHU and chilled water tools link the recommended case.</p>
+          <p>Set point band: when the cases of a room cover a range of room conditions and one case sits at the centre of that range (the set point, e.g. 21 °C / 50 % inside 20–22 °C / 40–60 % from “Auto generate cases”), that case is the design case and is recommended unless it fails; the corner cases are only checks, and the reason lists which corners the design holds and which it does not.</p>
+          <p>Otherwise (cases are alternative designs for the same room) the recommendation per room: cases with a failed check are excluded; then the case with the fewest notes (condensation margins, duct insulation, low dew point, large ΔT); if still equal, the larger coil + reheat load is chosen as a safety margin (coil load on room air, reheat = larger of design and night); then the larger airflow. The AHU and chilled water tools link the recommended case.</p>
           <p>The row you added or loaded last follows the calculator: changes are written to the summary automatically.</p>
           <h2>Limitations</h2>
           <ul>
@@ -1152,20 +1153,32 @@ function recommend(rows){
   rows.forEach(r=>{ const k=r.id||"—"; if(!by.has(k)) by.set(k,[]); by.get(k).push(r); });
   const num=v=>isFinite(v)?v:0, nf=r=>(r.fails||[]).length||(r.result==="Fail"?1:0), nw=r=>(r.warns||[]).length;
   const energy=r=>num(r.qCoil)+num(isFinite(r.reheatMax)?r.reheatMax:r.reheat);
+  /* set point band: when the cases of a room span a range of room conditions and one case sits at its centre
+     (e.g. "Auto generate" with the nominal set point: 21/50 inside 20–22 °C / 40–60 %), that case is the design case;
+     the others are the band corners, checked only. Picking "the fewest notes" among them would pick the easiest corner. */
+  const spOf=cs=>{ if(cs.length<3) return null; const T=cs.map(r=>num(r.t)), H=cs.map(r=>num(r.rh));
+    const dT=Math.max(...T)-Math.min(...T), dH=Math.max(...H)-Math.min(...H); if(dT<0.05&&dH<0.05) return null;
+    const tm=(Math.max(...T)+Math.min(...T))/2, hm=(Math.max(...H)+Math.min(...H))/2;
+    return cs.find(r=>Math.abs(num(r.t)-tm)<0.05&&Math.abs(num(r.rh)-hm)<0.06)||null; };
   by.forEach((cs,id)=>{
-    const sorted=cs.slice().sort((a,b)=>(nf(a)>0)-(nf(b)>0)||nw(a)-nw(b)||energy(b)-energy(a)||num(b.flow)-num(a.flow));
+    const sp=spOf(cs);
+    let sorted=cs.slice().sort((a,b)=>(nf(a)>0)-(nf(b)>0)||nw(a)-nw(b)||energy(b)-energy(a)||num(b.flow)-num(a.flow));
+    if(sp&&!nf(sp)) sorted=[sp,...sorted.filter(o=>o!==sp)];
     const b=sorted[0]; best.add(b);
-    const cn=r=>`case ${r.equip||"–"}`;
+    const cn=r=>`case ${r.equip||"–"}`, cond=r=>`${fmt(r.t)} °C / ${fmt(r.rh,0)} %`;
     const parts=[];
+    if(sp&&b===sp) parts.push(`design case at the set point ${cond(b)} (centre of the band ${fmt(Math.min(...cs.map(r=>num(r.t))))}–${fmt(Math.max(...cs.map(r=>num(r.t))))} °C / ${fmt(Math.min(...cs.map(r=>num(r.rh))),0)}–${fmt(Math.max(...cs.map(r=>num(r.rh))),0)} %); the other cases are band corners, checked only`);
+    else if(sp) parts.push(`the set point case ${cn(sp)} (${cond(sp)}) fails (${(sp.fails||[]).join(", ")}), so the best other case is shown — it does NOT reach the set point; revise the design`);
     if(nf(b)) parts.push(`all ${cs.length>1?"cases have":"the case has"} failed checks (${(b.fails||[]).join(", ")}); this is the least poor option — revise the design`);
     else parts.push(nw(b)?`no failed check; notes: ${(b.warns||[]).join(", ")}`:"passes every check");
     parts.push(b.gov==="Latent"?`holds the design ${fmt(b.rh,0)}% RH (latent load governs, reheat ${fmt(b.reheat)} kW)`:`sensible load governs: room runs drier, about ${fmt(b.rhAct,0)}% RH`);
     if(isFinite(b.reheatN)) parts.push(`night / low load (${fmt(b.qsMin)} kW sensible) needs ${fmt(b.reheatN)} kW reheat${b.reheatN>num(b.reheat)+0.05?" and governs the reheat size":""}`);
-    parts.push(`coil + reheat ≈ ${fmt(energy(b))} kW at ${fmt(b.flow,0)} m³/h${cs.length>1&&!nf(b)?" (larger load kept as safety margin)":""}`);
-    const others=sorted.slice(1).map(o=>nf(o)?`${cn(o)} rejected: ${(o.fails||[]).join(", ")||"failed check"}`
+    parts.push(`coil + reheat ≈ ${fmt(energy(b))} kW at ${fmt(b.flow,0)} m³/h${cs.length>1&&!nf(b)&&!(sp&&b===sp)?" (larger load kept as safety margin)":""}`);
+    const others=sorted.slice(1).map(o=>sp&&b===sp?`${cn(o)} ${cond(o)}: ${nf(o)?`corner NOT held — ${(o.fails||[]).join(", ")||"failed check"}`:`corner held${nw(o)?` (notes: ${(o.warns||[]).join(", ")})`:""}`}`
+      :nf(o)?`${cn(o)} rejected: ${(o.fails||[]).join(", ")||"failed check"}`
       :nw(o)>nw(b)?`${cn(o)}: more notes (${(o.warns||[]).join(", ")})`
       :energy(o)<energy(b)-0.05?`${cn(o)}: same checks, lower coil + reheat load (${fmt(energy(o))} kW), less safety margin`:`${cn(o)}: equal, lower airflow (${fmt(o.flow,0)} m³/h)`);
-    const reason=`${cs.length>1?"Recommended ":"Only "}${cn(b)}: ${parts.join("; ")}.${others.length?" "+others.join(". ")+".":""}`;
+    const reason=`${cs.length>1?"Recommended ":"Only "}${cn(b)}: ${parts.join("; ")}.${others.length?" "+(sp&&b===sp?"Band check — ":"")+others.join(". ")+".":""}`;
     list.push(Object.assign({},b,{cases:cs.map(r=>r.equip||"–").join(", "),energy:Math.round(energy(b)*10)/10,reason,__i:rows.indexOf(b)}));
   });
   return {best,list};
@@ -1297,7 +1310,7 @@ function openGenerator(){
       <div class="field"><label for="g_db">Set point dry bulb</label><div class="inp"><input id="g_db" type="text" value="${esc(cur("tr")===""?"22 ± 2":cur("tr")+" ± 2")}" placeholder="22 ± 2  or  20–24" autocomplete="off"><span class="u">°C</span></div></div>
       <div class="field"><label for="g_rh">Set point RH</label><div class="inp"><input id="g_rh" type="text" value="${esc(cur("rhr")===""?"50 ± 5":cur("rhr")+" ± 5")}" placeholder="50 ± 5  or  45–55" autocomplete="off"><span class="u">%</span></div></div>
       <div class="field"><label for="g_mode">Existing cases of this room</label><div class="inp"><select id="g_mode"><option value="replace">Replace them (cases 1, 2, 3 …)</option><option value="append">Keep them, number on</option></select></div></div>
-      <label class="field" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="g_nom"> <span>Also add the nominal set point (centre of the band) as a case</span></label>
+      <label class="field" style="grid-column:1/-1;display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" id="g_nom" checked> <span>Also add the set point (centre of the band) as a case — it becomes the design case; the corners are checks</span></label>
     </div>
     <h3>Common data for every case</h3>
     <div class="gen-grid">${GEN_COMMON.map(fld).join("")}</div>
