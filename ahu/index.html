@@ -414,7 +414,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
           <div class="field"><label for="ts" id="tsLbl">Supply air DB (at AHU outlet)</label><div class="inp"><input id="ts" data-save type="number" step="0.1" value="16"><span class="u">°C</span></div></div>
         </div>
         <div class="grid3"><div class="field full"><label for="airBasis">Airflow (m³/h) → mass flow</label><div class="inp"><select id="airBasis" data-save>
-          <option value="std" selected>Standard air, ṁ = 1.23·Q / c_p (as the dew point tool) – recommended</option><option value="act">Actual, at each stream's own state (outdoor, return)</option></select></div></div></div>
+          <option value="std" selected>Standard air, ṁ = 1.23·Q / c_p of the room air (as the dew point tool) – recommended</option><option value="act">Actual, at each stream's own state (outdoor, return)</option></select></div></div></div>
         <p class="note hidden" id="ccHint"></p>
 
         <div data-mau class="hidden">
@@ -948,7 +948,8 @@ function calc(){
   const R0={t:roomT+n("retRise",0), W:Wroom};
   /* m³/h → dry-air mass flow: standard air (1.23 = ρ·c_p, the same as the dew point tool, so the same airflow carries the
      same sensible load in both tools) or the actual specific volume of each stream */
-  const stdB=$("airBasis").value!=="act", mOf=(q,s)=>stdB?q/3600*1.23/cpm(s.W):q/3600/vol(s.t,s.W,p);
+  /* standard air: one fixed density for every stream, ρ = 1.23 / c_p with c_p of the room air — exactly the dew point tool (Q = q_s / (1.23·ΔT), ṁ = 1.23·Q / c_p,room) */
+  const stdB=$("airBasis").value!=="act", cpStd=cpm(Wroom), mOf=(q,s)=>stdB?q/3600*1.23/cpStd:q/3600/vol(s.t,s.W,p);
   /* design loads of the linked rooms (dew point tool), scaled to this unit's airflow */
   const dsgL=(()=>{ const rms=roomsList(); if(!rms.length||$("ctxKind").value==="up") return null; const dew=readShared("dew"); let qs=0,ql=0,mw=0,fl=0,ok=true;
     rms.forEach(r=>{ let d=r; if(!isFinite(d.qs)){ const c=dew.filter(x=>x.id===r.id); d=c.find(x=>isFinite(r.flow)&&Math.abs(x.flow-r.flow)<1)||c.find(x=>x.rec)||c[0]||{}; }
