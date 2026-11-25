@@ -400,17 +400,15 @@ function calc(){
   const We=WfromWB(te,twe,p), Wl=WfromWB(tl,twl,p);
   if(We<=0||Wl<=0) return {err:"Wet bulb is too low for the dry bulb entered."};
   const tdl=tdewFromW(Wl,p), tde=tdewFromW(We,p);
-  // chart method: extend line E→L to saturation
-  let adpChart=NaN;
-  const sl=(We-Wl)/(te-tl), f=t=>(Wl+sl*(t-tl))-Wsat(t,p);
-  if(f(tl)<0){ let hi=tl; for(let t=tl;t>=-30;t-=0.1){ if(f(t)>=0){ adpChart=bisect(f,t,hi); break; } hi=t; } }
+  // chart method: extend line E→L to saturation (or, if it never gets there, the leaving dew point as an estimate)
+  const EL=adpLine(te,We,tl,Wl,p), adpChart=EL.adp, adpEst=EL.est;
   let adp,bf;
   if(mode==="bf"){ bf=n("bf",0.1); if(!(bf>=0&&bf<1)) return {err:"Bypass factor must be between 0 and 1."}; adp=(tl-bf*te)/(1-bf); }
-  else if(mode==="chart"){ if(!isFinite(adpChart)) return {err:"The line from E through L does not reach the saturation curve. Check the wet-bulb inputs: the leaving air must be drier than the entering air."}; adp=adpChart; bf=(tl-adp)/(te-adp); }
+  else if(mode==="chart"){ if(!isFinite(adpChart)) return {err:"The coil does not dehumidify (leaving air is not drier than the entering air), so there is no apparatus dew point. Check the wet-bulb inputs."}; adp=adpChart; bf=(tl-adp)/(te-adp); }
   else { adp=n("adpIn",10.6); if(adp>=tl) return {err:"ADP must be lower than the leaving dry bulb."}; bf=(tl-adp)/(te-adp); }
   const tw=2*adp-twl, tret=tw+dtw;
   const tdr=tdewFromW(WfromRH(n("tr",24),Math.min(100,Math.max(1,n("rhr",50))),p),p);
-  return {p,te,twe,tl,twl,We,Wl,tdl,tde,adp,bf,adpChart,tw,tret,dtw,tdr,
+  return {p,te,twe,tl,twl,We,Wl,tdl,tde,adp,bf,adpChart,adpEst,tw,tret,dtw,tdr,
     bfChart: isFinite(adpChart)?(tl-adpChart)/(te-adpChart):NaN,
     qPerKg: (enth(te,We)-enth(tl,Wl))-Math.max(0,We-Wl)*4.186*tl};
 }
@@ -435,7 +433,7 @@ function render(){
     <div class="tile"><div class="k">Bypass factor</div><div class="v">${fmt(C.bf,2)}<small>CF ${fmt(1-C.bf,2)}</small></div></div>
     <div class="tile key"><div class="k">CHW supply t<sub>w</sub></div><div class="v">${fmt(C.tw)}<small>°C</small></div></div>
     <div class="tile"><div class="k">CHW return</div><div class="v">${fmt(C.tret)}<small>°C</small></div></div>
-    <div class="tile"><div class="k">ADP from chart (E–L line)</div><div class="v">${fmt(C.adpChart)}<small>${isFinite(C.adpChart)?`°C · BF ${fmt(C.bfChart,2)}`:"line E–L misses saturation"}</small></div></div>`;
+    <div class="tile"><div class="k">ADP from chart (E–L line)</div><div class="v">${fmt(C.adpChart)}<small>${!isFinite(C.adpChart)?"no dehumidification":C.adpEst?"°C · est. = leaving dew point":`°C · BF ${fmt(C.bfChart,2)}`}</small></div></div>`;
   const eqs=[];
   if(mode==="bf") eqs.push(`ADP = (t_leave − BF·t_enter)/(1 − BF) = (${fmt(C.tl)} − ${fmt(C.bf,2)}×${fmt(C.te)})/(1 − ${fmt(C.bf,2)}) = ${fmt(C.adp)} °C`);
   else eqs.push(`BF = (t_leave − ADP)/(t_enter − ADP) = (${fmt(C.tl)} − ${fmt(C.adp)})/(${fmt(C.te)} − ${fmt(C.adp)}) = ${fmt(C.bf,2)}`);
@@ -447,6 +445,7 @@ function render(){
   const c=[];
   if(C.adp>C.tdl+0.5) c.push(["warn","ADP above leaving dew point",`ADP ${fmt(C.adp)} °C > leaving dew point ${fmt(C.tdl)} °C. The coil cannot reach this leaving humidity with BF ${fmt(C.bf,2)}: use a lower BF (more rows, lower face velocity) or a lower leaving wet bulb.`]);
   else c.push(["ok","ADP consistent with leaving state",C.adp>C.tdl?`ADP ${fmt(C.adp)} °C ≈ leaving dew point ${fmt(C.tdl)} °C (within 0.5 K, input rounding).`:`ADP ${fmt(C.adp)} °C ≤ leaving dew point ${fmt(C.tdl)} °C.`]);
+  if(C.adpEst) c.push(["warn","Line E–L does not meet the saturation curve",`The entering air is close to saturation (${fmt(RHfromW(C.te,C.We,C.p),0)} %RH, e.g. after a pre-cooling coil), so the straight line E→L runs below the saturation curve and has no intersection. The coil still dehumidifies (W ${fmt(C.We*1000,2)} → ${fmt(C.Wl*1000,2)} g/kg); its surface only has to be just below the leaving dew point, so ADP ≈ ${fmt(C.tdl)} °C is used as an estimate${mode==="chart"?"":" for the E–L value"}. Confirm with the coil selection software.`]);
   if(mode!=="chart" && isFinite(C.adpChart) && Math.abs(C.adpChart-C.adp)>1) c.push(["warn",mode==="direct"?"Entered ADP differs from the coil process line":"BF and wet-bulb inputs disagree",
     mode==="direct"?`The line from entering E to leaving L meets saturation at ${fmt(C.adpChart)} °C (BF ${fmt(C.bfChart,2)}), ${fmt(Math.abs(C.adpChart-C.adp))} K from the entered ${fmt(C.adp)} °C. An ADP on the room sensible-heat-ratio line (from the dew point tool) applies when the coil supplies the room directly; when the room needs reheat, the coil works on line E–L — choose “From chart (line E–L)” to use that ADP.`
     :`The chart line E–L gives ADP ${fmt(C.adpChart)} °C (BF ${fmt(C.bfChart,2)}), ${fmt(Math.abs(C.adpChart-C.adp))} K from the value used. Check the entering wet bulb or the BF.`]);
@@ -862,6 +861,16 @@ document.querySelectorAll("select.pick").forEach(sel=>sel.addEventListener("chan
 fillRoomPickers(SUMMARY.rows);
 
 
+/* ADP of a wet coil from its process line E→L. When the entering air is already near saturation (e.g. after a
+   pre-cooling coil) the line E→L can run below the saturation curve and never meet it; the coil still
+   dehumidifies, and its surface only needs to be just below the leaving dew point, so that is taken as an estimate. */
+function adpLine(te,We,tl,Wl,p){
+  if(!(We-Wl>1e-6&&te>tl)) return {adp:NaN,est:false};
+  const sl=(We-Wl)/(te-tl), f=t=>(Wl+sl*(t-tl))-Wsat(t,p);
+  if(f(tl)<0){ let hi=tl; for(let t=tl;t>=-30;t-=0.1){ if(f(t)>=0) return {adp:bisect(f,t,hi),est:false}; hi=t; } }
+  return {adp:tdewFromW(Wl,p),est:true};
+}
+
 /* ---------- Link from the dew point & supply air tool ---------- */
 function applyDewRoom(r){
   const alt=r.inputs&&r.inputs.alt!=null?parseFloat(r.inputs.alt)||0:n("alt",0), p=pressure(alt);
@@ -870,14 +879,19 @@ function applyDewRoom(r){
   set("alt",alt); set("roomId",r.id||""); set("roomName",r.name||"");
   set("te",r.t); set("twe",wetbulb(r.t,Wr,p)); set("tl",r.Tc); set("twl",wetbulb(r.Tc,Wl,p));
   set("tr",r.t); set("rhr",r.rh);
-  if(isFinite(r.adp)){ mode="direct"; set("adpIn",r.adp); } else mode="chart";
+  /* with reheat the coil does not supply the room on its RSHR line, so the coil's own process line E–L sets the ADP;
+     without reheat (coil leaving = supply air) the ADP on the RSHR line is the right one */
+  const reheated=(+r.reheat>0.05)||(isFinite(r.Ts)&&r.Ts-r.Tc>0.1);
+  if(isFinite(r.adp)) set("adpIn",r.adp);
+  mode= reheated||!isFinite(r.adp) ? "chart" : "direct";
+  if(mode==="chart"&&!isFinite(adpLine(r.t,Wr,r.Tc,Wl,p).adp)&&isFinite(r.adp)) mode="direct";
 }
 $("linkBtn").addEventListener("click",()=>{
   /* the dew point tool keeps several cases per room: link only the recommended case of each room (older data: every row) */
   const all=readShared("dew").filter(r=>isFinite(r.Tc)&&isFinite(r.tdS)), anyRec=all.some(r=>r.rec);
   const rooms=all.filter(r=>!anyRec||r.rec||!all.some(o=>o.rec&&(o.id||"")===(r.id||"")));
   linkDialog({title:"Link ADP data from the dew point & supply air tool", sourceHref:"../#supply", rooms, cases:all,
-    note:`Each room brings its Room ID, name and AC equipment, the room condition, the coil leaving DB and wet bulb, and the ADP on the room sensible-heat-ratio line (entered as “Enter ADP”). The coil entering air is set to the room (return) air, because the dew point tool has no outdoor air; edit it afterwards if the coil also treats outdoor air. Linked rooms are added to the summary.`,
+    note:`Each room brings its Room ID, name and AC equipment, the room condition, the coil leaving DB and wet bulb, and the ADP on the room sensible-heat-ratio line. A room with reheat uses the coil's own process line E–L (“From chart”), because its coil does not supply the room on the RSHR line; a room without reheat uses the RSHR-line ADP (“Enter ADP”). The coil entering air is set to the room (return) air, because the dew point tool has no outdoor air; edit it afterwards if the coil also treats outdoor air. Linked rooms are added to the summary.`,
     onApply(list){
       if(!list.length) return;
       const keepMode=mode, keep={}; IDS.forEach(id=>keep[id]=$(id).value);
