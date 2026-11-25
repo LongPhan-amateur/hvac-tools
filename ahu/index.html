@@ -875,6 +875,15 @@ function buildLayout(F,d){
 }
 
 /* ---------- Calculation ---------- */
+/* ADP of a wet coil from its process line E→L. When the entering air is near saturation (e.g. after a pre-cooling coil)
+   the line can run below the saturation curve and never meet it; the coil still dehumidifies and its surface only has
+   to be just below the leaving dew point, which is then used as an estimate (est: true). No dehumidification → NaN. */
+function adpLine(ti,Wi,to,Wo,p){
+  if(!(Wi-Wo>1e-6&&ti>to)) return {adp:NaN,est:false};
+  const sl=(Wi-Wo)/(ti-to), f=t=>(Wo+sl*(t-to))-Wsat(t,p);
+  if(f(to)<0){ let hi=to; for(let t=to;t>=-30;t-=0.1){ if(f(t)>=0) return {adp:bisect(f,t,hi),est:false}; hi=t; } }
+  return {adp:tdewFromW(Wo,p),est:true};
+}
 function calc(){
   const p=pressure(n("alt",0)), F=flags(), c=F.c, fa=F.fa, sys=calcSys();
   const Q=n("qSa",0); if(!(Q>0)) return {err:"Enter a supply airflow greater than 0."};
@@ -1049,15 +1058,12 @@ function calc(){
     } else {
       const Wpc=Math.min(PI.W, tT<tdewFromW(PI.W,p)?WfromRH(tT,95,p):PI.W), PO={t:tT,W:Wpc};
       const q=m*((enth(PI.t,PI.W)-enth(PO.t,PO.W))-(PI.W-PO.W)*4.186*PO.t), qs=m*cpm(PI.W)*(PI.t-PO.t), cd=m*(PI.W-PO.W)*3600;
-      let a=NaN, tw=NaN;
-      if(PI.W-PO.W>1e-6){ const sl=(PI.W-PO.W)/(PI.t-PO.t), f=t=>(PO.W+sl*(t-PO.t))-Wsat(t,p);
-        if(f(PO.t)<0){ let hi=PO.t; for(let t=PO.t;t>=-30;t-=0.1){ if(f(t)>=0){ a=bisect(f,t,hi); break; } hi=t; } }
-        if(isFinite(a)) tw=2*a-wetbulb(PO.t,PO.W,p); }
+      const ELp=adpLine(PI.t,PI.W,PO.t,PO.W,p), a=ELp.adp, tw=isFinite(a)?2*a-wetbulb(PO.t,PO.W,p):NaN;
       const flow=!pdx&&pl>pe?q/(4.186*(pl-pe)):NaN, sstReq=isFinite(a)?a-papp:tT-papp-2, cuKw=pdx?q/Math.max(0.5,n("pcEer",3.5)):NaN;
-      pc={q,qs,cond:cd,tin:PI.t,win:PI.W,tout:PO.t,wout:PO.W,ewt:pe,lwt:pl,flow,adp:a,twReq:tw,dx:pdx,sst:psst,sstReq,ref:pref,cu:pcTag,cuKw};
+      pc={q,qs,cond:cd,tin:PI.t,win:PI.W,tout:PO.t,wout:PO.W,ewt:pe,lwt:pl,flow,adp:a,adpEst:ELp.est,twReq:tw,dx:pdx,sst:psst,sstReq,ref:pref,cu:pcTag,cuKw};
       st("C1","Pre-cooling coil leaving",PO,"var(--c-coil)");
-      duties.push(pdx?["Pre-cooling coil (DX)",q,`Sensible ${fmt(qs)} kW · condensate ${fmt(cd,1)} kg/h · ${pref}, SST ${fmt(psst)} °C · condensing unit input ≈ ${fmt(cuKw,1)} kW${isFinite(a)?` · ADP ${fmt(a)} °C`:" · dry coil"}`,n("pcPd",0)]
-        :["Pre-cooling coil (CHW)",q,`Sensible ${fmt(qs)} kW · condensate ${fmt(cd,1)} kg/h · CHW ${fmt(pe)}/${fmt(pl)} °C, ${fmt(flow,2)} L/s${isFinite(a)?` · ADP ${fmt(a)} °C`:" · dry coil"}`,n("pcPd",0)]);
+      duties.push(pdx?["Pre-cooling coil (DX)",q,`Sensible ${fmt(qs)} kW · condensate ${fmt(cd,1)} kg/h · ${pref}, SST ${fmt(psst)} °C · condensing unit input ≈ ${fmt(cuKw,1)} kW${isFinite(a)?` · ADP ${ELp.est?"≈ ":""}${fmt(a)} °C${ELp.est?" (est.)":""}`:" · sensible only"}`,n("pcPd",0)]
+        :["Pre-cooling coil (CHW)",q,`Sensible ${fmt(qs)} kW · condensate ${fmt(cd,1)} kg/h · CHW ${fmt(pe)}/${fmt(pl)} °C, ${fmt(flow,2)} L/s${isFinite(a)?` · ADP ${ELp.est?"≈ ":""}${fmt(a)} °C${ELp.est?" (est.)":""}`:" · sensible only"}`,n("pcPd",0)]);
       if(pdx){
         if(psst>sstReq+0.05) notes.unshift(["bad","Pre-cooling SST too high",`The pre-cooling DX coil needs SST ≤ ${fmt(sstReq)} °C (${isFinite(a)?`ADP ${fmt(a)} °C − ${fmt(papp)} K`:`leaving ${fmt(tT)} °C − ${fmt(papp+2)} K`}); design SST ${fmt(psst)} °C.`]);
         else notes.unshift(["ok","Pre-cooling evaporating temperature is adequate",`SST ${fmt(psst)} °C ≤ required ${fmt(sstReq)} °C.`]);
@@ -1080,15 +1086,12 @@ function calc(){
   const qTot=m*((enth(CI.t,CI.W)-enth(CO.t,CO.W))-(CI.W-CO.W)*4.186*CO.t), qSens=m*cpm(CI.W)*(CI.t-CO.t), cond=m*(CI.W-CO.W)*3600;
   if(!c.pc&&!pts.some(q=>q.code==="M"&&Math.abs(q.t-CI.t)<1e-6&&Math.abs(q.W-CI.W)<1e-9)) st("CI","Cooling coil entering",CI,"var(--c-coil)");
   if(!F.noCc) st("C","Cooling coil leaving",CO,"var(--c-coil)");
-  let adp=NaN, bf=NaN, twReq=NaN;
-  if(CI.W-CO.W>1e-6&&CI.t>CO.t){
-    const sl=(CI.W-CO.W)/(CI.t-CO.t), f=t=>(CO.W+sl*(t-CO.t))-Wsat(t,p);
-    if(f(CO.t)<0){ let hi=CO.t; for(let t=CO.t;t>=-30;t-=0.1){ if(f(t)>=0){ adp=bisect(f,t,hi); break; } hi=t; } }
-    if(isFinite(adp)){ bf=(CO.t-adp)/(CI.t-adp); twReq=2*adp-wetbulb(CO.t,CO.W,p); }
-  }
+  const EL=adpLine(CI.t,CI.W,CO.t,CO.W,p), adp=EL.adp, adpEst=EL.est;
+  let bf=NaN, twReq=NaN;
+  if(isFinite(adp)){ bf=adpEst?NaN:(CO.t-adp)/(CI.t-adp); twReq=2*adp-wetbulb(CO.t,CO.W,p); }
   const ewt=n("ewt",7.5), lwt=n("lwt",15), chwFlow=!dx&&!F.noCc&&lwt>ewt?qTot/(4.186*(lwt-ewt)):NaN;
   const sst=n("dxSst",5), dxApp=n("dxApp",3), sstReq=isFinite(adp)?adp-dxApp:NaN, cuKw=dx?qTot/Math.max(0.5,n("dxEer",3)):NaN;
-  const adpTxt=isFinite(adp)?` · ADP ${fmt(adp)} °C, BF ${fmt(bf,2)}`:"";
+  const adpTxt=isFinite(adp)?(adpEst?` · ADP ≈ ${fmt(adp)} °C (est., leaving dew point)`:` · ADP ${fmt(adp)} °C, BF ${fmt(bf,2)}`):"";
   if(!F.noCc) duties.push(dx?["Cooling coil (DX)",qTot,`Sensible ${fmt(qSens)} kW · condensate ${fmt(cond,1)} kg/h · ${$("dxRef").value}, SST ${fmt(sst)} °C, ${Math.round(n("dxCirc",2))} circuit(s) · condensing unit input ≈ ${fmt(cuKw,1)} kW${adpTxt}`,n("ccPd",0)]
                  :["Cooling coil (CHW)",qTot,`Sensible ${fmt(qSens)} kW · condensate ${fmt(cond,1)} kg/h · CHW ${fmt(ewt)}/${fmt(lwt)} °C, ${fmt(chwFlow,2)} L/s${adpTxt}`,n("ccPd",0)]);
   x={...CO};
@@ -1150,6 +1153,7 @@ function calc(){
   if(rf) duties.push(["Return fan",rf.P,`${rf.N} × ${fmt(rf.motor,rf.motor<1?2:1)} kW ${rf.drive}`,0]);
 
   /* checks */
+  if(!F.noCc&&adpEst){ const two=!!(pc&&pc.q>0); notes.push(["warn","Coil line E–L does not meet the saturation curve",`The air entering the ${two?"main ":""}cooling coil is close to saturation (${fmt(RHfromW(CI.t,CI.W,p),0)} %RH${two?", after the pre-cooling coil":""}), so the straight line E→L runs below the saturation curve and has no intersection. The coil still dehumidifies (W ${fmt(CI.W*1000,2)} → ${fmt(CO.W*1000,2)} g/kg); its surface only has to be just below the leaving dew point, so ADP ≈ ${fmt(adp)} °C is used as an estimate for the required ${dx?"SST":"chilled water temperature"}. Confirm with the coil selection software.`]); }
   if(!F.noCc){
   if(dx){
     if(isFinite(sstReq)){
@@ -1160,7 +1164,7 @@ function calc(){
   } else {
     if(isFinite(twReq)){
       if(ewt>twReq+0.05) notes.unshift(["bad","Chilled water too warm for this coil",`Required t_w = 2·ADP − t_wb = ${fmt(twReq)} °C, design EWT ${fmt(ewt)} °C. Lower the EWT, add rows, or pre-dry the air (desiccant / wrap-around).`]);
-      else notes.unshift(["ok","Chilled water temperature is adequate",`Design EWT ${fmt(ewt)} °C ≤ required ${fmt(twReq)} °C (ADP ${fmt(adp)} °C).`]);
+      else notes.unshift(["ok","Chilled water temperature is adequate",`Design EWT ${fmt(ewt)} °C ≤ required ${fmt(twReq)} °C (ADP ${adpEst?"≈ ":""}${fmt(adp)} °C).`]);
       if(twReq<2) notes.push(["bad","Below practical chilled water limit","Required chilled water is below about 2 °C; consider desiccant dehumidification."]);
     } else if(CI.W<=Wt) notes.push(["ok","Dry cooling coil","The air entering the coil is already drier than the target; the coil only cools sensibly."]);
   }
@@ -1250,7 +1254,7 @@ function calc(){
   const elec=el.reduce((a,b)=>a+b[1],0), elFan=sumCat("fan"), elHeat=sumCat("heat"), elOther=sumCat("other"), elPump=sumCat("pump");
 
   const tag=$("ahuId").value.trim();
-  return {p,F,fa,Q,qOa,qRet,qRel,leak,m,mOa,OA,R,M,CI,CO,S,Wroom,tdRoom,roomT,roomRH,ccT,ccTd,Ts,qTot,qSens,cond,adp,bf,twReq,ewt,lwt,chwFlow,
+  return {p,F,fa,Q,qOa,qRet,qRel,leak,m,mOa,OA,R,M,CI,CO,S,Wroom,tdRoom,roomT,roomRH,ccT,ccTd,Ts,qTot,qSens,cond,adp,adpEst,bf,twReq,ewt,lwt,chwFlow,
     dx,sst,dxApp,sstReq,cuKw,ph,
     pc,vAct,Hset,Hd,rd,qReact,rfan,qRh,hwFlow,hrKw,hrNames,hrDetail:[...hrDetail,...wrapDet],des,hum,dTfan,internal,pd,esp,tsp,sfP,sfN,sfMotor,sfInst,rf,c,blow,raOa,raWrap,hpOa,hpWrap,desOa,desMix,desCc:F.desCc,noCc:F.noCc,dpc,iec,evap,topDeck,
     EX:e,Wo,Ho,Lo,Wi,Hi,Hr,A,lay,sec,nAcc,wt,weight,floorLoad,el,elec,elFan,elHeat,elOther,elPump,pumps,rfLen,rfLenUser,qRhDes,qRhMin,TsMin,qMinRoom,qRoomDes,rhIn,rhOut,duties,notes,pts,lines,tag,phQ:ph?ph.q:0};
@@ -1262,10 +1266,10 @@ const propOf=(s,p)=>({twb:wetbulb(s.t,s.W,p),rh:RHfromW(s.t,s.W,p),td:tdewFromW(
 /* writes one unit's results; P = id prefix ("" = AHU, "m_" = MAU / PAU); runs inside that unit's input context */
 function fillResults(R,P){
   const E=id=>$(P+id), p=R.p, unit=P?UPN():DNN();
-  const adpS=isFinite(R.adp)?` · ADP ${fmt(R.adp)}`:" · dry coil (no ADP)";
+  const adpS=isFinite(R.adp)?(R.adpEst?` · ADP ≈ ${fmt(R.adp)} (est.)`:` · ADP ${fmt(R.adp)}`):(R.qTot>0?" · sensible only (no condensation)":"");
   const pc=R.pc, two=!!pc;
   const pcTiles=two?`<div class="tile"><div class="k">Pre-cooling coil (${pc.dx?"DX":"CHW"})</div><div class="v">${fmt(pc.q)}<small>kW · sensible ${fmt(pc.qs)}</small></div></div>
-    <div class="tile"><div class="k">${pc.dx?"Pre-cool SST required (max.)":"Pre-cool CHW flow · required t<sub>w</sub>"}</div><div class="v">${pc.dx?fmt(pc.sstReq):fmt(pc.flow,2)}<small>${pc.dx?`°C · design ${fmt(pc.sst)}`:`L/s · ${pc.ewt}/${pc.lwt} °C · t<sub>w</sub> ${isFinite(pc.twReq)?fmt(pc.twReq)+" °C":"dry coil"}`}</small></div></div>`:"";
+    <div class="tile"><div class="k">${pc.dx?"Pre-cool SST required (max.)":"Pre-cool CHW flow · required t<sub>w</sub>"}</div><div class="v">${pc.dx?fmt(pc.sstReq):fmt(pc.flow,2)}<small>${pc.dx?`°C · design ${fmt(pc.sst)}`:`L/s · ${pc.ewt}/${pc.lwt} °C · t<sub>w</sub> ${isFinite(pc.twReq)?(pc.adpEst?"≈ ":"")+fmt(pc.twReq)+" °C":"sensible only"}`}</small></div></div>`:"";
   E("tiles").innerHTML=pcTiles+`
     <div class="tile key"><div class="k">${two?"Main cooling":R.dx?"DX":"Cooling"} coil total</div><div class="v">${fmt(R.qTot)}<small>kW</small></div></div>
     <div class="tile"><div class="k">${two?"Main coil":"Cooling coil"} sensible</div><div class="v">${fmt(R.qSens)}<small>kW</small></div></div>
@@ -1728,7 +1732,7 @@ function drawChart(R){
       if(m){ g+=`<line x1="${pos(oa2)[0]}" y1="${pos(oa2)[1]}" x2="${pos(r)[0]}" y2="${pos(r)[1]}" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="5 4"/>`; } }
     if(R.mau){ const MP=R.mau.pts.filter(q=>q.code!=="R");
       g+=`<polyline points="${MP.map(q=>pos(q).map(v=>v.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--c-plenum)" stroke-width="2" stroke-dasharray="7 3"/>`; }
-    if(isFinite(R.adp)){ const c=by("C"), ci=R.CI, a=[X(R.adp),Y(Wsat(R.adp,p)*1000)];
+    if(isFinite(R.adp)){ const c=by("C"), ci=R.adpEst?R.CO:R.CI, a=[X(R.adp),Y(Wsat(R.adp,p)*1000)];
       g+=`<line x1="${X(ci.t)}" y1="${Y(ci.W*1000)}" x2="${a[0]}" y2="${a[1]}" stroke="var(--c-coil)" stroke-width="1.3" stroke-dasharray="6 4"/><circle cx="${a[0]}" cy="${a[1]}" r="4.5" fill="var(--surface)" stroke="var(--c-coil)" stroke-width="2"/>`; }
     g+=`</g>`;
     /* point labels: points at the same spot share one label; each label takes the first free spot around its point (no overlaps) */
@@ -1737,7 +1741,7 @@ function drawChart(R){
     if(R.mau) R.mau.pts.filter(q=>q.code!=="R").forEach(q=>addG(q,"m"+q.code,"var(--c-plenum)",true));
     const boxes=groups.map(o=>({x0:o.x-6,y0:o.y-6,x1:o.x+6,y1:o.y+6}));
     const hit=(b)=>boxes.some(c=>b.x0<c.x1&&b.x1>c.x0&&b.y0<c.y1&&b.y1>c.y0)||b.x0<W0+2||b.x1>W1-2||b.y0<H0+2||b.y1>H1-2;
-    if(isFinite(R.adp)){ const ax=X(R.adp), ay=Y(Wsat(R.adp,p)*1000); boxes.push({x0:ax-6,y0:ay-6,x1:ax+6,y1:ay+6}); groups.push({x:ax,y:ay,codes:["ADP "+fmt(R.adp)],col:"var(--c-coil)",adp:true}); }
+    if(isFinite(R.adp)){ const ax=X(R.adp), ay=Y(Wsat(R.adp,p)*1000); boxes.push({x0:ax-6,y0:ay-6,x1:ax+6,y1:ay+6}); groups.push({x:ax,y:ay,codes:[(R.adpEst?"ADP ≈ ":"ADP ")+fmt(R.adp)],col:"var(--c-coil)",adp:true}); }
     groups.forEach(o=>{ o.txt=o.codes.join(" · "); });
     groups.forEach(o=>{ const w=o.txt.length*7.4+2, h=13;
       const cand=o.adp?[[-8,-6,"end"],[-8,10,"end"],[0,20,"middle"],[8,10,"start"],[-8,-19,"end"],[0,33,"middle"],[8,23,"start"]]:[[8,-6,"start"],[8,10,"start"],[-8,-6,"end"],[-8,10,"end"],[0,-12,"middle"],[0,20,"middle"],[8,-19,"start"],[8,23,"start"],[-8,-19,"end"],[-8,23,"end"],[0,-25,"middle"],[0,33,"middle"]];
@@ -1747,7 +1751,7 @@ function drawChart(R){
       boxes.push(pick[3]); o.lx=o.x+pick[0]; o.ly=o.y+pick[1]; o.an=pick[2]; });
     groups.forEach(o=>{ if(o.adp) return; g+=o.ring?`<circle cx="${o.x}" cy="${o.y}" r="4" fill="var(--surface)" stroke="var(--c-plenum)" stroke-width="2"/>`:`<circle cx="${o.x}" cy="${o.y}" r="5" fill="${o.col}" stroke="var(--surface)" stroke-width="1.6"/>`; });
     groups.forEach(o=>{ g+=`<text x="${o.lx}" y="${o.ly}" text-anchor="${o.an}" class="lbl" style="fill:${o.col};paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round">${esc(o.txt)}</text>`; });
-    note=`Points: ${P.map(s=>`${s.code} ${s.desc.toLowerCase()} (${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg)`).join("; ")}.${isFinite(R.adp)?` Dashed purple line: coil process extended to the apparatus dew point ${fmt(R.adp)} °C.`:""}`;
+    note=`Points: ${P.map(s=>`${s.code} ${s.desc.toLowerCase()} (${fmt(s.t)} °C, ${fmt(s.W*1000,2)} g/kg)`).join("; ")}.${isFinite(R.adp)?` ${R.adpEst?`Dashed purple line: coil leaving point to the estimated apparatus dew point ≈ ${fmt(R.adp)} °C (= leaving dew point; the line E→L does not reach saturation).`:`Dashed purple line: coil process extended to the apparatus dew point ${fmt(R.adp)} °C.`}`:""}`;
   } else g+=`</g>`;
   g+=`<rect x="${W0}" y="${H0}" width="${W1-W0}" height="${H1-H0}" fill="none" stroke="var(--grid-strong)"/>`;
   svg.innerHTML=g; $("chartNote").textContent=note||"Enter valid inputs to plot the process.";
