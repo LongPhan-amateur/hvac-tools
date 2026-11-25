@@ -131,6 +131,17 @@ td.num{white-space:nowrap}
 td input{width:100%;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;padding:5px 7px}
 td input[type=number]{font-family:var(--font-num);max-width:90px}
 
+.fbtn{border:0;background:none;cursor:pointer;font:inherit;font-size:.7rem;line-height:1;color:var(--muted);padding:2px 3px;margin-left:3px;border-radius:4px;vertical-align:middle}
+.fbtn:hover{background:var(--line)}.fbtn.on{color:#fff;background:var(--accent)}
+.fbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.8rem;margin:0 0 6px;padding:5px 10px;border-radius:8px;background:var(--warn-bg);color:var(--warn)}
+.fbar.hidden{display:none}.fbar button{font-size:.78rem;padding:2px 8px}
+.fpop{position:fixed;z-index:1000;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 36px rgba(0,0,0,.22);padding:10px;width:250px;font-size:.84rem}
+.fpop input[type=search]{width:100%;box-sizing:border-box;padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;margin-bottom:6px}
+.fpop .fl{max-height:240px;overflow:auto;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 0;margin:4px 0}
+.fpop label{display:flex;gap:6px;align-items:center;padding:2px 2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fpop label small{margin-left:auto;color:var(--muted)}
+.fpop .fb{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+@media print{.fbtn,.fbar,.fpop{display:none!important}}
 .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:.76rem;font-weight:600;white-space:nowrap}
 .pill.ok{background:var(--ok-bg);color:var(--ok)}
 .pill.warn{background:var(--warn-bg);color:var(--warn)}
@@ -600,13 +611,13 @@ const EXPORT=(function(){
     const d=f==="0"?0:f==="0.00"?2:1;
     return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
   }
-  function headHTML(cols,extraLead){ // returns <tr>… rows (group + header + units)
+  function headHTML(cols,extraLead,deco){ // returns <tr>… rows (group + header + units)
     const hasG=cols.some(c=>c.g), hasU=cols.some(c=>c.u), lead=extraLead?`<th rowspan="${hasG?2:1}"></th>`:"";
     let h="";
     if(hasG){
-      h+=`<tr>${lead}${groupSpans(cols).map(sp=>sp.g?`<th colspan="${sp.len}" class="grp">${xe(sp.g)}</th>`:`<th rowspan="2">${xe(cols[sp.start].h)}</th>`).join("")}</tr>`;
-      h+=`<tr>${cols.filter(c=>c.g).map(c=>`<th>${xe(c.h)}</th>`).join("")}</tr>`;
-    }else h+=`<tr>${lead}${cols.map(c=>`<th>${xe(c.h)}</th>`).join("")}</tr>`;
+      h+=`<tr>${lead}${groupSpans(cols).map(sp=>sp.g?`<th colspan="${sp.len}" class="grp">${xe(sp.g)}</th>`:`<th rowspan="2">${xe(cols[sp.start].h)}${deco?deco(cols[sp.start]):""}</th>`).join("")}</tr>`;
+      h+=`<tr>${cols.filter(c=>c.g).map(c=>`<th>${xe(c.h)}${deco?deco(c):""}</th>`).join("")}</tr>`;
+    }else h+=`<tr>${lead}${cols.map(c=>`<th>${xe(c.h)}${deco?deco(c):""}</th>`).join("")}</tr>`;
     if(hasU) h+=`<tr class="units">${extraLead?"<th></th>":""}${cols.map(c=>`<th>${xe(c.u||"")}</th>`).join("")}</tr>`;
     return h;
   }
@@ -699,6 +710,74 @@ function makeSummary(cfg){
   const dateStr=()=>{ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
   const tables=cfg.tables||[{headId:cfg.headId, bodyId:cfg.bodyId, cols:cfg.cols, title:cfg.title, sheet:"Summary", records:all=>all, actions:true}];
   const recs=t=>{ const out=[]; t.records(rows).forEach((r,i)=>out.push(r.__i==null?Object.assign({__i:i},r):r)); return out; };
+
+  /* header filters (Excel-like): ▾ on Room ID / name / case / tag columns; shown rows and exports follow the filter */
+  const FKEYS=cfg.filterKeys||["id","name","equip"];
+  let filt={}; try{ const o=JSON.parse(localStorage.getItem(cfg.key+"-filter")||"{}"); Object.keys(o).forEach(h=>{ filt[h]={}; Object.keys(o[h]).forEach(k=>filt[h][k]=new Set(o[h][k])); }); }catch(e){ filt={}; }
+  const saveF=()=>{ try{ const o={}; Object.keys(filt).forEach(h=>{ const ks=Object.keys(filt[h]); if(ks.length){ o[h]={}; ks.forEach(k=>o[h][k]=[...filt[h][k]]); } }); localStorage.setItem(cfg.key+"-filter",JSON.stringify(o)); }catch(e){} };
+  const cellT=(r,c)=>{ const v=r[c.k]; const t=EXPORT.cellText(v,c.fmt); return t===""?"(blank)":t; };
+  const tblOf=h=>tables.find(t=>t.headId===h);
+  function applyF(h,list){
+    const f=filt[h], t=tblOf(h); if(!f||!t||!Object.keys(f).length) return list;
+    const cols=t.cols.filter(c=>f[c.k]);
+    const keep=list.filter(r=>r.__gap||cols.every(c=>f[c.k].has(cellT(r,c))));
+    const out=[]; keep.forEach((r,i)=>{ if(!r.__gap) out.push(r); else if(out.length&&!out[out.length-1].__gap&&keep.slice(i+1).some(x=>!x.__gap)) out.push(r); });
+    return out;
+  }
+  const fBtn=t=>c=>FKEYS.includes(c.k)?`<button class="fbtn${filt[t.headId]&&filt[t.headId][c.k]?" on":""}" type="button" data-fh="${t.headId}" data-fk="${c.k}" title="Filter ${esc(c.h)}" aria-label="Filter ${esc(c.h)}">▾</button>`:"";
+  function fBar(t,shown,all){
+    const wrap=$(t.headId).closest(".tbl-wrap"); if(!wrap) return;
+    let b=document.getElementById("fb-"+t.headId);
+    if(!b){ b=document.createElement("div"); b.id="fb-"+t.headId; b.className="fbar hidden"; wrap.parentNode.insertBefore(b,wrap); }
+    const f=filt[t.headId]||{}, ks=Object.keys(f);
+    b.classList.toggle("hidden",!ks.length);
+    if(!ks.length){ b.innerHTML=""; return; }
+    const nm=k=>{ const c=t.cols.find(x=>x.k===k); return c?c.h:k; };
+    b.innerHTML=`<span>Filtered: ${ks.map(k=>`<b>${esc(nm(k))}</b> = ${esc([...f[k]].slice(0,4).join(", "))}${f[k].size>4?" …":""}`).join(" · ")} — showing ${shown} of ${all} rows (exports follow the filter)</span><button class="btn ghost" type="button" data-fclr="${t.headId}">Clear filter</button>`;
+  }
+  function closePop(){ const p=document.getElementById("fpop"); if(p) p.remove(); }
+  function openPop(btn){
+    closePop();
+    const h=btn.dataset.fh, k=btn.dataset.fk, t=tblOf(h); if(!t) return;
+    const c=t.cols.find(x=>x.k===k); if(!c) return;
+    const cnt=new Map(); recs(t).filter(r=>!r.__gap).forEach(r=>{ const v=cellT(r,c); cnt.set(v,(cnt.get(v)||0)+1); });
+    const vals=[...cnt.keys()].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const cur=filt[h]&&filt[h][k];
+    const p=document.createElement("div"); p.id="fpop"; p.className="fpop"; p.setAttribute("role","dialog");
+    p.innerHTML=`<input type="search" placeholder="Search ${esc(c.h)}…" aria-label="Search values">
+      <label><input type="checkbox" data-fall> <b>Select all</b></label>
+      <div class="fl">${vals.map(v=>`<label title="${esc(v)}"><input type="checkbox" data-fv="${esc(v)}" ${!cur||cur.has(v)?"checked":""}> <span>${esc(v)}</span><small>${cnt.get(v)}</small></label>`).join("")}</div>
+      <div class="fb"><button class="btn ghost" type="button" data-fx="clear">Clear</button><button class="btn primary" type="button" data-fx="ok">OK</button></div>`;
+    document.body.appendChild(p);
+    const rc=btn.getBoundingClientRect(), w=p.offsetWidth, hh=p.offsetHeight;
+    p.style.left=Math.max(8,Math.min(rc.left,innerWidth-w-8))+"px";
+    p.style.top=(rc.bottom+4+hh>innerHeight-8?Math.max(8,rc.top-hh-4):rc.bottom+4)+"px";
+    const boxes=()=>[...p.querySelectorAll("[data-fv]")], vis=()=>boxes().filter(x=>x.closest("label").style.display!=="none");
+    const all=p.querySelector("[data-fall]"), sync=()=>{ const v=vis(); all.checked=v.length&&v.every(x=>x.checked); all.indeterminate=!all.checked&&v.some(x=>x.checked); };
+    sync();
+    all.addEventListener("change",()=>vis().forEach(x=>x.checked=all.checked));
+    p.querySelector(".fl").addEventListener("change",sync);
+    const q=p.querySelector("input[type=search]");
+    q.addEventListener("input",()=>{ const s=q.value.trim().toLowerCase(); boxes().forEach(x=>{ const show=!s||x.dataset.fv.toLowerCase().includes(s); x.closest("label").style.display=show?"":"none"; if(s) x.checked=show; }); sync(); });
+    q.addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); p.querySelector('[data-fx="ok"]').click(); } });
+    p.addEventListener("click",e=>{ const b=e.target.closest("[data-fx]"); if(!b) return;
+      if(!filt[h]) filt[h]={};
+      if(b.dataset.fx==="clear") delete filt[h][k];
+      else { const on=boxes().filter(x=>x.checked).map(x=>x.dataset.fv);
+        if(!on.length){ toast("Tick at least one value",true); return; }
+        if(on.length===vals.length) delete filt[h][k]; else filt[h][k]=new Set(on); }
+      saveF(); closePop(); render(); });
+    setTimeout(()=>q.focus(),0);
+  }
+  document.addEventListener("click",e=>{
+    const fb=e.target.closest("[data-fh]");
+    if(fb&&tblOf(fb.dataset.fh)){ e.stopPropagation(); const p=document.getElementById("fpop"); if(p&&p.dataset.for===fb.dataset.fh+"|"+fb.dataset.fk){ closePop(); return; } openPop(fb); const np=document.getElementById("fpop"); if(np) np.dataset.for=fb.dataset.fh+"|"+fb.dataset.fk; return; }
+    const cl=e.target.closest("[data-fclr]"); if(cl&&tblOf(cl.dataset.fclr)){ delete filt[cl.dataset.fclr]; saveF(); render(); return; }
+    if(!e.target.closest("#fpop")) closePop();
+  });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape") closePop(); });
+  window.addEventListener("resize",closePop);
+  document.addEventListener("scroll",e=>{ if(!(e.target.closest&&e.target.closest("#fpop"))) closePop(); },true);
   function render(){
     $(cfg.countId).textContent=rows.length;
     const has=rows.length>0;
@@ -706,8 +785,9 @@ function makeSummary(cfg){
     $(cfg.wrapId).classList.toggle("hidden",!has);
     cfg.buttons.forEach(id=>$(id).disabled=!has);
     tables.forEach(t=>{
-      $(t.headId).innerHTML=EXPORT.headHTML(t.cols,t.actions);
-      $(t.bodyId).innerHTML=recs(t).map(r=>`<tr>
+      $(t.headId).innerHTML=EXPORT.headHTML(t.cols,t.actions,fBtn(t));
+      const all=recs(t), shown=applyF(t.headId,all); fBar(t,shown.filter(r=>!r.__gap).length,all.filter(r=>!r.__gap).length);
+      $(t.bodyId).innerHTML=shown.map(r=>`<tr>
         ${t.actions?`<td><div class="btns" style="flex-wrap:nowrap;gap:2px"><button class="btn ghost" type="button" data-load="${r.__i}" title="Load back into the calculator">Load</button><button class="btn ghost" type="button" data-rm="${r.__i}" aria-label="Remove ${esc(r.id||"row")}">✕</button></div></td>`:""}
         ${t.cols.map(c=>{ const v=r[c.k];
           if(c.k==="result") return `<td><span class="pill ${v==="Pass"?"ok":v==="Note"?"warn":"bad"}">${esc(v)}</span></td>`;
@@ -739,7 +819,7 @@ function makeSummary(cfg){
     rows=[]; setActive(null); persist(); render();
   });
   const sub=()=>`${rows.length} ${cfg.unit||"room"}${rows.length>1?"s":""} · exported ${dateStr()}${cfg.subtitle?" · "+cfg.subtitle():""}`;
-  const table=t=>recs(t).map(r=>t.cols.map(c=>r[c.k]));
+  const table=t=>applyF(t.headId,recs(t)).map(r=>t.cols.map(c=>r[c.k]));
   $(cfg.xlsxId).addEventListener("click",()=>{ if(!rows.length) return;
     EXPORT.xlsx({file:`${cfg.file}_${dateStr()}.xlsx`, sheets:tables.map(t=>({sheet:t.sheet||"Summary", title:t.title, subtitle:sub(), cols:t.cols, rows:table(t), paper:t.paper, freezeCols:t.freezeCols}))});
   });
@@ -759,7 +839,7 @@ function makeSummary(cfg){
     rows[i]=r; persist(); render();
   }
   if(rows.length&&cfg.beforePersist){ cfg.beforePersist(rows); render(); }
-  return {render, sync, setActive, keyOf, get active(){ return active; }, put(r){ const x=put(r); persist(); render(); return x; }, persist(){ persist(); render(); }, get rows(){ return rows; }};
+  return {render, sync, setActive, filterRecs:(h,list)=>applyF(h,list), keyOf, get active(){ return active; }, put(r){ const x=put(r); persist(); render(); return x; }, persist(){ persist(); render(); }, get rows(){ return rows; }};
 }
 
 /* Link dialog: pick rooms from the dew point tool's summary (all / by Room ID / by AC equipment) */
@@ -805,7 +885,7 @@ const SUMCFG={
   title:"Chilled water supply temperature (ASHRAE) — summary",
   file:"CHW-temperature-summary",
   footer:"t_w = 2·t_ad − t_wb, ASHRAE Handbook—HVAC Systems and Equipment (2016), Ch. 13, Eq. 11. Preliminary selection only; confirm with coil and chiller manufacturers.",
-  countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap", headId:"sumHead", bodyId:"sumBody",
+  filterKeys:["id","name","equip","method","result"], countId:"sumCount", emptyId:"sumEmpty", wrapId:"sumWrap", headId:"sumHead", bodyId:"sumBody",
   addId:"addSumBtn", clearId:"sumClear", xlsxId:"sumXlsx", pdfId:"sumPdf", buttons:["sumXlsx","sumPdf","sumClear"],
   cols:[
     {k:"id",h:"Room ID",w:10},{k:"name",h:"Room name",w:22},{k:"equip",h:"AC equipment",w:13},
