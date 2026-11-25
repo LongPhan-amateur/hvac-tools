@@ -413,6 +413,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
           <div class="field"><label for="ccTd">Cooling coil leaving dew point</label><div class="inp"><input id="ccTd" data-save type="number" step="0.1" value="12.5"><span class="u">°C</span></div></div>
           <div class="field"><label for="ts" id="tsLbl">Supply air DB (at AHU outlet)</label><div class="inp"><input id="ts" data-save type="number" step="0.1" value="16"><span class="u">°C</span></div></div>
         </div>
+        <p class="note hidden" id="ccHint"></p>
 
         <div data-mau class="hidden">
           <div class="row" style="margin-top:4px"><h2><span class="upN">MAU / PAU</span> diagram</h2></div>
@@ -1092,8 +1093,19 @@ function calc(){
     if(!c.pc) notes.push(["warn","No pre-cooling coil ahead of the desiccant","The wheel is set between the pre-cooling and main coils but there is no pre-cooling coil; it sits directly before the main coil."]); }
   /* cooling coil */
   const CI={...x};
-  if(!F.noCc&&CI.t<=ccT+1e-9) notes.push(["warn","Cooling coil entering air is already at or below the coil target",`Coil entering ${fmt(CI.t)} °C vs target ${fmt(ccT)} °C. Check the targets.`]);
-  const CO=F.noCc?{...CI}:{t:ccT, W:Math.min(CI.W,Wt)};
+  /* desiccant wheel upstream of the cooling coil: when the wheel has already dried the air to (or below) the coil leaving
+     dew point, the coil has no latent duty; it only cools the warm, dry air sensibly to the supply temperature
+     (less fan heat for a draw-through fan, less any wrap-around reheat) — cooling further to the "coil leaving DB" target
+     would only be undone by the reheat coil */
+  const desUp=!!(desOa||desMix||F.desPc), wrapDT=wrapQ>0?wrapQ/(m*cpm(CI.W)):0;
+  const dryCoil=desUp&&!F.noCc&&CI.W<=Wt+1e-7, tdCI=tdewFromW(CI.W,p);
+  const ccLeave=dryCoil?Math.max(Ts-(blow?0:dTfan)-wrapDT,tdCI+1):ccT;
+  if(dryCoil) notes.push(["ok","Desiccant wheel does the dehumidification – cooling coil is sensible only",
+    `The air reaches the cooling coil at ${fmt(CI.t)} °C, ${fmt(CI.W*1000,2)} g/kg (dew point ${fmt(tdCI)} °C), already at or below the coil leaving dew point ${fmt(ccTd)} °C. The coil only has to cool this dry air to the supply temperature: ${fmt(CI.t)} → ${fmt(ccLeave)} °C (supply ${fmt(Ts)} °C${blow?"":` − fan heat ${fmt(dTfan,2)} K`}${wrapDT>0?` − wrap-around ${fmt(wrapDT,1)} K`:""}), dry coil, no condensate. The “Cooling coil leaving DB” target (${fmt(ccT)} °C) is not used, so no reheat is needed at design load; cooling to ${fmt(ccT)} °C and reheating would waste about ${fmt(Math.max(0,m*cpm(CI.W)*(ccLeave-ccT)),1)} kW of cooling plus the same reheat.`]);
+  else if(desUp&&!F.noCc) notes.push(["warn","Desiccant wheel leaves the air wetter than the coil target",
+    `After the wheel the air is at ${fmt(CI.W*1000,2)} g/kg (dew point ${fmt(tdCI)} °C), above the coil leaving dew point ${fmt(ccTd)} °C, so the cooling coil still dehumidifies to ${fmt(ccTd)} °C and reheat follows. Lower the wheel's leaving dew point to ${fmt(ccTd)} °C or below to make the coil sensible only.`]);
+  if(!F.noCc&&CI.t<=ccLeave+1e-9) notes.push(["warn","Cooling coil entering air is already at or below the coil target",`Coil entering ${fmt(CI.t)} °C vs target ${fmt(ccLeave)} °C. Check the targets.`]);
+  const CO=F.noCc?{...CI}:{t:Math.min(CI.t,ccLeave), W:Math.min(CI.W,Wt)};
   const qTot=m*((enth(CI.t,CI.W)-enth(CO.t,CO.W))-(CI.W-CO.W)*4.186*CO.t), qSens=m*cpm(CI.W)*(CI.t-CO.t), cond=m*(CI.W-CO.W)*3600;
   if(!c.pc&&!pts.some(q=>q.code==="M"&&Math.abs(q.t-CI.t)<1e-6&&Math.abs(q.W-CI.W)<1e-9)) st("CI","Cooling coil entering",CI,"var(--c-coil)");
   if(!F.noCc) st("C","Cooling coil leaving",CO,"var(--c-coil)");
@@ -1159,6 +1171,19 @@ function calc(){
   }
   if(!blow) x.t+=dTfan;
   const S={...x}; st("S","Supply air (AHU outlet)",S,"var(--c-supply)");
+  /* room loads the supply air can absorb (supply S → room) and the design loads of the linked rooms (dew point tool) */
+  const rl={qs:m*cpm(S.W)*(roomT-S.t), ql:m*(Wroom-S.W)*2501, mw:m*(Wroom-S.W)*3600, mda:m*3600};
+  rl.shr=rl.qs+rl.ql>0&&rl.qs>=0?rl.qs/(rl.qs+Math.max(0,rl.ql)):NaN;
+  let dsg=null;
+  { const rms=roomsList(); if(rms.length){ const dew=readShared("dew"); let qs=0,ql=0,mw=0,fl=0,ok=true;
+      rms.forEach(r=>{ let d=r; if(!isFinite(d.qs)){ const c=dew.filter(x=>x.id===r.id); d=c.find(x=>isFinite(r.flow)&&Math.abs(x.flow-r.flow)<1)||c.find(x=>x.rec)||c[0]||{}; }
+        if(isFinite(d.qs)&&isFinite(d.mw)){ qs+=d.qs; ql+=isFinite(d.ql)?d.ql:d.mw/3600*2501; mw+=d.mw; fl+=isFinite(r.flow)?r.flow:(d.flow||0); } else ok=false; });
+      if(ok&&fl>0){ const k=Q/fl; dsg={qs:qs*k,ql:ql*k,mw:mw*k}; dsg.Wreq=Wroom-dsg.mw/rl.mda; dsg.tReq=roomT-dsg.qs/(m*cpm(S.W)); } } }
+  rl.dsg=dsg;
+  { const tx=`Supply ${fmt(S.t)} °C / ${fmt(S.W*1000,2)} g/kg into the room at ${fmt(roomT)} °C / ${fmt(Wroom*1000,2)} g/kg with ${fmt(rl.mda,0)} kg/h of dry air takes up sensible ${fmt(rl.qs,1)} kW and latent ${fmt(rl.ql,1)} kW (moisture ${fmt(rl.mw,1)} kg/h, RSHR ${fmt(rl.shr,2)}). The supply humidity ratio follows from the moisture load: W_supply = W_room − moisture ÷ dry air = ${fmt(Wroom*1000,2)} − ${fmt(rl.mw,1)} ÷ ${fmt(rl.mda,0)} × 1000 = ${fmt(S.W*1000,2)} g/kg.`;
+    if(dsg){ const short=rl.mw<dsg.mw*0.98-0.05||rl.qs<dsg.qs*0.98-0.05;
+      notes.push([short?"warn":"ok","Room loads and the supply air",`${tx} Design loads of the linked rooms (dew point tool, scaled to this AHU's airflow): sensible ${fmt(dsg.qs,1)} kW, latent ${fmt(dsg.ql,1)} kW, moisture ${fmt(dsg.mw,1)} kg/h → the supply must be ≤ ${fmt(dsg.Wreq*1000,2)} g/kg and ≤ ${fmt(dsg.tReq)} °C.${short?` The supply air does not cover the ${rl.mw<dsg.mw*0.98-0.05?"moisture":"sensible"} load: check the coil / wheel targets.`:""}`]); }
+    else notes.push(["ok","Room loads and the supply air",tx]); }
   duties.push(["Supply fan",sfP,`${sfN} × ${fmt(sfMotor,sfMotor<1?2:1)} kW ${$("sfDrive").value}; air +${fmt(dTfan,2)} K`,0]);
   if(c.uv) duties.push(["UV-C lamp (after supply fan)",n("uvKw",0),"Electrical",0]);
   if(rf) duties.push(["Return fan",rf.P,`${rf.N} × ${fmt(rf.motor,rf.motor<1?2:1)} kW ${rf.drive}`,0]);
@@ -1268,7 +1293,7 @@ function calc(){
   return {p,F,fa,Q,qOa,qRet,qRel,leak,m,mOa,OA,R,M,CI,CO,S,Wroom,tdRoom,roomT,roomRH,ccT,ccTd,Ts,qTot,qSens,cond,adp,adpEst,bf,twReq,ewt,lwt,chwFlow,
     dx,sst,dxApp,sstReq,cuKw,ph,
     pc,vAct,Hset,Hd,rd,qReact,rfan,qRh,hwFlow,hrKw,hrNames,hrDetail:[...hrDetail,...wrapDet],des,hum,dTfan,internal,pd,esp,tsp,sfP,sfN,sfMotor,sfInst,rf,c,blow,raOa,raWrap,hpOa,hpWrap,desOa,desMix,desCc:F.desCc,noCc:F.noCc,dpc,iec,evap,topDeck,
-    EX:e,Wo,Ho,Lo,Wi,Hi,Hr,A,lay,sec,nAcc,wt,weight,floorLoad,el,elec,elFan,elHeat,elOther,elPump,pumps,rfLen,rfLenUser,qRhDes,qRhMin,TsMin,qMinRoom,qRoomDes,rhIn,rhOut,duties,notes,pts,lines,tag,phQ:ph?ph.q:0};
+    EX:e,Wo,Ho,Lo,Wi,Hi,Hr,A,lay,sec,nAcc,wt,weight,floorLoad,el,elec,elFan,elHeat,elOther,elPump,pumps,rfLen,rfLenUser,qRhDes,qRhMin,TsMin,qMinRoom,qRoomDes,rhIn,rhOut,duties,notes,pts,lines,tag,phQ:ph?ph.q:0,rl,dryCoil,ccLeave};
 }
 
 /* ---------- Render ---------- */
@@ -1362,6 +1387,8 @@ function render(){
     $("sideProps").innerHTML=""; $("procSvg").innerHTML=""; lastPM=null; drawDiagram(null); if(mau) drawDiagram(null,"diagramMau","diagNoteMau"); drawChart(null); return;
   }
   $("calcErr").classList.add("hidden"); $("calcOut").classList.remove("hidden");
+  { const RH=editMau?lastMau:R, h=$("ccHint"); h.classList.toggle("hidden",!(RH&&RH.dryCoil));
+    if(RH&&RH.dryCoil) h.textContent=`Desiccant wheel upstream: the air reaches the cooling coil already at dew point ${fmt(tdewFromW(RH.CI.W,RH.p))} °C (≤ ${fmt(RH.ccTd)} °C), so the coil is sensible only and cools to ${fmt(RH.ccLeave)} °C for the ${fmt(RH.Ts)} °C supply; the “Cooling coil leaving DB” of ${fmt(RH.ccT)} °C is not used.`; }
   const RW=editMau?lastMau:R;
   $("wheelInfo").innerHTML=`<strong>Airflow through the wheel</strong><span>Outdoor air (supply side) <b>${fmt(RW.qOa,0)} m³/h</b></span><span>Return air to ${editMau?"the AHU (relief to the MAU)":"AHU"} ${fmt(RW.qRet,0)} m³/h${RW.fa?"":` − recirculated ${fmt(RW.Q-RW.qOa,0)} m³/h`}</span><span>Exhaust air (exhaust side) <b>${fmt(RW.qRel,0)} m³/h</b></span><small>From supply ${fmt(RW.Q,0)} m³/h, outdoor air and room leakage ${fmt(RW.leak,0)} m³/h.</small>`;
   $("sideProps").innerHTML=`
@@ -1613,7 +1640,7 @@ function buildPMu(){ const P=ctxMau(()=>processModel(lastMau)); P.groups=[{a:0,b
 /* schematic: fixed colours so it prints the same inside the PDF report */
 function processSVG(R,PM){
   const N=PM.nodes, step=150, x0=110, yL=170, GAP=PM.gapAt?90:0, ink="#13212c", mute="#5a6a77", blue="#1f5fbf", red="#c0392b", green="#2e8b57", brown="#b5651d", teal="#16879a";
-  const roomX=x0+N.length*step+10+GAP, W=roomX+300, H=350, yR=52, xL=12;
+  const roomX=x0+N.length*step+10+GAP, W=roomX+300, H=R.rl&&R.rl.dsg?410:R.rl?370:350, yR=52, xL=12;
   const xs=N.map((_,i)=>x0+20+i*step+(PM.gapAt&&i>=PM.gapAt?GAP:0));
   let g=`<rect x="0.75" y="0.75" width="${W-1.5}" height="${H-1.5}" fill="#fff" stroke="#bbb" stroke-width="1.5"/><defs><marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="${blue}"/></marker></defs>`;
   const T=(x,y,t,o)=>`<text x="${x}" y="${y}" style="font:${(o&&o.b)?"700 ":""}${(o&&o.s)||10}px Arial,sans-serif;fill:${(o&&o.c)||ink}" text-anchor="${(o&&o.a)||"start"}">${esc(t)}</text>`;
@@ -1621,10 +1648,19 @@ function processSVG(R,PM){
   g+=`<line x1="${xL}" y1="${yL}" x2="${roomX}" y2="${yL}" stroke="${blue}" stroke-width="1.6" marker-end="url(#pa)"/>`;
   g+=T(xL,yL-8,`OA ${q3(R.qOa)}`,{c:blue,s:9,b:1});
   // room
-  g+=`<rect x="${roomX}" y="${yL-70}" width="150" height="150" fill="#fff" stroke="${ink}" stroke-width="1.4"/>`+T(roomX+8,yL-52,"Room",{b:1,s:12});
+  const RL=R.rl, RD=RL&&RL.dsg, roomH=RL?(RD?235:175):150;
+  g+=`<rect x="${roomX}" y="${yL-70}" width="${RL?(RD?190:170):150}" height="${roomH}" fill="#fff" stroke="${ink}" stroke-width="1.4"/>`+T(roomX+8,yL-52,"Room",{b:1,s:12});
+  if(RL){ let yy=yL+32; const L=(t,o)=>{ g+=T(roomX+8,yy,t,o); yy+=13; };
+    L("Taken up by the supply air:",{b:1,s:9});
+    L(`Sensible ${fmt(RL.qs,1)} kW · RSHR ${fmt(RL.shr,2)}`,{s:9,c:red});
+    L(`Latent ${fmt(RL.ql,1)} kW · ${fmt(RL.mw,1)} kg/h water`,{s:9,c:blue});
+    L(`W supply = ${fmt(R.Wroom*1000,2)} − ${fmt(RL.mw,1)} / ${fmt(RL.mda,0)} kg/h`,{s:9});
+    L(`         = ${fmt((R.Wroom-RL.mw/RL.mda)*1000,2)} g/kg`,{s:9,b:1});
+    if(RD){ yy+=3; L("Design, linked rooms:",{b:1,s:9}); L(`Sens. ${fmt(RD.qs,1)} kW · lat. ${fmt(RD.ql,1)} kW`,{s:9}); L(`${fmt(RD.mw,1)} kg/h → W ≤ ${fmt(RD.Wreq*1000,2)} g/kg`,{s:9}); } }
   g+=T(roomX+8,yL-34,`${fmt(R.roomT)} °C · ${fmt(R.roomRH,0)} %RH`,{c:red,b:1})+T(roomX+8,yL-18,`${fmt(R.Wroom*1000,2)} g/kg · dp ${fmt(R.tdRoom)} °C`)+T(roomX+8,yL-4,`h ${fmt(enth(R.roomT,R.Wroom))} kJ/kg`);
   g+=T(roomX+8,yL+14,`Supply ${q3(R.Q)}`,{c:mute,s:9});
-  if(R.leak>0) g+=`<line x1="${roomX+150}" y1="${yL+40}" x2="${roomX+190}" y2="${yL+40}" stroke="${blue}" stroke-width="1.2" marker-end="url(#pa)"/>`+T(roomX+156,yL+56,`Exfiltration ${q3(R.leak)}`,{c:mute,s:9});
+  const bw=RL?(RD?190:170):150;
+  if(R.leak>0) g+=`<line x1="${roomX+bw}" y1="${yL+40}" x2="${roomX+bw+40}" y2="${yL+40}" stroke="${blue}" stroke-width="1.2" marker-end="url(#pa)"/>`+T(roomX+bw+6,yL+56,`Exfiltration ${q3(R.leak)}`,{c:mute,s:9});
   // return / exhaust line: room → return fan → (recirculation to M) → exhaust side of the heat recovery → out
   const mi=N.findIndex(q=>q.code==="M"), mui=N.findIndex(q=>q.code==="mM"), hrX=PM.hr?(xs[PM.hr.at-1]+xs[PM.hr.at])/2:null, EXs=PM.hr?PM.hr.EX:null;
   if(PM.retNode){
@@ -2488,7 +2524,7 @@ function applyGroup(gp,chwRows){
   const min=k=>Math.min(...rs.map(r=>r[k]).filter(v=>isFinite(v)));
   const set=(id,v)=>{ if(v!=null&&v!==""&&!(typeof v==="number"&&!isFinite(v))) $(id).value=typeof v==="number"?r2(v,2):v; };
   set("ahuId",gp.tag); set("rooms",rs.map(r=>r.id).join(", "));
-  $("roomsData").value=JSON.stringify(rs.map(r=>({id:r.id,name:r.name||"",flow:r.flow})));
+  $("roomsData").value=JSON.stringify(rs.map(r=>({id:r.id,name:r.name||"",flow:r.flow,case:r.equip||"",qs:r.qs,ql:r.ql,mw:r.mw})));
   set("qSa",rs.reduce((a,r)=>a+(isFinite(r.flow)?r.flow:0),0));
   set("roomT",crit.t); set("roomRH",crit.rh);
   if(crit.inputs&&crit.inputs.alt!=null) set("alt",parseFloat(crit.inputs.alt));
