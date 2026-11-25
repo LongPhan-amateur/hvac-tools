@@ -422,7 +422,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
         <p class="note" id="diagNote"></p>
 
         <h2 id="compTitle">Components</h2>
-        <p class="note">Tick the sections the AHU has. Choices for position (wrap-around or outdoor-air side, blow- or draw-through fan, desiccant before or after mixing, final filter before the coils or after the fan) change the diagram and the calculation. Enter a section length or weight to replace the estimate (blank = auto), and tick “Access section after” where a maintenance section is needed.</p>
+        <p class="note">Tick the sections the AHU has. Choices for position (wrap-around or outdoor-air side, blow- or draw-through supply and return fans, desiccant before or after mixing, final filter before the coils or after the fan) change the diagram and the calculation. Enter a section length or weight to replace the estimate (blank = auto), and tick “Access section after” where a maintenance section is needed.</p>
         <div id="compGrid" class="comp-grid"></div>
       </section>
 
@@ -674,8 +674,8 @@ const COMPS=[
     f:[{id:"attPd",l:"Air PD",u:"Pa",v:80}]},
   {grp:"Fans", id:"cSf", name:"Supply fan", fixed:true, acc:true, desc:"Plug fan, plug-fan array or belt-driven centrifugal fan; its heat goes into the supply air.",
     f:[{id:"sfType",l:"Fan type",sel:[["array","Plug-fan array (fan wall)"],["plug","Plug fan (single, direct drive)"],["cent","Centrifugal fan, belt drive"]],v:"array"},{id:"sfPos",l:"Position",sel:[["draw","Draw-through"],["blow","Blow-through"]],v:"draw"},{id:"esp",l:"External static pressure",u:"Pa",v:650},{id:"sfEff",l:"Total efficiency",u:"%",v:60},{id:"sfN",l:"Fans in array (0 = auto)",u:"no.",v:0,when:["sfType","array"]},{id:"sfDrive",l:"Drive",sel:["EC","VFD"],v:"EC"},{id:"margin",l:"Motor margin",u:"%",v:15}]},
-  {grp:"Fans", id:"cRf", name:"Return fan", noAcc:true, desc:"Return / exhaust fan in the upper deck. Its section length is listed for the upper deck; the AHU length follows the supply deck.",
-    f:[{id:"rfType",l:"Fan type",sel:[["array","Plug-fan array (fan wall)"],["plug","Plug fan (single, direct drive)"],["cent","Centrifugal fan, belt drive"]],v:"array"},{id:"rfEsp",l:"External static pressure",u:"Pa",v:300},{id:"rfEff",l:"Total efficiency",u:"%",v:55},{id:"rfN",l:"Fans in array (0 = auto)",u:"no.",v:0,when:["rfType","array"]},{id:"rfDrive",l:"Drive",sel:["EC","VFD"],v:"EC"}]}
+  {grp:"Fans", id:"cRf", name:"Return fan", noAcc:true, desc:"Return / exhaust fan in the upper deck. Blow-through: at the return-air inlet, ahead of the exhaust filters / heat recovery; it moves all the return air and its heat warms the air going to the mixing box and the heat recovery. Draw-through: at the exhaust end, after the exhaust filters / heat recovery; it moves only the exhaust air and its heat leaves with it (the recirculated air then reaches the mixing box through the return duct, so check the supply fan's external pressure covers that duct). Its section length is listed for the upper deck; the AHU length follows the supply deck.",
+    f:[{id:"rfType",l:"Fan type",sel:[["array","Plug-fan array (fan wall)"],["plug","Plug fan (single, direct drive)"],["cent","Centrifugal fan, belt drive"]],v:"array"},{id:"rfPos",l:"Position",sel:[["blow","Blow-through"],["draw","Draw-through"]],v:"blow"},{id:"rfEsp",l:"External static pressure",u:"Pa",v:300},{id:"rfEff",l:"Total efficiency",u:"%",v:55},{id:"rfN",l:"Fans in array (0 = auto)",u:"no.",v:0,when:["rfType","array"]},{id:"rfDrive",l:"Drive",sel:["EC","VFD"],v:"EC"}]}
 ];
 (function buildCards(){
   const grid=$("compGrid"); let html="", g="";
@@ -928,13 +928,16 @@ function calc(){
   if(c.rf){
     const rpd=[]; if(c.wheel) rpd.push(n("wheelPd",0),n("wRfPd",0)); if(c.plate) rpd.push(n("platePd",0)); if(raOa) rpd.push(n("raPd",0)); if(hpOa) rpd.push(n("hpPd",0));
     const rType=$("rfType").value, rInt=50+rpd.reduce((a,b)=>a+b,0), rTsp=n("rfEsp",0)+rInt, rEff=Math.max(5,n("rfEff",55))/100*(rType==="cent"?0.95:1);
-    const P=qRet/3600*rTsp/rEff/1000, N=rType!=="array"?1:n("rfN",0)>0?Math.round(n("rfN",0)):Math.max(1,Math.ceil(qRet/8000));
+    const rDraw=$("rfPos").value==="draw", qF=rDraw?qRel:qRet; /* draw-through: exhaust air only */
+    const P=qF/3600*rTsp/rEff/1000, N=rType!=="array"?1:n("rfN",0)>0?Math.round(n("rfN",0)):Math.max(1,Math.ceil(Math.max(qF,1)/8000));
     const motor=motorFor(P/N*(1+n("margin",15)/100));
-    rf={q:qRet,esp:n("rfEsp",0),internal:rInt,tsp:rTsp,P,N,motor,inst:N*motor,drive:$("rfDrive").value,type:rType};
-    if(mRet>0) R.t+=P/(mRet*cpm(R.W));
+    rf={q:qF,esp:n("rfEsp",0),internal:rInt,tsp:rTsp,P,N,motor,inst:N*motor,drive:$("rfDrive").value,type:rType,pos:rDraw?"draw":"blow",
+      dT:rDraw?(qF>0?P/(qF/3600/vol(R0.t,R0.W,p)*cpm(R0.W)):0):(mRet>0?P/(mRet*cpm(R.W)):0)};
+    if(!rDraw&&mRet>0) R.t+=rf.dT;
+    if(rDraw&&!(qF>0)) notes.push(["warn","Return fan has no air","The return fan is draw-through (exhaust end) but there is no exhaust air through the AHU; choose blow-through or remove the return fan."]);
   }
   st("OA",$("oaSrc").value==="mau"?`Outdoor air (${UPS()} leaving)`:"Outdoor air",OA,"var(--c-plenum)");
-  st("R","Return air"+(c.rf?" (after return fan)":""),R,"var(--c-room)");
+  st("R","Return air"+(c.rf&&rf&&rf.pos==="blow"?" (after return fan)":""),R,"var(--c-room)");
 
   /* outdoor-air stream: energy recovery and desiccant */
   let o={...OA};
@@ -1419,9 +1422,11 @@ $("toDiag").addEventListener("click",()=>{ if(navFrom) navFrom.scrollIntoView({b
 function drawDiagram(R,svgId,noteId){
   const svg=$(svgId||"diagram"), F=flags(), c=F.c, fa=F.fa;
   const top=F.top;
+  const rfDrawL=F.top&&c.rf&&$("rfPos").value==="draw";
   const hasR=!!(R&&!R.err), oaTxt=F.noOa?"RA":$("oaSrc").value==="mau"?(isFfu()?"EVAP":"MAU/PAU"):"OA";
   const WD={dheat:64,rfan:64,oa:Math.max(34,oaTxt.length*7+22),filter:64,filter2:76,wheel:70,plate:74,racoil:64,hpipe:64,des:76,rfilt:76,pt:hasR?40:14,mix:70,fan:80,hcoil:64,wrapA:64,wrapB:64,ccoil:70,uv:40,hum:70,att:64,acc:46,sa:40};
   const S=(R&&!R.err&&R.lay?R.lay:buildLayout(F,null)).map(s=>Object.assign({},s,{w:WD[s.k]||64}));
+  if(rfDrawL) S.splice(1,0,{k:"rfgap",lbl:"",w:84}); /* room for the draw-through return fan at the exhaust end of the upper deck (drawing only) */
   /* two state points side by side (no section between them) get extra room so their labels do not overlap */
   const x0=30, gap=6; let x=x0; S.forEach((s,i)=>{ if(hasR&&s.k==="pt"&&S[i-1]&&S[i-1].k==="pt") x+=14; s.x=x; x+=s.w+gap; });
   const react=F.react, dhR=62;
@@ -1446,7 +1451,8 @@ function drawDiagram(R,svgId,noteId){
   g+=`<line x1="${S[0].x}" y1="${ym}" x2="${W-14}" y2="${ym}" stroke="${CL.line}" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#arr)"/>`;
   if(top) g+=`<line x1="${W-14}" y1="${yt}" x2="${S[0].x}" y2="${yt}" stroke="${CL.line}" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#arr)"/>`;
   let rfX=null;
-  if(top&&c.rf){ rfX=S[S.length-1].x-110; }
+  const rfDraw=top&&c.rf&&$("rfPos").value==="draw";
+  if(top&&c.rf){ const gp=S.find(s=>s.k==="rfgap"); rfX=rfDraw&&gp?gp.x+gp.w/2-30:S[S.length-1].x-110; }
   const pt=(code)=>R&&!R.err&&R.pts.find(q=>q.code===code);
   const unit=svgId==="diagramMau"?"mau":"ahu", nav=[];
   S.forEach(s=>{
@@ -1527,7 +1533,8 @@ function drawDiagram(R,svgId,noteId){
   wa.forEach((a,i)=>{ const b=wb[wb.length-1-i]; if(!b) return; const yy=yBot-14-i*8; g+=`<path d="M${a.x+a.w/2},${yBot} V${yy} H${b.x+b.w/2} V${yBot}" fill="none" stroke="${CL.rec}" stroke-width="1.3" stroke-dasharray="4 3"/>`; });
   if(rfX!=null){ const r=Math.min(26,dh/2-8), cx=rfX+30, cy=yt; nav.push({key:"cRf",nm:"Return fan",k:"fan"}); g+=`<g class="sec" data-nav="cRf" data-du="${unit}" tabindex="0" role="button" aria-label="Return fan: show details"><title>Return fan — click for details</title><rect class="hit" x="${cx-r-14}" y="${yTop-26}" width="${2*r+28}" height="${dh+30}" rx="6"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="var(--surface)" stroke="${CL.ink}" stroke-width="1.6"/>`;
     for(let i=0;i<5;i++){ const a=Math.PI+i*2*Math.PI/5; g+=`<path d="M${cx},${cy} Q${cx+r*0.9*Math.cos(a+0.6)},${cy+r*0.9*Math.sin(a+0.6)} ${cx+r*0.8*Math.cos(a+1.1)},${cy+r*0.8*Math.sin(a+1.1)}" fill="none" stroke="${CL.ink}" stroke-width="1.2"/>`; }
-    g+=`<text x="${cx}" y="${yTop-12}" text-anchor="middle" class="dl">Return fan</text></g>`; }
+    g+=`<text x="${cx}" y="${yTop-12}" text-anchor="middle" class="dl">Return fan</text>`;
+    g+=`<text x="${cx}" y="${yTop+dh+13}" text-anchor="middle" class="ds">${rfDraw?"draw-through":"blow-through"}</text></g>`; }
   if(top){ const pr=pt("R"); if(pr) g+=`<text x="${W-24}" y="${yt+20}" text-anchor="end" class="ds">${fmt(pr.t)}°</text>`; }
   svg.innerHTML=g; navBar(svg,nav,unit);
   $(noteId||"diagNote").textContent=R&&!R.err?`Airflow: supply ${fmt(R.Q,0)} m³/h${R.fa?" (100% outdoor air)":` · outdoor air ${fmt(R.qOa,0)} m³/h · return ${fmt(R.qRet,0)} m³/h`} · relief/exhaust ${fmt(R.qRel,0)} m³/h. Numbers under the circles are dry bulb / dew point at that point.`:"";
@@ -2142,7 +2149,7 @@ function collectUnit(R,kind){
     wt:`${fmt(u.ewt,1)} / ${fmt(u.lwt,1)}`, flow:r2(u.flow,2), m3h:r2(u.flow*3.6,1), head:`${fmt(u.head,0)} / ${fmt(u.head/9.807,1)}`, p1:r2(u.P1,2),
     supply:u.P1>1.5?"380/3/50":"220/1/50", ctl:`Constant curve; on/off with the ${unitNm}`, ip:"IPX4D",
     remark:`${u.nm} circuit. Head = coil ≤ ${fmt(u.coilPd,0)} kPa + ${fmt(u.head-u.coilPd,0)} kPa (3-way valve, strainer, piping).`}));
-  sch.rf=R.rf?{tag:tg("RF"), flow:r2(R.rf.q,0), esp:r2(R.rf.esp,0), internal:r2(R.rf.internal,0), tsp:r2(R.rf.tsp,0), arr:`${R.rf.N} × ${fmt(R.rf.motor,R.rf.motor<1?2:1)}`,
+  sch.rf=R.rf?{tag:tg("RF"), pos:R.rf.pos==="draw"?"Draw-through (exhaust)":"Blow-through", flow:r2(R.rf.q,0), esp:r2(R.rf.esp,0), internal:r2(R.rf.internal,0), tsp:r2(R.rf.tsp,0), arr:`${R.rf.N} × ${fmt(R.rf.motor,R.rf.motor<1?2:1)}`,
     inst:r2(R.rf.inst,1), drive:R.rf.drive, supply:SUP, remark:""}:null;
   return {id:tag, block:$("block").value.trim(), clean:$("clean").value, roomT:r2(R.roomT,1), roomRH:r2(R.roomRH,0), spT:$("spT").value.trim()||fmt(R.roomT,1), spRH:$("rhCtl").value==="no"?"No control":($("spRH").value.trim()||fmt(R.roomRH,0)),
     spOk:(()=>{ const a=spCover(R.roomT,R.roomRH); return a.n?(a.ok?"Yes":"No"):"= calc."; })(), type:$("ahuType").value.trim(), qty,
@@ -2273,7 +2280,7 @@ const HUM_COLS=[...HEAD,{k:"type",h:"TYPE",w:15,c:1},{k:"flow",h:"AIRFLOW",u:"m�
   {k:"power",g:"ELECTRIC DATA",h:"POWER",u:"kW",w:7},{k:"supply",g:"ELECTRIC DATA",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},{k:"pd",h:"AIR PD",u:"Pa",w:7,fmt:"0"},{k:"remark",h:"REMARK",w:44}];
 const UV_COLS=[...HEAD,{k:"loc",h:"LOCATION",w:18,c:1},{k:"flow",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},
   {k:"power",g:"ELECTRIC DATA",h:"POWER",u:"kW",w:7,fmt:"0.00"},{k:"supply",g:"ELECTRIC DATA",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},{k:"remark",h:"REMARK",w:30}];
-const RF_COLS=[...HEAD,{k:"flow",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},{k:"esp",g:"PRESSURE",h:"EXT. SP",u:"Pa",w:7,fmt:"0"},{k:"internal",g:"PRESSURE",h:"INTERNAL",u:"Pa",w:8,fmt:"0"},{k:"tsp",g:"PRESSURE",h:"TOTAL",u:"Pa",w:7,fmt:"0"},
+const RF_COLS=[...HEAD,{k:"pos",h:"POSITION",w:14},{k:"flow",h:"AIRFLOW",u:"m³/h",w:9,fmt:"0"},{k:"esp",g:"PRESSURE",h:"EXT. SP",u:"Pa",w:7,fmt:"0"},{k:"internal",g:"PRESSURE",h:"INTERNAL",u:"Pa",w:8,fmt:"0"},{k:"tsp",g:"PRESSURE",h:"TOTAL",u:"Pa",w:7,fmt:"0"},
   {k:"arr",g:"ELECTRIC DATA",h:"FAN ARRAY",u:"n × kW",w:10,c:1},{k:"inst",g:"ELECTRIC DATA",h:"POWER",u:"kW",w:7},{k:"drive",g:"ELECTRIC DATA",h:"DRIVE",w:6,c:1},{k:"supply",g:"ELECTRIC DATA",h:"SUPPLY",u:"V/Ph/Hz",w:9,c:1},{k:"remark",h:"REMARK",w:30}];
 const schRecs=key=>rows=>{ const out=[]; let k=0; rows.forEach((r,i)=>{ const v=r.sch&&r.sch[key]; (Array.isArray(v)?v:v?[v]:[]).forEach(x=>out.push(Object.assign({no:++k,__i:i,serves:r.id,qty:r.qty},x))); }); return out; };
 const relab=(cols,map)=>cols.map(c=>map[c.k]?Object.assign({},c,{h:map[c.k]}):c);
