@@ -534,7 +534,7 @@ table.bal input.bi[type=number]::-webkit-inner-spin-button,table.bal input.bi[ty
             <li><strong>System tabs:</strong> each system keeps its own component configuration; only the chosen system is shown (use “Change system…”). A saved unit (AHU / FFU tag, rooms) reloads its system and both units from the pickers in the left panel.</li>
             <li><strong>Evaporative cooler (evaporator), ASHRAE HVAC Systems and Equipment 2020, Ch. 41:</strong> direct media t<sub>2</sub> = t<sub>1</sub> − ε (t<sub>1</sub> − t′<sub>s</sub>) along the entering wet bulb (Eq. 1; ε 70–95 % rigid media, ≈ 80 % random media; face velocity 2–3 m/s rigid, 0.5–1.3 m/s random). Indirect stage t<sub>2</sub> = t<sub>1</sub> − WBDE (t<sub>1</sub> − t<sub>s,secondary</sub>), no moisture added (Eq. 2; WBDE 60–80 %). Water: evaporation = ṁ (W<sub>2</sub> − W<sub>1</sub>) for the media and q / h<sub>fg</sub> for the IEC wet side; bleed-off 5–100 % of evaporation; make-up = evaporation + bleed. Checks: entering WB above ≈ 21 °C (not for indoor comfort), recirculating indoor air through a direct cooler, media face velocity.</li>
             <li><strong>Evaporator + FFU:</strong> choose evaporator only, FFU only, or both. With both, the evaporator supplies either the FFU outdoor-air inlet or the room directly (the FFU then takes outdoor air from outside). Each unit at 100 % outdoor air has no return; below 100 % it gets a mixing box with OA / RA dampers. The same supply choice and outdoor-air % apply to the MAU / PAU (e.g. the MAU keeps the air change with a mixing box while the AHU circulation controls the temperature).</li>
-            <li><strong>Linking rooms:</strong> the link takes the recommended case of each room from the dew point tool. One room can be split over several AHUs (airflow ÷ number of AHUs, QTY in Table 1) or several rooms can share one AHU (airflows add up). The AHU added or loaded last follows the inputs: changes are written to its summary row automatically.</li>
+            <li><strong>Linking rooms:</strong> the link takes the recommended case of each room from the dew point tool, or the case picked in the Case column of the link dialog. One room can be split over several AHUs (airflow ÷ number of AHUs, QTY in Table 1) or several rooms can share one AHU (airflows add up). The AHU added or loaded last follows the inputs: changes are written to its summary row automatically.</li>
             <li><strong>Working AHUs (New / Copy):</strong> “+ New AHU” starts from the sample inputs and “⧉ Copy AHU” duplicates the open one, so several options can be kept side by side; “Compare” lists their airflow, cooling, reheat, fan and electrical power, size and weight; tick which AHUs and which items to show (the choice is remembered in this browser). A working AHU is a draft until “+ Add to summary” is pressed; only then does it enter the schedules and follow later changes. Adding a draft with the same tag as a scheduled AHU replaces that entry.</li>
             <li><strong>Air flow balance (Table 3):</strong> one table per AHU with the rooms it serves. For each room: return = supply + leakage / transfer in − extract − leakage out. The checks compare Σ room supply with the AHU supply (× QTY), Σ return with the recirculated air (supply − outdoor air), and the net air leaving the rooms (extract + leakage out − leakage in) with the outdoor air. Fresh air per room is shared in proportion to supply unless entered.</li>
             <li><strong>Reheat, 1: Cal and 2: Check:</strong> 1: Cal heats the coil leaving air to the supply target (or to a fixed leaving-air set point); 2: Check is the low room sensible load case (night / equipment off): T<sub>s</sub> = T<sub>room</sub> − q<sub>min</sub> / (ṁ·c<sub>p</sub>). Table 1 shows the value you choose (Cal, Check or the larger); the process schematic shows both.</li>
@@ -2398,17 +2398,26 @@ function dewRooms(){
   all.forEach(r=>{ const k=r.id||"—"; const cur=m.get(k); if(!cur||(r.rec&&!cur.rec)||(!anyRec&&!cur)) m.set(k,r); });
   return [...m.values()];
 }
+/* every case of a room, recommended first then by case number (for the case picker in the link dialog) */
+function dewCases(){
+  const all=readShared("dew").filter(r=>isFinite(r.flow)), m=new Map();
+  all.forEach(r=>{ const k=r.id||"—"; if(!m.has(k)) m.set(k,[]); m.get(k).push(r); });
+  m.forEach(cs=>cs.sort((a,b)=>(b.rec?1:0)-(a.rec?1:0)||(parseFloat(a.equip)||0)-(parseFloat(b.equip)||0)));
+  return m;
+}
 $("linkBtn").addEventListener("click",()=>{
-  const rooms=dewRooms(), chwRows=readShared("chw");
+  const rooms=dewRooms(), chwRows=readShared("chw"), CASES=dewCases(), pick=rooms.map(r=>r);
   let dlg=document.getElementById("linkDlg"); if(dlg) dlg.remove();
   dlg=document.createElement("dialog"); dlg.id="linkDlg"; dlg.className="dlg";
   const cur=$("ahuId").value.trim();
   dlg.innerHTML=`<form method="dialog" class="dlg-body" style="max-width:760px">
     <h2>Link rooms from the dew point &amp; supply air tool</h2>
-    <p class="note">Each room brings its <strong>recommended case</strong> (room condition, supply airflow, coil leaving and supply temperatures)${chwRows.length?" and the required chilled water temperature from the chilled water tool":""}. Tick <strong>one room</strong> and enter the number of AHUs to split its airflow, or tick <strong>several rooms</strong> to serve them with one AHU (airflows add up). The coil and supply targets come from the most demanding room.</p>
+    <p class="note">Each room brings its <strong>recommended case</strong> (✓) or the case you pick in the Case column (room condition, supply airflow, coil leaving and supply temperatures)${chwRows.length?" and the required chilled water temperature from the chilled water tool":""}. Tick <strong>one room</strong> and enter the number of AHUs to split its airflow, or tick <strong>several rooms</strong> to serve them with one AHU (airflows add up). The coil and supply targets come from the most demanding room.</p>
     ${rooms.length?`<div class="tbl-wrap" style="max-height:300px"><table class="sum"><thead><tr><th></th><th>Room ID</th><th>Room name</th><th>Case</th><th class="r">Airflow (m³/h)</th><th class="r">Room</th><th class="r">Supply / coil (°C)</th></tr></thead><tbody>
-      ${rooms.map((r,i)=>`<tr><td><input type="checkbox" data-lk="${i}" aria-label="Select ${esc(r.id||"")}"></td><td>${esc(r.id||"—")}</td><td>${esc(r.name||"")}</td><td class="ctr">${esc(r.equip||"–")}${r.rec?" ✓":""}</td>
-        <td class="r num">${fmt(r.flow,0)}</td><td class="r num">${fmt(r.t)} °C / ${fmt(r.rh,0)}%</td><td class="r num">${fmt(r.Ts)} / ${fmt(r.Tc)}</td></tr>`).join("")}</tbody></table></div>
+      ${rooms.map((r,i)=>`<tr><td><input type="checkbox" data-lk="${i}" aria-label="Select ${esc(r.id||"")}"></td><td>${esc(r.id||"—")}</td><td>${esc(r.name||"")}</td><td class="ctr">${(()=>{ const cs=CASES.get(r.id||"—")||[r]; return cs.length>1
+          ?`<select data-case="${i}" aria-label="Case of ${esc(r.id||"")}" style="min-width:150px">${cs.map((c,j)=>`<option value="${j}"${c===r?" selected":""}>${esc(c.equip||"–")}${c.rec?" ✓":""} · ${fmt(c.t)}/${fmt(c.rh,0)}${c.result==="Fail"?" · Fail":""}</option>`).join("")}</select>`
+          :`${esc(r.equip||"–")}${r.rec?" ✓":""}`; })()}</td>
+        <td class="r num" data-c="flow">${fmt(r.flow,0)}</td><td class="r num" data-c="room">${fmt(r.t)} °C / ${fmt(r.rh,0)}%</td><td class="r num" data-c="st">${fmt(r.Ts)} / ${fmt(r.Tc)}</td></tr>`).join("")}</tbody></table></div>
     <div class="grid3" style="margin-top:10px">
       <div class="field"><label for="lkTag">AHU tag</label><div class="inp"><input id="lkTag" type="text" value="${esc(cur)}" placeholder="e.g. AHU-01"></div></div>
       <div class="field"><label for="lkN">Number of AHUs (equal split)</label><div class="inp"><input id="lkN" type="number" min="1" step="1" value="1"><span class="u">sets</span></div></div>
@@ -2420,7 +2429,10 @@ $("linkBtn").addEventListener("click",()=>{
       ${rooms.length?`<button class="btn primary" id="lkGo" type="button" disabled>Link &amp; fill</button>`:""}
     </div></form>`;
   document.body.appendChild(dlg);
-  const sel=()=>[...dlg.querySelectorAll("[data-lk]:checked")].map(c=>rooms[+c.dataset.lk]);
+  const sel=()=>[...dlg.querySelectorAll("[data-lk]:checked")].map(c=>pick[+c.dataset.lk]);
+  dlg.addEventListener("change",e=>{ const sc=e.target.closest("[data-case]"); if(!sc) return; const i=+sc.dataset.case, r=rooms[i], c=(CASES.get(r.id||"—")||[r])[+sc.value]||r; pick[i]=c;
+    const tr=sc.closest("tr"); tr.querySelector('[data-c="flow"]').textContent=fmt(c.flow,0); tr.querySelector('[data-c="room"]').textContent=`${fmt(c.t)} °C / ${fmt(c.rh,0)}%`; tr.querySelector('[data-c="st"]').textContent=`${fmt(c.Ts)} / ${fmt(c.Tc)}`;
+    const cb=tr.querySelector("[data-lk]"); if(cb&&!cb.checked) cb.checked=true; });
   const refresh=()=>{ const list=sel(), N=Math.max(1,Math.round(parseFloat(dlg.querySelector("#lkN").value)||1)), tot=list.reduce((a,r)=>a+(isFinite(r.flow)?r.flow:0),0);
     dlg.querySelector("#lkQ").value=list.length?fmt(tot/N,0):"";
     dlg.querySelector("#lkSum").textContent=list.length?`${list.length} room${list.length>1?"s":""} · total ${fmt(tot,0)} m³/h${N>1?` ÷ ${N} AHUs = ${fmt(tot/N,0)} m³/h each`:""}.`:"Tick at least one room.";
